@@ -7,12 +7,11 @@
   background-color: #097969;
   min-height: 10vh;
   display: grid;
-  
   align-items: center; /* Vertically align them */
-  font-size: calc(8px + 2vmin);
   color: white;
 }
 .Title {
+  padding-top: 2vh;
   justify-self: center;
   font-family: "Lucida Console", "Courier New", monospace;
   font-size: calc(30px + 2vmin);
