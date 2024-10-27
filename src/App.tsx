@@ -50,12 +50,20 @@ function App() {
   const handleTextEntered = (enteredText: string) => {
     switch(enteredText.toLowerCase().split(/\s+/)[0]) {
       case "login":
+        if(isSignedIn) {
+          setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You are already signed in!" }]);
+        }else{
         const tempuser = enteredText.split(/\s+/)[1];
         setUsername(tempuser);
         console.log(username);
+        }
         break;
       default:
+        if(!isSignedIn){
+          setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You can't do much without signing in! Type login *yourusername*" }]);
+        }else{
         setGameOutputMessage((prevOutput) => [...prevOutput, { output: enteredText }]);
+        }
         break;
     }
   };
