@@ -3,7 +3,7 @@ import React, { useRef, useEffect } from 'react';
 export interface GameOutputMessage {
   // Define the type of each message in the output.
   // This could be a string or an object with more properties depending on your needs.
-  output: any; // Replace with actual message type definition
+  output: string; // Replace with actual message type definition
 }
 
 interface GameOutputWindowProps {

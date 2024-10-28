@@ -9,12 +9,8 @@ const keychain = new KeychainSDK(window);
 
 function App() {
   async function initializeKeychain() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const isInstalled = await keychain.isKeychainInstalled();
-    if (isInstalled) {
-      console.log("Keychain is installed");
-    } else {
-      console.error("Keychain is not installed");
-    }
   }
 
   window.onload = initializeKeychain;
@@ -30,7 +26,6 @@ function App() {
       "method": KeychainKeyTypes.posting,
       "title": "Login"
     };
-    console.log(data);
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -68,7 +63,7 @@ function App() {
     }
   };
 
-  useEffect(() => {
+  useEffect(() => { //Here we watch for the username to change and trigger the signinfunction when it does so.
         if (username) {
           handleSignIn(username);
           }
