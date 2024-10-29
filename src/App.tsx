@@ -1,6 +1,6 @@
 import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
-import SignInButton from './components/SignInButton';
+import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import React, { useState, useEffect } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from "keychain-sdk";
@@ -48,16 +48,16 @@ function App() {
         if(isSignedIn) {
           setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You are already signed in!" }]);
         }else{
-        const tempuser = enteredText.split(/\s+/)[1];
-        setUsername(tempuser);
-        console.log(username);
+          const tempuser = enteredText.split(/\s+/)[1];
+          setUsername(tempuser);
+          console.log(username);
         }
         break;
       default:
         if(!isSignedIn){
           setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You can't do much without signing in! Type login *yourusername*" }]);
         }else{
-        setGameOutputMessage((prevOutput) => [...prevOutput, { output: enteredText }]);
+          setGameOutputMessage((prevOutput) => [...prevOutput, { output: enteredText }]);
         }
         break;
     }
@@ -73,8 +73,8 @@ function App() {
     <div className="App">
       <header className="App-header">
         <div className="Title"> E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼ </div>
-        <div className="SignInButton">
-          <SignInButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} />
+        <div className="SignOutButton">
+          <SignOutButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} />
         </div>
       </header>
         <GameOutputWindow output={gameOutputMessage} />

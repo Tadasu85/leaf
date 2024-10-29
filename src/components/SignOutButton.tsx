@@ -1,12 +1,12 @@
 import React from 'react';
 
-interface SignInButtonProps {
+interface SignOutButtonProps {
   isSignedIn: boolean;
   username?: string; // Optional username
   onSignOut: () => void;
 }
 
-function SignInButton({ isSignedIn, username, onSignOut }: SignInButtonProps) {
+function SignOutButton({ isSignedIn, username, onSignOut }: SignOutButtonProps) {
   if (isSignedIn) {
     return (
       <div>
@@ -20,4 +20,4 @@ function SignInButton({ isSignedIn, username, onSignOut }: SignInButtonProps) {
   }
 }
 
-export default SignInButton;
+export default SignOutButton;
