@@ -1,6 +1,6 @@
 import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
-import SignInButton from './components/SignInButton';
+import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import React, { useState, useEffect } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from "keychain-sdk";
@@ -9,19 +9,15 @@ const keychain = new KeychainSDK(window);
 
 function App() {
   async function initializeKeychain() {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const isInstalled = await keychain.isKeychainInstalled();
-    if (isInstalled) {
-      console.log("Keychain is installed");
-    } else {
-      console.error("Keychain is not installed");
-    }
   }
 
   window.onload = initializeKeychain;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  let [username, setUsername] = useState('');
+  const [username, setUsername] = useState('');
   
   const handleSignIn = async (username: string) => {
     const data: Login = {
@@ -30,7 +26,6 @@ function App() {
       "method": KeychainKeyTypes.posting,
       "title": "Login"
     };
-    console.log(data);
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -50,17 +45,25 @@ function App() {
   const handleTextEntered = (enteredText: string) => {
     switch(enteredText.toLowerCase().split(/\s+/)[0]) {
       case "login":
-        const tempuser = enteredText.split(/\s+/)[1];
-        setUsername(tempuser);
-        console.log(username);
+        if(isSignedIn) {
+          setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You are already signed in!" }]);
+        }else{
+          const tempuser = enteredText.split(/\s+/)[1];
+          setUsername(tempuser);
+          console.log(username);
+        }
         break;
       default:
-        setGameOutputMessage((prevOutput) => [...prevOutput, { output: enteredText }]);
+        if(!isSignedIn){
+          setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You can't do much without signing in! Type login *yourusername*" }]);
+        }else{
+          setGameOutputMessage((prevOutput) => [...prevOutput, { output: enteredText }]);
+        }
         break;
     }
   };
 
-  useEffect(() => {
+  useEffect(() => { //Here we watch for the username to change and trigger the signinfunction when it does so.
         if (username) {
           handleSignIn(username);
           }
@@ -69,9 +72,9 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <div className="Title"> EGO DEATH </div>
-        <div className="SignInButton">
-          <SignInButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} />
+        <div className="Title"> E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼ </div>
+        <div className="SignOutButton">
+          <SignOutButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} />
         </div>
       </header>
         <GameOutputWindow output={gameOutputMessage} />

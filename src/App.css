@@ -20,6 +20,7 @@
 .GameOutputWindow {
   text-align: left;
   overflow: auto;
+  width: 86vw; /* Adjust width as needed */
   height: 70vh;
   max-height: 70vh;
   background-color: white;
@@ -33,7 +34,6 @@
   overflow: auto;
   font-size: calc(1px + 2vmin);
   margin-left: 5vmin;
-  
 }
 
 .SignInButton {
@@ -46,11 +46,13 @@
 }
 
 .TextInputBox {
-  width: 90%; /* Adjust width as needed */
+  width: 95vw; /* Adjust width as needed */
+  overflow: auto;
   margin-left: 5vw;
   margin-right: 5vw;
   background-color: #097969;
 }
+
 p {
   padding: 0px;
   margin: 0px;
