@@ -1,6 +1,6 @@
 import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
-import SignInButton from './components/SignInButton';
+import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import React, { useState, useEffect } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from "keychain-sdk";
@@ -73,8 +73,8 @@ function App() {
     <div className="App">
       <header className="App-header">
         <div className="Title"> E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼ </div>
-        <div className="SignInButton">
-          <SignInButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} />
+        <div className="SignOutButton">
+          <SignOutButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} />
         </div>
       </header>
         <GameOutputWindow output={gameOutputMessage} />
