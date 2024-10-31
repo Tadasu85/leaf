@@ -24,6 +24,9 @@ function App() {
   const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
   const [isSignedIn, setIsSignedIn] = useState(false);
   let [username, setUsername] = useState('');
+  const [roomdata, setRoomData] = useState('');
+
+  console.log(client.database.getDiscussions("blog", {tag:"raymonjohnstone", limit:500}));
   
   const handleSignIn = async (username: string) => {
     const data: Login = {
@@ -46,7 +49,6 @@ function App() {
     setIsSignedIn(false);
     setUsername('');
   };
-
 
   const handleTextEntered = (enteredText: string) => {
     switch(enteredText.toLowerCase().split(/\s+/)[0]) {
@@ -73,6 +75,10 @@ function App() {
           handleSignIn(username);
           }
         }, [username]);
+
+  useEffect(() => {
+
+  }, []);
 
   return (
     <div className="App">
