@@ -3,7 +3,7 @@ import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWind
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import React, { useState, useEffect } from 'react';
-import { KeychainSDK, Login, KeychainKeyTypes } from "keychain-sdk";
+import { KeychainSDK, Login, KeychainKeyTypes, Custom } from "keychain-sdk";
 import { Client } from "@hiveio/dhive";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const client = new Client(["https://api.hive.blog",
@@ -26,7 +26,28 @@ function App() {
   let [username, setUsername] = useState('');
   const [roomdata, setRoomData] = useState('');
 
-  console.log(client.database.getDiscussions("blog", {tag:"raymonjohnstone", limit:500}));
+  console.log(client.database.getDiscussions("blog", {tag:"raymonjohnstone", limit:299}));
+
+  try
+  {
+    
+    const formParamsAsObject = {
+     "data": {
+          "username": "raymonjohnstone",
+          "id": "egodeath",
+          "method" : KeychainKeyTypes.posting,
+          "json": "{}",
+          "display_msg": "Seed"
+     }
+  }
+    
+    const custom = await keychain
+         .custom(
+              formParamsAsObject.data as Custom);
+    console.log({ custom });
+  } catch (error) {
+    console.log({ error });
+  }
   
   const handleSignIn = async (username: string) => {
     const data: Login = {
@@ -60,11 +81,15 @@ function App() {
         setUsername(tempuser);
         }
         break;
+      case "seed":
+
+        break;
+
       default:
         if(!isSignedIn){
           setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You can't do much without signing in! Type login *yourusername*" }]);
         }else{
-        setGameOutputMessage((prevOutput) => [...prevOutput, { output: enteredText }]);
+          setGameOutputMessage((prevOutput) => [...prevOutput, { output: enteredText }]);
         }
         break;
     }
