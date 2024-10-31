@@ -72,7 +72,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <div className="Title"> EGO DEATH </div>
+        <div className="Title"> E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼ </div>
         <div className="SignInButton">
           <SignInButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} />
         </div>
