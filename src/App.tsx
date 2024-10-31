@@ -4,6 +4,12 @@ import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import React, { useState, useEffect } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from "keychain-sdk";
+import { Client } from "@hiveio/dhive";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const client = new Client(["https://api.hive.blog",
+"https://api.hivekings.com",
+"https://anyx.io",
+"https://api.openhive.network"]);
 
 const keychain = new KeychainSDK(window);
 
@@ -50,7 +56,6 @@ function App() {
         }else{
         const tempuser = enteredText.split(/\s+/)[1];
         setUsername(tempuser);
-        console.log(username);
         }
         break;
       default:
