@@ -5,6 +5,7 @@ import TextInputBox from './components/TextInputBox';
 import React, { useState, useEffect } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes, Custom } from "keychain-sdk";
 import { Client } from "@hiveio/dhive";
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const client = new Client(["https://api.hive.blog",
 "https://api.hivekings.com",
@@ -26,28 +27,26 @@ function App() {
   let [username, setUsername] = useState('');
   const [roomdata, setRoomData] = useState('');
 
-  console.log(client.database.getDiscussions("blog", {tag:"raymonjohnstone", limit:299}));
-
-  try
-  {
-    
-    const formParamsAsObject = {
-     "data": {
-          "username": "raymonjohnstone",
+  const onCustom = async () => {
+    try
+    {
+      const customData = {
+        "data": {
+          "username": username,
           "id": "egodeath",
           "method" : KeychainKeyTypes.posting,
           "json": "{}",
           "display_msg": "Seed"
-     }
-  }
+        }
+      }
     
     const custom = await keychain
-         .custom(
-              formParamsAsObject.data as Custom);
-    console.log({ custom });
-  } catch (error) {
-    console.log({ error });
-  }
+         .custom(customData.data as Custom);
+      console.log({ custom });
+    } catch (error) {
+      console.log({ error });
+    }
+  };
   
   const handleSignIn = async (username: string) => {
     const data: Login = {
@@ -65,37 +64,44 @@ function App() {
       console.error("Login error:", error);
       // Handle the error here, e.g., display an error message to the user
     }
-  }
+  };
+
   const handleSignOut = () => {
     setIsSignedIn(false);
     setUsername('');
+  };
+
+  const outPut = (texttooutput: string) => {
+    setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput }]);
   };
 
   const handleTextEntered = (enteredText: string) => {
     switch(enteredText.toLowerCase().split(/\s+/)[0]) {
       case "login":
         if(isSignedIn) {
-          setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You are already signed in!" }]);
+          outPut("You are already signed in!");
         }else{
         const tempuser = enteredText.split(/\s+/)[1];
         setUsername(tempuser);
         }
         break;
+
       case "seed":
 
         break;
 
       default:
         if(!isSignedIn){
-          setGameOutputMessage((prevOutput) => [...prevOutput, { output: "You can't do much without signing in! Type login *yourusername*" }]);
+          outPut("You can't do much without signing in! Type login *yourusername*");
         }else{
-          setGameOutputMessage((prevOutput) => [...prevOutput, { output: enteredText }]);
+          outPut(enteredText);
         }
         break;
     }
   };
 
-  useEffect(() => { //Here we watch for the username to change and trigger the signinfunction when it does so.
+  //Here we watch for the username to change and trigger the signinfunction when it does so.
+  useEffect(() => {
         if (username) {
           handleSignIn(username);
           }
