@@ -4,8 +4,11 @@ import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import React, { useState, useEffect } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes, Custom } from 'keychain-sdk';
-import { Client } from '@hiveio/dhive';
-import gameObjects from './modules/gameObjects'
+import HiveMultisigSDK from 'hive-multisig-sdk';
+import { Client, AccountUpdate2Operation } from '@hiveio/dhive';
+import * as Dhive from '@hiveio/dhive';
+import gameObjects from './modules/gameObjects';
+
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const client = new Client(["https://api.hive.blog",
@@ -21,6 +24,7 @@ function App() {
     const isInstalled = await keychain.isKeychainInstalled();
   }
 
+
   window.onload = initializeKeychain;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
@@ -28,6 +32,43 @@ function App() {
   const [submittingData, setsubmittingData] = useState(false);
   let [username, setUsername] = useState('');
   const [roomdata, setRoomData] = useState('');
+
+  const checkPlayer = async () => {
+    try {
+      let IsPlayer = await client.database.getAccounts([username]);
+        console.log(JSON.parse(IsPlayer[0].posting_json_metadata).profile.reputation);
+      
+    } catch(error) {
+      console.log({ error })
+    }
+  }
+
+  async function updateAccountMetadata(username: string, playerNumber: number) {
+  try {
+
+    const accountInfo = await client.database.getAccounts([username]);
+    const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+
+    currentMetadata.egodeathplayer = playerNumber;
+
+    const operation = [
+      'account_update2',
+      {
+        account: username,
+        method:KeychainKeyTypes.posting,
+        posting_json_metadata: JSON.stringify(currentMetadata),
+        // Other optional fields like active, owner, memo_key
+      }
+    ];
+
+    //const result = await Dhive.account_update2([operation], KeychainKeyTypes.posting);
+    console.log(Dhive);
+    //console.log(result);
+    } catch (error) {
+    console.error('Error updating account metadata:', error);
+    }
+  }
+  
 
   let customData = {
     "data": {
@@ -99,6 +140,8 @@ function App() {
         if(!isSignedIn){
           outPut("You can't do much without signing in! Type login *yourusername*");
         }else{
+          checkPlayer();
+          console.log(Dhive);
           outPut(enteredText);
         }
         break;
