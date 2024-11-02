@@ -24,21 +24,22 @@ function App() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [submittingData, setsubmittingData] = useState(false);
   let [username, setUsername] = useState('');
   const [roomdata, setRoomData] = useState('');
 
+  let customData = {
+    "data": {
+      "username": username,
+      "id": "egodeath",
+      "method" : KeychainKeyTypes.posting,
+      "json": "{}",
+      "display_msg": "Seed"
+    }
+  }
+
   const onCustom = async () => {
-    try
-    {
-      const customData = {
-        "data": {
-          "username": username,
-          "id": "egodeath",
-          "method" : KeychainKeyTypes.posting,
-          "json": "{}",
-          "display_msg": "Seed"
-        }
-      }
+    try {
     
     const custom = await keychain
          .custom(customData.data as Custom);
@@ -47,6 +48,7 @@ function App() {
       console.log({ error });
     }
   };
+
   
   const handleSignIn = async (username: string) => {
     const data: Login = {
@@ -77,6 +79,7 @@ function App() {
 
   const handleTextEntered = (enteredText: string) => {
     switch(enteredText.toLowerCase().split(/\s+/)[0]) {
+
       case "login":
         if(isSignedIn) {
           outPut("You are already signed in!");
@@ -87,6 +90,7 @@ function App() {
         break;
 
       case "seed":
+        setsubmittingData(true);
 
         break;
 
