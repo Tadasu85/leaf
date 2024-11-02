@@ -6,6 +6,7 @@ export default interface gameObjects {
 		Location: string,
 		Stats: []
 	},
+	
 	Room: {
 		Name: string,
 		Description: string,

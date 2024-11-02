@@ -3,8 +3,9 @@ import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWind
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import React, { useState, useEffect } from 'react';
-import { KeychainSDK, Login, KeychainKeyTypes, Custom } from "keychain-sdk";
-import { Client } from "@hiveio/dhive";
+import { KeychainSDK, Login, KeychainKeyTypes, Custom } from 'keychain-sdk';
+import { Client } from '@hiveio/dhive';
+import gameObjects from './modules/gameObjects'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const client = new Client(["https://api.hive.blog",

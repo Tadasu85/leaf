@@ -37,7 +37,7 @@
 }
 
 .SignInButton {
-  justify-self: right;
+  justify-self: left;
   min-height: 5vh;
   min-width: 5vw;
   background-color: #097969;
