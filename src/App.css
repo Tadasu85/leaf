@@ -7,9 +7,10 @@
   background-color: #097969;
   min-height: 10vh;
   display: grid;
-  align-items: center; /* Vertically align them */
+  align-items: center;
   color: white;
 }
+
 .Title {
   padding-top: 2vh;
   justify-self: center;
@@ -20,24 +21,25 @@
 .GameOutputWindow {
   text-align: left;
   overflow: auto;
-  width: 86vw; /* Adjust width as needed */
+  width: 86vw; 
   height: 70vh;
   max-height: 70vh;
   background-color: white;
   margin-left: 5vw;
-  padding-top: 0vmin;
+  padding-top: 1vmin;
   margin-right: 5vw;
 }
 
 .game-output {
-  height: 100%; /* Ensure it fills the parent container */
+  height: 100%; 
   overflow: auto;
   font-size: calc(1px + 2vmin);
   margin-left: 5vmin;
 }
 
-.SignInButton {
-  justify-self: left;
+.SignOutButton {
+  justify-self: right;
+  margin-right: 2vw;
   min-height: 5vh;
   min-width: 5vw;
   background-color: #097969;
@@ -46,7 +48,7 @@
 }
 
 .TextInputBox {
-  width: 95vw; /* Adjust width as needed */
+  width: 95vw; 
   overflow: auto;
   margin-left: 5vw;
   margin-right: 5vw;
@@ -63,13 +65,13 @@ button {
   min-width: inherit;
   font-style: normal;
   font-family: "Lucida Console", "Courier New", monospace;
-  cursor: pointer; /* Add cursor style for better UX */
+  cursor: pointer; 
 }
 
 input {
   cursor: inherit;
   background-color: white;
-  width: 89%;
+  width: 85vw;
   font-family: "Lucida Console", "Courier New", monospace;
 }
 
