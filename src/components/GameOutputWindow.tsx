@@ -14,7 +14,7 @@ interface GameOutputWindowProps {
 function GameOutputWindow({ output }: GameOutputWindowProps) {
   const outputRef = useRef<HTMLDivElement>(null); // Correct type
 
-  useEffect(() => {
+useEffect(() => {
   if (outputRef.current) {
     outputRef.current.scrollTo(0, outputRef.current.scrollHeight); // Type assertion
   }

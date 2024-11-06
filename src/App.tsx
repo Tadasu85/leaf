@@ -2,29 +2,31 @@ import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
-import React, { useState, useEffect } from 'react';
-import { KeychainSDK, Login, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { KeychainSDK, Login, KeychainKeyTypes } from 'keychain-sdk';
 //import HiveMultisigSDK from 'hive-multisig-sdk';
 import { Client } from '@hiveio/dhive';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import gameObjects from './modules/gameObjects';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
+function App() {
+
 const client = new Client(["https://api.hive.blog",
 "https://api.hivekings.com",
 "https://anyx.io",
 "https://api.openhive.network"]);
 
-const keychain = new KeychainSDK(window, { rpc: 'https://api.hive.blog'});
-
-function App() {
-
   async function initializeKeychain() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const isInstalled = await keychain.isKeychainInstalled();
-  }
+  };
+
+  const keychain = useMemo(() => new KeychainSDK(window, { rpc: 'https://api.hive.blog' }), []);
 
   window.onload = initializeKeychain;
+  
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -43,7 +45,7 @@ function App() {
     };
 
     fetchData();
-  }, []);
+  }, [client.database]);
 
   // const onCustom = async () => {
   //   try {
@@ -56,7 +58,7 @@ function App() {
   //   }
   // };
 
-  const handleSignIn = async (username: string) => {
+  const handleSignIn = useCallback(async (username: string) => {
     const data: Login = {
       "username": username,
       "message": "{\"login\":\"123\"}",
@@ -74,7 +76,7 @@ function App() {
       console.error("Login error:", error);
       // Handle the error here, e.g., display an error message to the user
     }
-  };
+  }, [ keychain ]);
 
   const handleSignOut = () => {
     setIsSignedIn(false);
@@ -82,7 +84,7 @@ function App() {
   };
 
   const outPut = (texttooutput: string) => {
-    setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput }]);
+  setGameOutputMessage([...gameOutputMessage, { output: texttooutput }]);
   };
 
   const handleTextEntered = (enteredText: string) => {
@@ -115,61 +117,61 @@ function App() {
     }
   };
 
-  const checkPlayer = async (username: string) => {
-    try {
-      let IsPlayer = await client.database.getAccounts([username]);
-      let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
-      updateAccountMetadata(username, '1');
-      //if(playerData.profile.egodeathplayer){
+  // const checkPlayer = async (username: string) => {
+  //   try {
+  //     let IsPlayer = await client.database.getAccounts([username]);
+  //     let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
+  //     //updateAccountMetadata(username, '1');
+  //     //if(playerData.profile.egodeathplayer){
 
-      //}
-    } catch(error) {
-      console.log({ error })
-    }
-  }
+  //     //}
+  //   } catch(error) {
+  //     console.log({ error })
+  //   }
+  // }
 
   useEffect(() => {
         if (username) {
           handleSignIn(username);
           }
-        }, [username]);
+        }, [username, handleSignIn]);
 
-  useEffect(() => {
-    if(isSignedIn) {
-      checkPlayer(username);
-    }
-  }, [isSignedIn, username]);
+  // useEffect(() => {
+  //   if(isSignedIn) {
+  //     checkPlayer(username);
+  //   }
+  // }, [isSignedIn, username]);
 
-  const updateAccountMetadata = async (username: string, playerNumber: string) => {
-  try {
+  // const updateAccountMetadata = async (username: string, playerNumber: string) => {
+  // try {
 
-    const accountInfo = await client.database.getAccounts([username]);
-    let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+  //   const accountInfo = await client.database.getAccounts([username]);
+  //   let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
 
-    currentMetadata.profile.egodeathplayer = playerNumber;
-    console.log(currentMetadata);
+  //   currentMetadata.profile.egodeathplayer = playerNumber;
+  //   console.log(currentMetadata);
 
-    const broadcastData = {
-    'username': username,
-    'operations': [
-      [
-        "account_update2",
-        {
-        'account': username,
-        'posting_json_metadata': JSON.stringify(currentMetadata)
-        }
-      ]
-    ],
-    'method': KeychainKeyTypes.posting
-    }
+  //   const broadcastData = {
+  //   'username': username,
+  //   'operations': [
+  //     [
+  //       "account_update2",
+  //       {
+  //       'account': username,
+  //       'posting_json_metadata': JSON.stringify(currentMetadata)
+  //       }
+  //     ]
+  //   ],
+  //   'method': KeychainKeyTypes.posting
+  //   }
 
-    const result = await keychain.broadcast(broadcastData as unknown as Broadcast);
-    console.log({result});
+  //   const result = await utils.account_update2(broadcastData as unknown as Broadcast);
+  //   console.log({result});
     
-    } catch (error) {
-    console.error('Error updating account metadata:', {error});
-    }
-  };
+  //   } catch (error) {
+  //   console.error('Error updating account metadata:', {error});
+  //   }
+  // };
 
   return (
     <div className="App">
