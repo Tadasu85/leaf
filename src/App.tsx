@@ -2,7 +2,7 @@ import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from 'keychain-sdk';
 //import HiveMultisigSDK from 'hive-multisig-sdk';
 import { Client } from '@hiveio/dhive';
@@ -84,7 +84,7 @@ const client = new Client(["https://api.hive.blog",
   };
 
   const outPut = (texttooutput: string) => {
-  setGameOutputMessage([...gameOutputMessage, { output: texttooutput }]);
+  setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput }]);
   };
 
   const handleTextEntered = (enteredText: string) => {
@@ -101,7 +101,8 @@ const client = new Client(["https://api.hive.blog",
         }
         break;
 
-      case "seed":
+      case "checkme":
+        checkPlayer(username);
         //setsubmittingData(true);
 
         break;
@@ -117,61 +118,64 @@ const client = new Client(["https://api.hive.blog",
     }
   };
 
-  // const checkPlayer = async (username: string) => {
-  //   try {
-  //     let IsPlayer = await client.database.getAccounts([username]);
-  //     let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
-  //     //updateAccountMetadata(username, '1');
-  //     //if(playerData.profile.egodeathplayer){
-
-  //     //}
-  //   } catch(error) {
-  //     console.log({ error })
-  //   }
-  // }
-
   useEffect(() => {
         if (username) {
           handleSignIn(username);
           }
         }, [username, handleSignIn]);
 
+  const checkPlayer = useCallback(async (username: string) => {
+    try {
+      let IsPlayer = await client.database.getAccounts([username]);
+      console.log({IsPlayer});
+      let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
+      console.log({playerData});
+      //if(!playerData.profile.egodeathplayer){
+    const updateAccountMetadata = async (username: string, playerNumber: string) => {
+      try {
+
+    const accountInfo = await client.database.getAccounts([username]);
+    let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+
+    currentMetadata.profile.egodeathplayer = playerNumber;
+    console.log(currentMetadata);
+
+    const broadcastData = {
+    'username': username,
+    'operations': [
+      [
+        "account_update2",
+        {
+        'account': username,
+        'json_metadata': '',
+        'posting_json_metadata': currentMetadata
+        }
+      ]
+    ],
+    'method': KeychainKeyTypes.active
+    }
+
+    const result = await keychain.broadcast(broadcastData as unknown as Broadcast);
+    console.log({result});
+    
+    } catch (error) {
+    console.error('Error updating account metadata:', {error});
+    }
+  };
+      //}
+    updateAccountMetadata(username, "2");
+    } catch(error) {
+      console.log({ error })
+    } finally {
+      console.log("User Updated maybe?");
+    }
+  }, [client.database, keychain]);
+
   // useEffect(() => {
   //   if(isSignedIn) {
   //     checkPlayer(username);
   //   }
-  // }, [isSignedIn, username]);
-
-  // const updateAccountMetadata = async (username: string, playerNumber: string) => {
-  // try {
-
-  //   const accountInfo = await client.database.getAccounts([username]);
-  //   let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-
-  //   currentMetadata.profile.egodeathplayer = playerNumber;
-  //   console.log(currentMetadata);
-
-  //   const broadcastData = {
-  //   'username': username,
-  //   'operations': [
-  //     [
-  //       "account_update2",
-  //       {
-  //       'account': username,
-  //       'posting_json_metadata': JSON.stringify(currentMetadata)
-  //       }
-  //     ]
-  //   ],
-  //   'method': KeychainKeyTypes.posting
-  //   }
-
-  //   const result = await utils.account_update2(broadcastData as unknown as Broadcast);
-  //   console.log({result});
-    
-  //   } catch (error) {
-  //   console.error('Error updating account metadata:', {error});
-  //   }
-  // };
+  // }, [isSignedIn, username, checkPlayer]);
 
   return (
     <div className="App">

@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface SignOutButtonProps {
   isSignedIn: boolean;
   username?: string; // Optional username
