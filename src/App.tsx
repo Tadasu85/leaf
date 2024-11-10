@@ -31,7 +31,7 @@ const client = new Client(["https://api.hive.blog",
   const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
   const [isSignedIn, setIsSignedIn] = useState(false);
   //const [submittingData, setsubmittingData] = useState(false);
-  let [username, setUsername] = useState('');
+  const [username, setUsername] = useState('');
   const [roomdata, setRoomData] = useState(Object);
   const [dataFetched, setDataFetched] = useState(false);
 
@@ -62,12 +62,10 @@ const client = new Client(["https://api.hive.blog",
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const login = await keychain.login(data as Login);
-      
-      setIsSignedIn(true); // Update directly after successful login
-      //console.log({login});
+      setIsSignedIn(true); 
     } catch (error) {
-      //console.error("Login error:", error);
-      // Handle the error here, e.g., display an error message to the user
+      console.error("Login error:", error);
+      
     }
   }, [ keychain ]);
 
@@ -111,47 +109,40 @@ const client = new Client(["https://api.hive.blog",
   };
 
   useEffect(() => {
-        if (username) {
-          handleSignIn(username);
-          }
-        }, [username, handleSignIn]);
+    if (username) {
+      handleSignIn(username);
+    }
+  }, [username, handleSignIn]);
+
   const updateAccountMetadata = useCallback(async (username: string, playerNumber: string) => {
-      try {
+    try {
 
       const accountInfo = await client.database.getAccounts([username]);
       let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-      let mainMetadata = JSON.parse(accountInfo[0].json_metadata);
-
       currentMetadata.profile.egodeathplayer = playerNumber;
       delete currentMetadata.profile.reputation;
 
 
-    const broadcastData = {
+  const broadcastData = {
     "username": username,
     "operations": [
-      [
-        "account_update2",
-        {
-        "account": username,
-        "json_metadata": "",
-        "posting_json_metadata": JSON.stringify(currentMetadata)
-        }
-      ]
+    [
+      "account_update2",
+      {
+      "account": username,
+      "json_metadata": "",
+      "posting_json_metadata": JSON.stringify(currentMetadata)
+      }
+    ]
     ],
-    'method': KeychainKeyTypes.active
-    }
-    console.log('The main metadata: ', mainMetadata);
-    console.log('Posting metadata: ', currentMetadata);
+    'method': KeychainKeyTypes.posting
+  }
 
-    const result = await keychain.broadcast(broadcastData as unknown as Broadcast);
-    console.log('We did it!', {result});
-    
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const broadcastFunction = await keychain.broadcast(broadcastData as unknown as Broadcast);    
     } catch (error) {
-      
-      console.error('Error updating account metadata:', {error});
-    } finally {
-      console.log("Prolly did nothing.");
-    }
+    console.error('Error updating account metadata:', {error});
+    } finally {}
   }, [client.database, keychain]);
 
   const checkPlayer = useCallback(async (username: string) => {
@@ -160,15 +151,13 @@ const client = new Client(["https://api.hive.blog",
       
       let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
       
-      if(!playerData.profile.egodeathplayer){
+    if(!playerData.profile.egodeathplayer){
         updateAccountMetadata(username, "933938420868f4dd0cb1062bfb365f19fccb7c4b");
    }
     
     } catch(error) {
-      console.log({ error })
-    } finally {
-      console.log("User Updated maybe?");
-    }
+      console.error({ error })
+    } finally {}
   }, [client.database, updateAccountMetadata]);
 
   return (
