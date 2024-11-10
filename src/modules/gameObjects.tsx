@@ -1,16 +1,15 @@
 export default interface gameObjects {
-	Player: {
-		Name: string,
-		Description: string,
-		ShortDesc: string,
-		Location: string,
-		Stats: []
-	},
-	
-	Room: {
-		Name: string,
-		Description: string,
-		Post: string,
-		Connections: [],
-	}
+{"Player": {
+		"Name": string,
+		"PreviousId": string,
+		"Description": string,
+		"ShortDesc": string,
+		"Location": string,
+},
+{"Room": {
+		"PreviousId": string,
+		"ReferencePost": string,
+		"Connections": [],
+		"Players":[]
+}
 }

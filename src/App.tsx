@@ -33,32 +33,23 @@ const client = new Client(["https://api.hive.blog",
   //const [submittingData, setsubmittingData] = useState(false);
   let [username, setUsername] = useState('');
   const [roomdata, setRoomData] = useState(Object);
+  const [dataFetched, setDataFetched] = useState(false);
 
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     try {
-  //       const transactionData = await client.database.getTransaction('f5b16e17f8ace48211dee36f7f101708ea7f25a2');
-  //       setRoomData(transactionData);
-  //     } catch (error) {
-  //       //console.error('Error fetching data:', error);
-  //     } finally {
-  //       console.log("Failed or didnt.");
-  //     }
-  //   };
+  useEffect(() => {
+  if (!dataFetched) {
+    const fetchData = async () => {
+      try {
+        const transactionData = await client.database.getTransaction('f5b16e17f8ace48211dee36f7f101708ea7f25a2');
+        setRoomData(transactionData);
+        setDataFetched(true); // Set the flag to indicate data is fetched
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
 
-  //   fetchData();
-  // }, [client.database]);
-
-  // const onCustom = async () => {
-  //   try {
-    
-  //   const custom = await keychain
-  //        .custom(customData.data as Custom);
-  //     console.log({ custom });
-  //   } catch (error) {
-  //     console.log({ error });
-  //   }
-  // };
+    fetchData();
+  }
+}, [dataFetched, client.database]);
 
   const handleSignIn = useCallback(async (username: string) => {
     const data: Login = {
@@ -104,9 +95,9 @@ const client = new Client(["https://api.hive.blog",
         break;
 
       case "checkme":
+        if(isSignedIn) {
         checkPlayer(username);
-        //setsubmittingData(true);
-
+      }
         break;
 
       default:
@@ -114,7 +105,6 @@ const client = new Client(["https://api.hive.blog",
           outPut("You can't do much without signing in! Type login *yourusername*");
         } else {
           outPut(enteredText);  
-          //console.log(roomdata.operations[0][1].title);
         }
         break;
     }
@@ -125,25 +115,16 @@ const client = new Client(["https://api.hive.blog",
           handleSignIn(username);
           }
         }, [username, handleSignIn]);
-
-  const checkPlayer = useCallback(async (username: string) => {
-    try {
-      let IsPlayer = await client.database.getAccounts([username]);
-      //console.log({IsPlayer});
-      let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
-      //console.log({playerData});
-      //if(!playerData.profile.egodeathplayer){
-    const updateAccountMetadata = async (username: string, playerNumber: string) => {
+  const updateAccountMetadata = useCallback(async (username: string, playerNumber: string) => {
       try {
 
-    const accountInfo = await client.database.getAccounts([username]);
-    let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-    let mainMetadata = JSON.parse(accountInfo[0].json_metadata);
+      const accountInfo = await client.database.getAccounts([username]);
+      let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+      let mainMetadata = JSON.parse(accountInfo[0].json_metadata);
 
-    currentMetadata.profile.egodeathplayer = playerNumber;
-    delete currentMetadata.profile.reputation;
+      currentMetadata.profile.egodeathplayer = playerNumber;
+      delete currentMetadata.profile.reputation;
 
-    //console.log(currentMetadata);
 
     const broadcastData = {
     "username": username,
@@ -171,21 +152,24 @@ const client = new Client(["https://api.hive.blog",
     } finally {
       console.log("Prolly did nothing.");
     }
-  };
-      //}
-    updateAccountMetadata(username, "933938420868f4dd0cb1062bfb365f19fccb7c4b");
+  }, [client.database, keychain]);
+
+  const checkPlayer = useCallback(async (username: string) => {
+    try {
+      let IsPlayer = await client.database.getAccounts([username]);
+      
+      let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
+      
+      if(!playerData.profile.egodeathplayer){
+        updateAccountMetadata(username, "933938420868f4dd0cb1062bfb365f19fccb7c4b");
+   }
+    
     } catch(error) {
       console.log({ error })
     } finally {
       console.log("User Updated maybe?");
     }
-  }, [client.database, keychain]);
-
-  // useEffect(() => {
-  //   if(isSignedIn) {
-  //     checkPlayer(username);
-  //   }
-  // }, [isSignedIn, username, checkPlayer]);
+  }, [client.database, updateAccountMetadata]);
 
   return (
     <div className="App">
