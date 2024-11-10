@@ -4,11 +4,10 @@
 }
 
 .App-header {
-  background-color: #097969;
+  background-color: #690979;
   min-height: 10vh;
   display: grid;
   align-items: center;
-  color: white;
 }
 
 .Title {
@@ -16,6 +15,7 @@
   justify-self: center;
   font-family: "Lucida Console", "Courier New", monospace;
   font-size: calc(30px + 2vmin);
+  color: #796909;
 }
 
 .GameOutputWindow {
@@ -42,7 +42,7 @@
   margin-right: 2vw;
   min-height: 5vh;
   min-width: 5vw;
-  background-color: #097969;
+  background-color: #690979;
   color: white;
   text-decoration-color: black;
 }
@@ -52,7 +52,6 @@
   overflow: auto;
   margin-left: 5vw;
   margin-right: 5vw;
-  background-color: #097969;
 }
 
 p {
@@ -62,6 +61,7 @@ p {
 
 button {
   min-height: inherit;
+  background-color: #690979;
   min-width: inherit;
   font-style: normal;
   font-family: "Lucida Console", "Courier New", monospace;

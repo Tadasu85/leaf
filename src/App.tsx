@@ -2,7 +2,7 @@ import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useObservable } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from 'keychain-sdk';
 //import HiveMultisigSDK from 'hive-multisig-sdk';
 import { Client } from '@hiveio/dhive';
@@ -37,7 +37,7 @@ function App() {
 	const [userGreeted, setUserGreeted] = useState(false);
 
 	const outPut = (texttooutput: string) => {
-		setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput }]);
+		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput}]);
 	};
 
 	const gameGreeting = [
