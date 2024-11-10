@@ -26,7 +26,7 @@ function App() {
 	const keychain = useMemo(() => new KeychainSDK(window, { rpc: 'https://api.hive.blog' }), []);
 
 	window.onload = initializeKeychain;
-	
+
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
 	const [isSignedIn, setIsSignedIn] = useState(false);
@@ -34,6 +34,25 @@ function App() {
 	const [username, setUsername] = useState('');
 	const [roomdata, setRoomData] = useState(Object);
 	const [dataFetched, setDataFetched] = useState(false);
+	const [userGreeted, setUserGreeted] = useState(false);
+
+	const outPut = (texttooutput: string) => {
+		setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput }]);
+	};
+
+	const gameGreeting = [
+		"If you've arrived here by accident and do not have a Hive account. ",
+		"Please make your way to https://ecency.com/ to create an account.",
+		"Otherwise you may proceed with a login command by typing 'login' 'your hive username'",
+		"If this is successful you will see a button on the top right which shows your username." 
+		];
+
+	if (!userGreeted && !isSignedIn) {
+		gameGreeting.forEach((item, index) => {
+			outPut(item);
+		});
+		setUserGreeted(true);
+	}
 
 	useEffect(() => {
 		if (!dataFetched) {
@@ -62,10 +81,10 @@ function App() {
 		try {
 						// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const login = await keychain.login(data as Login);
-			setIsSignedIn(true); 
+			setIsSignedIn(true);
 		} catch (error) {
 			console.error("Login error:", error);
-			
+
 		}
 	}, [ keychain ]);
 
@@ -74,31 +93,31 @@ function App() {
 		setUsername('');
 	};
 
-	const outPut = (texttooutput: string) => {
-		setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput }]);
-	};
-
 	const handleTextEntered = (enteredText: string) => {
 		switch(enteredText.toLowerCase().split(/\s+/)[0]) {
 
 		case "login":
+
 			if(isSignedIn) {
 				outPut("You are already signed in!");
 			} else {
 				const tempuser = enteredText.split(/\s+/)[1];
 				setUsername(tempuser);
+				setGameOutputMessage([]);
 				outPut(roomdata.operations[0][1].title);
 				outPut(roomdata.operations[0][1].body);
 			}
 			break;
 
 		case "checkme":
+
 			if(isSignedIn) {
 				checkPlayer(username);
 			}
 			break;
 
 		default:
+
 			if(!isSignedIn){
 				outPut("You can't do much without signing in! Type login *yourusername*");
 			} else {
@@ -121,7 +140,6 @@ function App() {
 			let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
 			currentMetadata.profile.egodeathplayer = playerNumber;
 			delete currentMetadata.profile.reputation;
-
 
 			const broadcastData = {
 				"username": username,
@@ -148,13 +166,13 @@ function App() {
 	const checkPlayer = useCallback(async (username: string) => {
 		try {
 			let IsPlayer = await client.database.getAccounts([username]);
-			
+
 			let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
-			
+
 			if(!playerData.profile.egodeathplayer){
 				updateAccountMetadata(username, "933938420868f4dd0cb1062bfb365f19fccb7c4b");
 			}
-			
+
 		} catch(error) {
 			console.error({ error })
 		} finally {}
