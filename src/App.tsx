@@ -15,11 +15,11 @@ function App() {
 		"https://anyx.io",
 		"https://api.openhive.network"]);
 
+	const keychain = useMemo(() => new KeychainSDK(window, { rpc: 'https://api.hive.blog' }), []);
+
 	async function initializeKeychain() {
 		await keychain.isKeychainInstalled();
 	};
-
-	const keychain = useMemo(() => new KeychainSDK(window, { rpc: 'https://api.hive.blog' }), []);
 
 	window.onload = initializeKeychain;
 
@@ -27,11 +27,12 @@ function App() {
 	const [isSignedIn, setIsSignedIn] = useState(false);
 		//const [submittingData, setsubmittingData] = useState(false);
 	const [username, setUsername] = useState('');
-	const [roomdata, setRoomData] = useState(Object);
+	const [roomdata, setRoomData] = useState({});
 	const [dataFetched, setDataFetched] = useState(false);
+	const [profileFetched, setprofileFetched] = useState(false);
 	const [userGreeted, setUserGreeted] = useState(false);
 	const [playerNumber, setplayerNumber] = useState('');
-	const [userProfileJSON, setuserProfileJson] = useState(Object);
+	const [userProfileJSON, setuserProfileJSON] = useState({});
 
 	const outPut = (texttooutput: string) => {
 		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput}]);
@@ -47,17 +48,19 @@ function App() {
 		];
 
 	const fillUserProfileJson = useCallback(async (username) => {
-		if(!isSignedIn) {
+		if (isSignedIn && !profileFetched) {
 			try {
 				const accountInfo = await client.database.getAccounts([username]);
-				console.log("This is accountInfo: ", accountInfo);
-				let currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-				setuserProfileJson(currentMetadata);
+				const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+				setuserProfileJSON({currentMetadata});
 			} catch (error) {
-				console.error({error});
-			} finally {}
+				console.error('Error fetching user profile:', error);
+			} finally {
+				setprofileFetched(true);
+
+			}
 		}
-	}, [client.database, isSignedIn]);
+	}, [client.database, isSignedIn, profileFetched]);
 
 	if (!userGreeted && !isSignedIn) {
 		gameGreeting.forEach((item, index) => {
@@ -65,22 +68,6 @@ function App() {
 		});
 		setUserGreeted(true);
 	}
-
-	useEffect(() => {
-		if (!dataFetched) {
-			const fetchData = async () => {
-				try {
-					const transactionData = await client.database.getTransaction('f5b16e17f8ace48211dee36f7f101708ea7f25a2');
-					setRoomData(transactionData);
-								setDataFetched(true); // Set the flag to indicate data is fetched
-							} catch (error) {
-								console.error('Error fetching data:', error);
-							}
-						};
-
-						fetchData();
-					}
-				}, [dataFetched, client.database]);
 
 	const handleSignIn = useCallback(async (username: string) => {
 		const data: Login = {
@@ -93,12 +80,12 @@ function App() {
 		try {
 						// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const login = await keychain.login(data as Login);
-			fillUserProfileJson(username);
-			setIsSignedIn(true);
+
 		} catch (error) {
 			console.error("Login error:", error);
 		} finally {
-			
+			setIsSignedIn(true);
+			fillUserProfileJson(username);
 		}
 	}, [ keychain, fillUserProfileJson ]);
 
@@ -118,8 +105,8 @@ function App() {
 				const tempuser = enteredText.split(/\s+/)[1];
 				setUsername(tempuser);
 				setGameOutputMessage([]);
-				outPut(roomdata.operations[0][1].title);
-				outPut(roomdata.operations[0][1].body);
+				//outPut(roomdata.transactionData.operations[0][1].title);
+				//outPut(roomdata.transactionData.operations[0][1].body);
 			}
 			break;
 
@@ -204,13 +191,28 @@ function App() {
 		}
 	}, [keychain]);
 
+	useEffect(() => {
+		if (!dataFetched && fillUserProfileJson) {
+			const fetchData = async () => {
+				try {
+					const obtainroomdata = userProfileJSON.profile.egodeathplayer 
+					const transactionData = await client.database.getTransaction(obtainroomdata);
+					console.log(transactionData);
+					setRoomData({transactionData});
+				} catch (error) {
+					console.error('Error fetching data:', error);
+				} finally {
+								setDataFetched(true); // Set the flag to indicate data is fetched
+							}
+						};
+
+						fetchData();
+					}
+				}, [dataFetched, client.database, fillUserProfileJson, userProfileJSON]);
+
 	const checkPlayer = useCallback(async (username: string) => {
 		try {
-			let IsPlayer = await client.database.getAccounts([username]);
-
-			let playerData = JSON.parse(IsPlayer[0].posting_json_metadata);
-
-			if(!playerData.profile.egodeathplayer){
+			if(!userProfileJSON.profile.egodeathplayer){
 				createPlayerObject(username);
 				updateAccountMetadata(username, playerNumber);
 			}
@@ -218,14 +220,14 @@ function App() {
 		} catch(error) {
 			console.error({ error })
 		} finally {}
-	}, [client.database, updateAccountMetadata, playerNumber, createPlayerObject]);
+	}, [updateAccountMetadata, playerNumber, createPlayerObject, userProfileJSON]);
 
 	return (
 		<div className="App">
 		<header className="App-header">
 		<div className="Title"> E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼ </div>
 		<div className="SignOutButton">
-		<SignOutButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} />
+		<SignOutButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
 		</div>
 		</header>
 		<GameOutputWindow output={gameOutputMessage} />
