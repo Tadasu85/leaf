@@ -52,7 +52,7 @@ function App() {
 			try {
 				const accountInfo = await client.database.getAccounts([username]);
 				const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-				setuserProfileJSON({currentMetadata});
+				setuserProfileJSON(currentMetadata);
 			} catch (error) {
 				console.error('Error fetching user profile:', error);
 			} finally {
@@ -78,7 +78,7 @@ function App() {
 		};
 
 		try {
-						// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const login = await keychain.login(data as Login);
 
 		} catch (error) {
@@ -94,6 +94,42 @@ function App() {
 		setUsername('');
 	};
 
+	const populateRoomdata = useCallback(async () => {
+		if (!dataFetched && profileFetched) {
+			try {
+				const fetchData = async () => {
+					try {
+						const obtainplayernumber = userProfileJSON.egodeathplayer;
+						console.log('obtainplayernumber:', obtainplayernumber);
+						const transactionData = await client.database.getTransaction(obtainplayernumber);
+						console.log('transactionData:', JSON.parse(transactionData.operations[0][1].json).Player.Location);
+						const playerlocation = JSON.parse(transactionData.operations[0][1].json).Player.Location;
+						console.log("this is our player location: ", playerlocation);
+						const obtainroomdata = await client.database.getTransaction(playerlocation);
+						console.log("obtainroomdata: ", obtainroomdata);
+						const processRoomdata = JSON.parse(obtainroomdata.operations[0][1].json).Room.ReferencePost;
+						console.log("processRoomdata: ", processRoomdata)
+						const fetchtheactualdesc = await client.database.getTransaction(processRoomdata);
+						const arewefinallydoneyet = fetchtheactualdesc.operations[0][1];
+						console.log("this done? ", arewefinallydoneyet);
+
+						 
+						console.log('fetchtheactualdesc: ', fetchtheactualdesc);
+						setRoomData(arewefinallydoneyet);
+					} catch (error) {
+						console.error('Error fetching data:', error);
+					} finally {
+						setDataFetched(true);
+					}
+				};
+
+				fetchData();
+			} catch (error) {
+				console.error('Error in populateRoomdata:', error);
+			}
+		}
+	}, [dataFetched, client.database, profileFetched, userProfileJSON]);
+
 	const handleTextEntered = (enteredText: string) => {
 		switch(enteredText.toLowerCase().split(/\s+/)[0]) {
 
@@ -105,8 +141,8 @@ function App() {
 				const tempuser = enteredText.split(/\s+/)[1];
 				setUsername(tempuser);
 				setGameOutputMessage([]);
-				//outPut(roomdata.transactionData.operations[0][1].title);
-				//outPut(roomdata.transactionData.operations[0][1].body);
+				outPut(roomdata.title);
+				outPut(roomdata.body);
 			}
 			break;
 
@@ -120,7 +156,7 @@ function App() {
 		default:
 
 			if(!isSignedIn){
-				outPut("You can't do much without signing in! Type login *yourusername*");
+				outPut("You can't do much without signing in! Type 'login' 'your hive username'");
 			} else {
 				outPut(enteredText);  
 			}
@@ -131,8 +167,9 @@ function App() {
 	useEffect(() => {
 		if (username) {
 			handleSignIn(username);
+			populateRoomdata();
 		}
-	}, [username, handleSignIn]);
+	}, [username, handleSignIn, populateRoomdata]);
 
 	const updateAccountMetadata = useCallback(async (username: string, playerNumber: string) => {
 		try {
@@ -173,12 +210,13 @@ function App() {
 							"json_metadata":
 							{"Player":
 							{"Name":username,
-							"PreviousId":"933938420868f4dd0cb1062bfb365f19fccb7c4b", //This should be zero by default
+							"PreviousId":"0", //This should be zero by default
 							"Description":"We really should define this but oh well.",
 							"ShortDesc":"How do you imagine we have a short if we don't a long?",
-							"Location":"e30c67b655856c3932de9c46da4d359a9c1fd614"}}, //This has to be the starting room object
-						}
-						]
+							"Location":"e30c67b655856c3932de9c46da4d359a9c1fd614"} //This has to be the starting room object
+						}, 
+					}
+					]
 					],
 				'method': KeychainKeyTypes.posting
 			}
@@ -191,28 +229,9 @@ function App() {
 		}
 	}, [keychain]);
 
-	useEffect(() => {
-		if (!dataFetched && fillUserProfileJson) {
-			const fetchData = async () => {
-				try {
-					const obtainroomdata = userProfileJSON.profile.egodeathplayer 
-					const transactionData = await client.database.getTransaction(obtainroomdata);
-					console.log(transactionData);
-					setRoomData({transactionData});
-				} catch (error) {
-					console.error('Error fetching data:', error);
-				} finally {
-								setDataFetched(true); // Set the flag to indicate data is fetched
-							}
-						};
-
-						fetchData();
-					}
-				}, [dataFetched, client.database, fillUserProfileJson, userProfileJSON]);
-
 	const checkPlayer = useCallback(async (username: string) => {
 		try {
-			if(!userProfileJSON.profile.egodeathplayer){
+			if(!userProfileJSON.egodeathplayer){
 				createPlayerObject(username);
 				updateAccountMetadata(username, playerNumber);
 			}
@@ -221,6 +240,9 @@ function App() {
 			console.error({ error })
 		} finally {}
 	}, [updateAccountMetadata, playerNumber, createPlayerObject, userProfileJSON]);
+
+	console.log("userprofileJson: ",userProfileJSON);
+	console.log("roomdata: ", roomdata);
 
 	return (
 		<div className="App">

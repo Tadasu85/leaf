@@ -2,10 +2,10 @@ interface SignOutButtonProps {
   isSignedIn: boolean;
   username?: string; // Optional username
   onSignOut: () => void;
-  userProfileJSON?: Object;
+  userProfileJSON?: {};
 }
 
-function SignOutButton({ isSignedIn, username, onSignOut }: SignOutButtonProps) {
+function SignOutButton({ isSignedIn, username, onSignOut, userProfileJSON }: SignOutButtonProps) {
   if (isSignedIn) {
     return (
       <div>
