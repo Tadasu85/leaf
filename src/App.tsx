@@ -47,20 +47,22 @@ function App() {
 		"If this is successful you will see a button on the top right which shows your username." 
 		];
 
-	const fillUserProfileJson = useCallback(async (username) => {
+	useEffect(() => {
 		if (isSignedIn && !profileFetched) {
-			try {
-				const accountInfo = await client.database.getAccounts([username]);
-				const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-				setuserProfileJSON(currentMetadata);
-			} catch (error) {
-				console.error('Error fetching user profile:', error);
-			} finally {
-				setprofileFetched(true);
-
+			const fetchData = async () => {
+				try {
+					const accountInfo = await client.database.getAccounts([username]);
+					const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+					setuserProfileJSON(currentMetadata);
+					setprofileFetched(true);
+				} catch (error) {
+					console.error('Error fetching user profile:', error);
+				} finally {}
 			}
+			fetchData();
 		}
-	}, [client.database, isSignedIn, profileFetched]);
+
+	}, [client.database, isSignedIn, profileFetched, username]);
 
 	if (!userGreeted && !isSignedIn) {
 		gameGreeting.forEach((item, index) => {
@@ -85,49 +87,38 @@ function App() {
 			console.error("Login error:", error);
 		} finally {
 			setIsSignedIn(true);
-			fillUserProfileJson(username);
 		}
-	}, [ keychain, fillUserProfileJson ]);
+	}, [ keychain ]);
 
 	const handleSignOut = () => {
 		setIsSignedIn(false);
 		setUsername('');
 	};
 
-	const populateRoomdata = useCallback(async () => {
+	useEffect(() => {
 		if (!dataFetched && profileFetched) {
 			try {
 				const fetchData = async () => {
 					try {
 						const obtainplayernumber = userProfileJSON.egodeathplayer;
-						console.log('obtainplayernumber:', obtainplayernumber);
 						const transactionData = await client.database.getTransaction(obtainplayernumber);
-						console.log('transactionData:', JSON.parse(transactionData.operations[0][1].json).Player.Location);
 						const playerlocation = JSON.parse(transactionData.operations[0][1].json).Player.Location;
-						console.log("this is our player location: ", playerlocation);
 						const obtainroomdata = await client.database.getTransaction(playerlocation);
-						console.log("obtainroomdata: ", obtainroomdata);
 						const processRoomdata = JSON.parse(obtainroomdata.operations[0][1].json).Room.ReferencePost;
-						console.log("processRoomdata: ", processRoomdata)
 						const fetchtheactualdesc = await client.database.getTransaction(processRoomdata);
 						const arewefinallydoneyet = fetchtheactualdesc.operations[0][1];
-						console.log("this done? ", arewefinallydoneyet);
-
-						 
-						console.log('fetchtheactualdesc: ', fetchtheactualdesc);
 						setRoomData(arewefinallydoneyet);
+						setDataFetched(true);
 					} catch (error) {
 						console.error('Error fetching data:', error);
-					} finally {
-						setDataFetched(true);
-					}
+					} finally {}
 				};
-
 				fetchData();
 			} catch (error) {
 				console.error('Error in populateRoomdata:', error);
-			}
+			} finally {}
 		}
+
 	}, [dataFetched, client.database, profileFetched, userProfileJSON]);
 
 	const handleTextEntered = (enteredText: string) => {
@@ -141,8 +132,6 @@ function App() {
 				const tempuser = enteredText.split(/\s+/)[1];
 				setUsername(tempuser);
 				setGameOutputMessage([]);
-				outPut(roomdata.title);
-				outPut(roomdata.body);
 			}
 			break;
 
@@ -167,9 +156,10 @@ function App() {
 	useEffect(() => {
 		if (username) {
 			handleSignIn(username);
-			populateRoomdata();
+			outPut(roomdata.title);
+			outPut(roomdata.body);
 		}
-	}, [username, handleSignIn, populateRoomdata]);
+	}, [username, handleSignIn, roomdata]);
 
 	const updateAccountMetadata = useCallback(async (username: string, playerNumber: string) => {
 		try {
@@ -220,7 +210,7 @@ function App() {
 					],
 				'method': KeychainKeyTypes.posting
 			}
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const ourNewplayerNumber = await keychain.broadcast(broadcastData as unknown as Broadcast);    
 		} catch (error) {
 			console.error('Error updating account metadata:', {error});
@@ -240,9 +230,6 @@ function App() {
 			console.error({ error })
 		} finally {}
 	}, [updateAccountMetadata, playerNumber, createPlayerObject, userProfileJSON]);
-
-	console.log("userprofileJson: ",userProfileJSON);
-	console.log("roomdata: ", roomdata);
 
 	return (
 		<div className="App">
