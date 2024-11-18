@@ -53,6 +53,9 @@
   margin-left: 5vw;
   margin-right: 5vw;
 }
+img[alt*="ProfileImage"] {
+  height: 10vh;
+}
 
 p {
   padding: 0;
