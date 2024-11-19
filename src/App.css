@@ -61,6 +61,7 @@ img[alt*="ProfileImage"] {
 p {
   padding: 0;
   margin: 0;
+  margin-left: 1vw;
 }
 
 button {

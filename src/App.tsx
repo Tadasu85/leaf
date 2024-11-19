@@ -40,9 +40,7 @@ function App() {
 		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput}]);
 	};
 
-	const gameGreeting = ["-",
-		"-",
-		"-",
+	const gameGreeting = [
 		"If you've arrived here by accident and do not have a Hive account. ",
 		"Please make your way to https://ecency.com/ to create an account.",
 		"Otherwise you may proceed with a login command by typing 'login' 'your hive username'",
@@ -169,70 +167,36 @@ function App() {
 			"Description":"We really should define this but oh well.",
 			"ShortDesc":"How do you imagine we have a short if we don't a long?",
 			"Location":"e30c67b655856c3932de9c46da4d359a9c1fd614"} //This has to be the starting room object
-		
-		delete currentMetadata.reputation;
 
-		const broadcastData = {
-			"username": username,
-			"operations": [
-				[
-					"account_update2",
-					{
-						"account": username,
-						"json_metadata": "",
-						"posting_json_metadata": JSON.stringify(currentMetadata)
-					}
-					]
-				],
-			'method': KeychainKeyTypes.posting
-		}
-		await keychain.broadcast(broadcastData as unknown as Broadcast);
-	} catch (error) {
-		console.error('Error updating account metadata:', {error});
-	} finally {}
-}, [ keychain, userProfileJSON]);
+			delete currentMetadata.reputation;
 
-// 	const createPlayerObject = useCallback(async (username: string) => {
-// 		try {
-// 			const broadcastData = {
-// 				"username": username,
-// 				"operations": [
-// 					[
-// 						"custom_json",
-// 						{
-// 							"account": username,
-// 							"id":"egodeath",
-// 							"json_metadata":
-// 							{"Player":
-// 							{"Name":username,
-// 							"PreviousId":"0", //This should be zero by default
-// 							"Description":"We really should define this but oh well.",
-// 							"ShortDesc":"How do you imagine we have a short if we don't a long?",
-// 							"Location":"e30c67b655856c3932de9c46da4d359a9c1fd614"} //This has to be the starting room object
-// 						}, 
-// 					}
-// 					]
-// 					],
-// 				'method': KeychainKeyTypes.posting
-// 			}
-// // eslint-disable-next-line @typescript-eslint/no-unused-vars
-// 			const ourNewplayerNumber = await keychain.broadcast(broadcastData as unknown as Broadcast);    
-// 		} catch (error) {
-// 			console.error('Error updating account metadata:', {error});
-// 		} finally {
-// 			setplayerNumber(ourNewplayerNumber.transactionid);
-// 		}
-// 	}, [keychain]);
-
-	//We need to use this to validate that the object on the playerjson looks correct!
+			const broadcastData = {
+				"username": username,
+				"operations": [
+					[
+						"account_update2",
+						{
+							"account": username,
+							"json_metadata": "",
+							"posting_json_metadata": JSON.stringify(currentMetadata)
+						}
+						]
+					],
+				'method': KeychainKeyTypes.posting
+			}
+			await keychain.broadcast(broadcastData as unknown as Broadcast);
+		} catch (error) {
+			console.error('Error updating account metadata:', {error});
+		} finally {}
+	}, [ keychain, userProfileJSON]);
 
 	const checkPlayer = useCallback(async (username: string) => {
 		const playerSchema = z.object(
-			{
-				Name: z.string(),
-				Description: z.string(),
-				ShortDesc: z.string(),
-				Location: z.string(),
+		{
+			Name: z.string(),
+			Description: z.string(),
+			ShortDesc: z.string(),
+			Location: z.string(),
 		});
 
 		function validatePlayerObject(playerObject) {

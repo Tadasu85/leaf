@@ -4,7 +4,8 @@ export default interface gameObjects {
 		"Description": string,
 		"ShortDesc": string,
 		"Location": string
-},
+}
+}
 {"Room": {
 		"ReferencePost": string,
 		"Connections": []
