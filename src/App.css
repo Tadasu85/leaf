@@ -54,7 +54,8 @@
   margin-right: 5vw;
 }
 img[alt*="ProfileImage"] {
-  height: 10vh;
+  height: 7vh;
+  border-radius: 50%;
 }
 
 p {

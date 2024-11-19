@@ -5,8 +5,10 @@ import TextInputBox from './components/TextInputBox';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
+import { z } from 'zod';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import gameObjects from './modules/gameObjects';
+
 
 function App() {
 
@@ -31,7 +33,7 @@ function App() {
 	const [dataFetched, setDataFetched] = useState(false);
 	const [profileFetched, setprofileFetched] = useState(false);
 	const [userGreeted, setUserGreeted] = useState(false);
-	const [playerNumber, setplayerNumber] = useState('');
+	//const [playerNumber, setplayerNumber] = useState('');
 	const [userProfileJSON, setuserProfileJSON] = useState({});
 
 	const outPut = (texttooutput: string) => {
@@ -100,9 +102,7 @@ function App() {
 			try {
 				const fetchData = async () => {
 					try {
-						const obtainplayernumber = userProfileJSON.egodeathplayer;
-						const transactionData = await client.database.getTransaction(obtainplayernumber);
-						const playerlocation = JSON.parse(transactionData.operations[0][1].json).Player.Location;
+						const playerlocation = userProfileJSON.egodeathplayer.Location;
 						const obtainroomdata = await client.database.getTransaction(playerlocation);
 						const processRoomdata = JSON.parse(obtainroomdata.operations[0][1].json).Room.ReferencePost;
 						const fetchtheactualdesc = await client.database.getTransaction(processRoomdata);
@@ -161,75 +161,93 @@ function App() {
 		}
 	}, [username, handleSignIn, roomdata]);
 
-	const updateAccountMetadata = useCallback(async (username: string, playerNumber: string) => {
+	const updateAccountMetadata = useCallback(async (username: string) => {
 		try {
 			let currentMetadata = userProfileJSON;
-			currentMetadata.profile.egodeathplayer = playerNumber;
-			delete currentMetadata.profile.reputation;
+			currentMetadata.egodeathplayer = 
+			{"Name":username,
+			"Description":"We really should define this but oh well.",
+			"ShortDesc":"How do you imagine we have a short if we don't a long?",
+			"Location":"e30c67b655856c3932de9c46da4d359a9c1fd614"} //This has to be the starting room object
+		
+		delete currentMetadata.reputation;
 
-			const broadcastData = {
-				"username": username,
-				"operations": [
-					[
-						"account_update2",
-						{
-							"account": username,
-							"json_metadata": "",
-							"posting_json_metadata": JSON.stringify(currentMetadata)
-						}
-						]
-					],
-				'method': KeychainKeyTypes.posting
-			}
-			await keychain.broadcast(broadcastData as unknown as Broadcast);    
-		} catch (error) {
-			console.error('Error updating account metadata:', {error});
-		} finally {}
-	}, [ keychain, userProfileJSON]);
-
-	const createPlayerObject = useCallback(async (username: string) => {
-		try {
-			const broadcastData = {
-				"username": username,
-				"operations": [
-					[
-						"custom_json",
-						{
-							"account": username,
-							"id":"egodeath",
-							"json_metadata":
-							{"Player":
-							{"Name":username,
-							"PreviousId":"0", //This should be zero by default
-							"Description":"We really should define this but oh well.",
-							"ShortDesc":"How do you imagine we have a short if we don't a long?",
-							"Location":"e30c67b655856c3932de9c46da4d359a9c1fd614"} //This has to be the starting room object
-						}, 
+		const broadcastData = {
+			"username": username,
+			"operations": [
+				[
+					"account_update2",
+					{
+						"account": username,
+						"json_metadata": "",
+						"posting_json_metadata": JSON.stringify(currentMetadata)
 					}
 					]
-					],
-				'method': KeychainKeyTypes.posting
-			}
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-			const ourNewplayerNumber = await keychain.broadcast(broadcastData as unknown as Broadcast);    
-		} catch (error) {
-			console.error('Error updating account metadata:', {error});
-		} finally {
-			setplayerNumber(ourNewplayerNumber.transactionid);
+				],
+			'method': KeychainKeyTypes.posting
 		}
-	}, [keychain]);
+		await keychain.broadcast(broadcastData as unknown as Broadcast);
+	} catch (error) {
+		console.error('Error updating account metadata:', {error});
+	} finally {}
+}, [ keychain, userProfileJSON]);
+
+// 	const createPlayerObject = useCallback(async (username: string) => {
+// 		try {
+// 			const broadcastData = {
+// 				"username": username,
+// 				"operations": [
+// 					[
+// 						"custom_json",
+// 						{
+// 							"account": username,
+// 							"id":"egodeath",
+// 							"json_metadata":
+// 							{"Player":
+// 							{"Name":username,
+// 							"PreviousId":"0", //This should be zero by default
+// 							"Description":"We really should define this but oh well.",
+// 							"ShortDesc":"How do you imagine we have a short if we don't a long?",
+// 							"Location":"e30c67b655856c3932de9c46da4d359a9c1fd614"} //This has to be the starting room object
+// 						}, 
+// 					}
+// 					]
+// 					],
+// 				'method': KeychainKeyTypes.posting
+// 			}
+// // eslint-disable-next-line @typescript-eslint/no-unused-vars
+// 			const ourNewplayerNumber = await keychain.broadcast(broadcastData as unknown as Broadcast);    
+// 		} catch (error) {
+// 			console.error('Error updating account metadata:', {error});
+// 		} finally {
+// 			setplayerNumber(ourNewplayerNumber.transactionid);
+// 		}
+// 	}, [keychain]);
+
+	//We need to use this to validate that the object on the playerjson looks correct!
 
 	const checkPlayer = useCallback(async (username: string) => {
+		const playerSchema = z.object(
+			{
+				Name: z.string(),
+				Description: z.string(),
+				ShortDesc: z.string(),
+				Location: z.string(),
+		});
+
+		function validatePlayerObject(playerObject) {
+			const result = playerSchema.safeParse(userProfileJSON.egodeathplayer);
+			return result.success;
+		}
 		try {
-			if(!userProfileJSON.egodeathplayer){
-				createPlayerObject(username);
-				updateAccountMetadata(username, playerNumber);
+			if(!validatePlayerObject()){
+				updateAccountMetadata(username);
 			}
 
 		} catch(error) {
 			console.error({ error })
 		} finally {}
-	}, [updateAccountMetadata, playerNumber, createPlayerObject, userProfileJSON]);
+	}, [updateAccountMetadata, userProfileJSON]);
 
 	return (
 		<div className="App">
