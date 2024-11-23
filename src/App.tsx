@@ -25,21 +25,6 @@ function App() {
 
 	window.onload = initializeKeychain;
 
-	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
-	const [isSignedIn, setIsSignedIn] = useState(false);
-		//const [submittingData, setsubmittingData] = useState(false);
-	const [username, setUsername] = useState('');
-	const [roomdata, setRoomData] = useState({});
-	const [dataFetched, setDataFetched] = useState(false);
-	const [profileFetched, setprofileFetched] = useState(false);
-	const [userGreeted, setUserGreeted] = useState(false);
-	//const [playerNumber, setplayerNumber] = useState('');
-	const [userProfileJSON, setuserProfileJSON] = useState({});
-
-	const outPut = (texttooutput: string) => {
-		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput}]);
-	};
-
 	const gameGreeting = [
 		"If you've arrived here by accident and do not have a Hive account. ",
 		"Please make your way to https://ecency.com/ to create an account.",
@@ -47,22 +32,51 @@ function App() {
 		"If this is successful you will see a button on the top right which shows your username." 
 		];
 
+	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const [errorMessage, setErrorMessage] = useState(null);
+	const [username, setUsername] = useState('');
+	const [roomdata, setRoomData] = useState({});
+	const [userProfileJSON, setuserProfileJSON] = useState({});
+	const [userGreeted, setUserGreeted] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
+	const [isLoaded, setisLoaded] = useState(false);
+	const [isSignedIn, setIsSignedIn] = useState(false);
+
+	const outPut = (texttooutput: string) => {
+		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput}]);
+	};
+
+	const fetchData = useMemo(() => async () => {
+		
+		setIsLoading(true);
+		setErrorMessage(null);
+
+		try {
+
+			const accountInfo = await client.database.getAccounts([username]);
+			const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+			setuserProfileJSON(currentMetadata);
+			const playerLocation = currentMetadata.egodeathplayer.Location;
+			const transactionData = await client.database.getTransaction(playerLocation);
+			const roomReference = JSON.parse(transactionData.operations[0][1].json).Room.ReferencePost;
+			const roomData = await client.database.getTransaction(roomReference);
+
+			setRoomData(roomData.operations[0][1]);
+			setisLoaded(true);
+		} catch (error) {
+			setErrorMessage('Error fetching data');
+			console.error('Error fetching data:', error);
+		} finally {
+			setIsLoading(false);
+		}		
+	}, [client.database, username]);
+
 	useEffect(() => {
-		if (isSignedIn && !profileFetched) {
-			const fetchData = async () => {
-				try {
-					const accountInfo = await client.database.getAccounts([username]);
-					const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-					setuserProfileJSON(currentMetadata);
-					setprofileFetched(true);
-				} catch (error) {
-					console.error('Error fetching user profile:', error);
-				} finally {}
-			}
+		if (isSignedIn && !isLoading && !isLoaded) {
 			fetchData();
 		}
-
-	}, [client.database, isSignedIn, profileFetched, username]);
+	}, [username, isLoading, fetchData, isLoaded, isSignedIn]);
 
 	if (!userGreeted && !isSignedIn) {
 		gameGreeting.forEach((item, index) => {
@@ -82,7 +96,6 @@ function App() {
 		try {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const login = await keychain.login(data as Login);
-
 		} catch (error) {
 			console.error("Login error:", error);
 		} finally {
@@ -94,30 +107,6 @@ function App() {
 		setIsSignedIn(false);
 		setUsername('');
 	};
-
-	useEffect(() => {
-		if (!dataFetched && profileFetched) {
-			try {
-				const fetchData = async () => {
-					try {
-						const playerlocation = userProfileJSON.egodeathplayer.Location;
-						const obtainroomdata = await client.database.getTransaction(playerlocation);
-						const processRoomdata = JSON.parse(obtainroomdata.operations[0][1].json).Room.ReferencePost;
-						const fetchtheactualdesc = await client.database.getTransaction(processRoomdata);
-						const arewefinallydoneyet = fetchtheactualdesc.operations[0][1];
-						setRoomData(arewefinallydoneyet);
-						setDataFetched(true);
-					} catch (error) {
-						console.error('Error fetching data:', error);
-					} finally {}
-				};
-				fetchData();
-			} catch (error) {
-				console.error('Error in populateRoomdata:', error);
-			} finally {}
-		}
-
-	}, [dataFetched, client.database, profileFetched, userProfileJSON]);
 
 	const handleTextEntered = (enteredText: string) => {
 		switch(enteredText.toLowerCase().split(/\s+/)[0]) {
@@ -154,10 +143,15 @@ function App() {
 	useEffect(() => {
 		if (username) {
 			handleSignIn(username);
+		}
+	}, [username, handleSignIn]);
+
+	useEffect(() => {
+		if (roomdata) {
 			outPut(roomdata.title);
 			outPut(roomdata.body);
 		}
-	}, [username, handleSignIn, roomdata]);
+	}, [roomdata]);
 
 	const updateAccountMetadata = useCallback(async (username: string) => {
 		try {
