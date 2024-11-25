@@ -38,14 +38,23 @@ function App() {
 	const [username, setUsername] = useState('');
 	const [roomdata, setRoomData] = useState({});
 	const [userProfileJSON, setuserProfileJSON] = useState({});
+	const [gameJSON, setgameJSON] = useState({});
 	const [userGreeted, setUserGreeted] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isLoaded, setisLoaded] = useState(false);
 	const [isSignedIn, setIsSignedIn] = useState(false);
 
-	const outPut = (texttooutput: string) => {
-		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput}]);
+	const outPut = (texttooutput: string, bold?: boolean) => {
+		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput, bold: bold}]);
 	};
+
+	useEffect(() => {
+		if (roomdata) {
+			outPut(roomdata.title, true);
+			outPut(roomdata.body);
+
+		}
+	}, [roomdata]);
 
 	const fetchData = useMemo(() => async () => {
 		
@@ -55,28 +64,37 @@ function App() {
 		try {
 
 			const accountInfo = await client.database.getAccounts([username]);
+			const gameInfo = await client.database.getAccounts(["hive-109456"]);
 			const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+			const parsedgameInfo = JSON.parse(gameInfo[0].posting_json_metadata);
 			setuserProfileJSON(currentMetadata);
+			setgameJSON(parsedgameInfo.egodeathgamedata.rooms_authors_exits);
 			const playerLocation = currentMetadata.egodeathplayer.Location;
-			const transactionData = await client.database.getTransaction(playerLocation);
-			const roomReference = JSON.parse(transactionData.operations[0][1].json).Room.ReferencePost;
-			const roomData = await client.database.getTransaction(roomReference);
-
-			setRoomData(roomData.operations[0][1]);
-			setisLoaded(true);
-		} catch (error) {
-			setErrorMessage('Error fetching data');
-			console.error('Error fetching data:', error);
-		} finally {
-			setIsLoading(false);
-		}		
-	}, [client.database, username]);
+			const transactionData = await client.database.call('get_content', [playerLocation.author, playerLocation.permlink]);
+			function findroomexitsIngameData(object1, object2List) {
+				for (const obj of object2List) {
+					if (obj.permlink === object1.permlink && obj.author === object1.author) {
+						return obj.exits;
+					}
+				}
+  return null; // Or handle the case where no match is found
+ }
+ const currentroomexits = await findroomexitsIngameData(playerLocation, gameJSON);
+ const roomData = await {"body":transactionData.body, "title":transactionData.title, "exits": currentroomexits};
+ setRoomData(roomData);
+ setisLoaded(true);
+} catch (error) {
+	setErrorMessage('Error fetching data');
+	console.error('Error fetching data:', error);
+} finally {
+	setIsLoading(false);
+}		
+}, [client.database, username, setgameJSON, gameJSON]);
 
 	useEffect(() => {
 		if (isSignedIn && !isLoading && !isLoaded) {
 			fetchData();
-		}
-	}, [username, isLoading, fetchData, isLoaded, isSignedIn]);
+	}, [username, isLoading, fetchData, isLoaded, isSignedIn];
 
 	if (!userGreeted && !isSignedIn) {
 		gameGreeting.forEach((item, index) => {
@@ -126,6 +144,7 @@ function App() {
 
 			if(isSignedIn) {
 				checkPlayer(username);
+				console.log(gameJSON);
 			}
 			break;
 
@@ -146,13 +165,6 @@ function App() {
 		}
 	}, [username, handleSignIn]);
 
-	useEffect(() => {
-		if (roomdata) {
-			outPut(roomdata.title);
-			outPut(roomdata.body);
-		}
-	}, [roomdata]);
-
 	const updateAccountMetadata = useCallback(async (username: string) => {
 		try {
 			let currentMetadata = userProfileJSON;
@@ -160,7 +172,7 @@ function App() {
 			{"Name":username,
 			"Description":"We really should define this but oh well.",
 			"ShortDesc":"How do you imagine we have a short if we don't a long?",
-			"Location":"e30c67b655856c3932de9c46da4d359a9c1fd614"} //This has to be the starting room object
+			"Location":{"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"}} //This has to be the starting room object
 
 			delete currentMetadata.reputation;
 
@@ -198,7 +210,7 @@ function App() {
 			return result.success;
 		}
 		try {
-			if(!validatePlayerObject()){
+			if(validatePlayerObject()){
 				updateAccountMetadata(username);
 			}
 
