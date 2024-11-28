@@ -144,14 +144,17 @@ function App() {
 		}
 	};
 
-	const updateAccountMetadata = useCallback(async (username: string) => {
+	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
+	//set the short desc and be used when we move the player!
+
+	const updatePlayerData = useCallback(async (username: string, desc?: string, shortdesc?: string, newlocation?: string) => {
 		try {
 			let currentMetadata = userProfileJSON;
 			currentMetadata.egodeathplayer = 
 			{"Name":username,
-			"Description":"We really should define this but oh well.",
-			"ShortDesc":"How do you imagine we have a short if we don't a long?",
-			"Location":{"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"}} //This has to be the starting room object
+			"Description":"We really should define this but oh well." || desc,
+			"ShortDesc":"How do you imagine we have a short if we don't a long?" || shortdesc,
+			"Location":{"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"} || newlocation} //This has to be the starting room object
 
 			delete currentMetadata.reputation;
 
@@ -197,7 +200,7 @@ function App() {
 		} catch(error) {
 			console.error({ error })
 		} finally {}
-	}, [updateAccountMetadata, userProfileJSON]);
+	}, [userProfileJSON]);
 
 	useEffect(() => {
 		if (username) {
