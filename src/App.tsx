@@ -48,21 +48,10 @@ function App() {
 		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput, bold: bold}]);
 	};
 
-	useEffect(() => {
-		if (roomdata) {
-			outPut(roomdata.title, true);
-			outPut(roomdata.body);
-
-		}
-	}, [roomdata]);
-
 	const fetchData = useMemo(() => async () => {
-		
 		setIsLoading(true);
 		setErrorMessage(null);
-
 		try {
-
 			const accountInfo = await client.database.getAccounts([username]);
 			const gameInfo = await client.database.getAccounts(["hive-109456"]);
 			const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
@@ -71,30 +60,27 @@ function App() {
 			setgameJSON(parsedgameInfo.egodeathgamedata.rooms_authors_exits);
 			const playerLocation = currentMetadata.egodeathplayer.Location;
 			const transactionData = await client.database.call('get_content', [playerLocation.author, playerLocation.permlink]);
-			function findroomexitsIngameData(object1, object2List) {
-				for (const obj of object2List) {
-					if (obj.permlink === object1.permlink && obj.author === object1.author) {
-						return obj.exits;
-					}
-				}
-  return null; // Or handle the case where no match is found
- }
- const currentroomexits = await findroomexitsIngameData(playerLocation, gameJSON);
- const roomData = await {"body":transactionData.body, "title":transactionData.title, "exits": currentroomexits};
- setRoomData(roomData);
- setisLoaded(true);
-} catch (error) {
-	setErrorMessage('Error fetching data');
-	console.error('Error fetching data:', error);
-} finally {
-	setIsLoading(false);
-}		
-}, [client.database, username, setgameJSON, gameJSON]);
-
-	useEffect(() => {
-		if (isSignedIn && !isLoading && !isLoaded) {
-			fetchData();
-	}, [username, isLoading, fetchData, isLoaded, isSignedIn];
+			for (const obj in parsedgameInfo.egodeathgamedata.rooms_authors_exits) {
+				if (obj === playerLocation.permlink) {
+					let foundexits = parsedgameInfo.egodeathgamedata.rooms_authors_exits[obj].exits;
+					const obtaineddata = {
+						"body":transactionData.body, 
+						"title":transactionData.title, 
+						"exits": foundexits, 
+						"author":playerLocation.author, 
+						"permlink":playerLocation.permlink
+					};
+					setRoomData(obtaineddata);
+				};
+			};
+			setisLoaded(true);
+		} catch (error) {
+			setErrorMessage('Error fetching data');
+			console.error('Error fetching data:', error);
+		} finally {
+			setIsLoading(false);
+		}		
+	}, [client.database, username, setgameJSON]);
 
 	if (!userGreeted && !isSignedIn) {
 		gameGreeting.forEach((item, index) => {
@@ -119,7 +105,7 @@ function App() {
 		} finally {
 			setIsSignedIn(true);
 		}
-	}, [ keychain ]);
+	}, [keychain]);
 
 	const handleSignOut = () => {
 		setIsSignedIn(false);
@@ -143,8 +129,7 @@ function App() {
 		case "checkme":
 
 			if(isSignedIn) {
-				checkPlayer(username);
-				console.log(gameJSON);
+ 			checkPlayer(username);
 			}
 			break;
 
@@ -158,12 +143,6 @@ function App() {
 			break;
 		}
 	};
-
-	useEffect(() => {
-		if (username) {
-			handleSignIn(username);
-		}
-	}, [username, handleSignIn]);
 
 	const updateAccountMetadata = useCallback(async (username: string) => {
 		try {
@@ -206,18 +185,40 @@ function App() {
 		});
 
 		function validatePlayerObject(playerObject) {
-			const result = playerSchema.safeParse(userProfileJSON.egodeathplayer);
+			const result = playerSchema.safeParse(playerObject);
 			return result.success;
 		}
 		try {
-			if(validatePlayerObject()){
-				updateAccountMetadata(username);
+			if(!validatePlayerObject(userProfileJSON.egodeathplayer)){
+				console.log(userProfileJSON.egodeathplayer);
+				//updateAccountMetadata(username);
 			}
 
 		} catch(error) {
 			console.error({ error })
 		} finally {}
 	}, [updateAccountMetadata, userProfileJSON]);
+
+	useEffect(() => {
+		if (username) {
+			handleSignIn(username);
+		}
+	}, [username, handleSignIn]);
+
+	useEffect(() => {
+		if (isSignedIn && !isLoading && !isLoaded) {
+			fetchData();
+		}
+	}, [isLoading, fetchData, isLoaded, isSignedIn]);
+
+	useEffect(() => {
+		if (roomdata && isLoaded) {
+			outPut(roomdata.title, true);
+			outPut(roomdata.body);
+			outPut("There is a way to leave: ");
+			outPut(Object.keys(roomdata.exits)[0], true);
+		}
+	}, [roomdata, isLoaded]);
 
 	return (
 		<div className="App">
