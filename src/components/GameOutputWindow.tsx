@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useLayoutEffect } from 'react';
 
 export interface GameOutputMessage {
   // Define the type of each message in the output.
@@ -15,14 +15,14 @@ interface GameOutputWindowProps {
 function GameOutputWindow({ output }: GameOutputWindowProps) {
   const outputRef = useRef<HTMLDivElement>(null); // Correct type
 
-  useEffect(() => {
-    if (outputRef.current) {
-    outputRef.current.scrollTo(0, outputRef.current.scrollHeight); // Type assertion
+  useLayoutEffect(() => {
+  if (outputRef.current) {
+    outputRef.current.scrollTo(0, outputRef.current.scrollHeight); // Scroll on every output change
   }
 }, [output]); // Dependency array includes output
 
   return (
-    <div className="GameOutputWindow">
+    <div className="GameOutputWindow" ref={outputRef}>
     {output.map((message: GameOutputMessage, index: number) => (
       <p key={index}>
       {message.bold ? (

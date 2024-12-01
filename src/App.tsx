@@ -155,7 +155,6 @@ function App() {
 
 	const movePlayer = (username: string, permlink: string) => {
 		const location = gameJSON[permlink];
-		console.log(location);
 		updatePlayerData(username, {
 			newlocation: {
 				"permlink": permlink,
