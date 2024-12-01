@@ -111,6 +111,7 @@ function App() {
 		setUsername('');
 	};
 
+
 	const handleTextEntered = (enteredText: string) => {
 		const words = enteredText.toLowerCase().split(" ");
 		
@@ -118,7 +119,7 @@ function App() {
 		
 		if(isLoaded && isSignedIn) {
 			if (firstword in roomdata.exits) {
-				console.log("We will move to:", firstword);
+				movePlayer(username, roomdata.exits[firstword]);
 			} 
 		} else {
 			switch(firstword) {
@@ -152,17 +153,45 @@ function App() {
 		};
 	}
 
+	const movePlayer = (username: string, permlink: string) => {
+		const location = gameJSON[permlink];
+		console.log(location);
+		updatePlayerData(username, {
+			newlocation: {
+				"permlink": permlink,
+				"author": location.author
+			}
+		})
+		.then(() => {
+			fetchData();
+		})
+		.catch((error) => {
+			console.error('Error updating player location:', error);
+		});
+		return;
+		
+	};
+
+
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
 
-	const updatePlayerData = useCallback(async (username: string, desc?: string, shortdesc?: string, newlocation?: string) => {
+	const updatePlayerData = useCallback(async (username: string, options?: {
+		desc?: string,
+		shortdesc?: string,
+		newlocation?: {
+			permlink: string,
+			author: string
+		}
+	}) => {
 		try {
 			let currentMetadata = userProfileJSON;
 			currentMetadata.egodeathplayer = 
 			{"Name":username,
-			"Description":"We really should define this but oh well." || desc,
-			"ShortDesc":"How do you imagine we have a short if we don't a long?" || shortdesc,
-			"Location":{"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"} || newlocation} //This has to be the starting room object
+			"Description":options?.desc || "We really should define this but oh well.",
+			"ShortDesc":options?.shortdesc || "How do you imagine we have a short if we don't a long?",
+			"Location":options?.newlocation || {"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"}
+			} //This has to be the starting room object
 
 			delete currentMetadata.reputation;
 
