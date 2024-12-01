@@ -12,18 +12,17 @@ import gameObjects from './modules/gameObjects';
 
 function App() {
 
-	const client = new Client(["https://api.hive.blog",
-		"https://api.hivekings.com",
-		"https://anyx.io",
-		"https://api.openhive.network"]);
+	const hivenode = 'https://api.hive.blog'
 
-	const keychain = useMemo(() => new KeychainSDK(window, { rpc: 'https://api.hive.blog' }), []);
+	const client = useMemo(() => new Client([hivenode]), []);
+
+	const keychain = useMemo(() => new KeychainSDK(window, {rpc:hivenode}), []);
 
 	async function initializeKeychain() {
 		await keychain.isKeychainInstalled();
 	};
 
-	window.onload = initializeKeychain;
+	window.onload = initializeKeychain();
 
 	const gameGreeting = [
 		"If you've arrived here by accident and do not have a Hive account. ",
@@ -75,7 +74,7 @@ function App() {
 			};
 			setisLoaded(true);
 		} catch (error) {
-			setErrorMessage('Error fetching data');
+			setErrorMessage('Error fetching data.');
 			console.error('Error fetching data:', error);
 		} finally {
 			setIsLoading(false);
@@ -113,36 +112,45 @@ function App() {
 	};
 
 	const handleTextEntered = (enteredText: string) => {
-		switch(enteredText.toLowerCase().split(/\s+/)[0]) {
+		const words = enteredText.toLowerCase().split(" ");
+		
+		const firstword = words[0];
+		
+		if(isLoaded && isSignedIn) {
+			if (firstword in roomdata.exits) {
+				console.log("We will move to:", firstword);
+			} 
+		} else {
+			switch(firstword) {
+			case "login":
 
-		case "login":
+				if(isSignedIn) {
+					outPut("You are already signed in!");
+				} else {
+					const tempuser = enteredText.split(/\s+/)[1];
+					setUsername(tempuser);
+					setGameOutputMessage([]);
+				}
+				break;
 
-			if(isSignedIn) {
-				outPut("You are already signed in!");
-			} else {
-				const tempuser = enteredText.split(/\s+/)[1];
-				setUsername(tempuser);
-				setGameOutputMessage([]);
+			case "checkme":
+
+				if(isSignedIn) {
+					checkPlayer(username);
+				}
+				break;
+
+			default:
+
+				if(!isSignedIn){
+					outPut("You can't do much without signing in! Type 'login' 'your hive username'");
+				} else {
+					outPut(enteredText);  
+				}
+				break;
 			}
-			break;
-
-		case "checkme":
-
-			if(isSignedIn) {
- 			checkPlayer(username);
-			}
-			break;
-
-		default:
-
-			if(!isSignedIn){
-				outPut("You can't do much without signing in! Type 'login' 'your hive username'");
-			} else {
-				outPut(enteredText);  
-			}
-			break;
-		}
-	};
+		};
+	}
 
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
@@ -219,7 +227,9 @@ function App() {
 			outPut(roomdata.title, true);
 			outPut(roomdata.body);
 			outPut("There is a way to leave: ");
-			outPut(Object.keys(roomdata.exits)[0], true);
+			for(const exit in Object.keys(roomdata.exits)) {
+				outPut(Object.keys(roomdata.exits)[exit], true);
+			}
 		}
 	}, [roomdata, isLoaded]);
 
