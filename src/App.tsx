@@ -114,15 +114,23 @@ function App() {
 
 	const handleTextEntered = (enteredText: string) => {
 		const words = enteredText.toLowerCase().split(" ");
+		const characters = words[0].split('');
 		
 		const firstword = words[0];
+		const firstcharacter = characters[0];
 		
 		if(isLoaded && isSignedIn) {
 			if (firstword in roomdata.exits) {
+				console.log(firstcharacter)
+				//console.log(firstcharacter);
 				movePlayer(username, roomdata.exits[firstword]);
 			} 
 		} else {
 			switch(firstword) {
+			case "look":
+				displayRoom();
+				break;
+
 			case "login":
 
 				if(isSignedIn) {
@@ -244,6 +252,15 @@ function App() {
 		}
 	}, [username, handleSignIn]);
 
+	const displayRoom = useCallback(() => {
+		outPut(roomdata.title, true);
+		outPut(roomdata.body);
+		outPut("There is a way to leave: ");
+		for(const exit in Object.keys(roomdata.exits)) {
+			outPut(Object.keys(roomdata.exits)[exit], true);
+		}
+	}, [roomdata])
+
 	useEffect(() => {
 		if (isSignedIn && !isLoading && !isLoaded) {
 			fetchData();
@@ -252,14 +269,9 @@ function App() {
 
 	useEffect(() => {
 		if (roomdata && isLoaded) {
-			outPut(roomdata.title, true);
-			outPut(roomdata.body);
-			outPut("There is a way to leave: ");
-			for(const exit in Object.keys(roomdata.exits)) {
-				outPut(Object.keys(roomdata.exits)[exit], true);
-			}
-		}
-	}, [roomdata, isLoaded]);
+			displayRoom();
+		};
+	}, [roomdata, isLoaded, displayRoom]);
 
 	return (
 		<div className="App">
