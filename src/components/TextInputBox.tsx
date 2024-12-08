@@ -22,6 +22,7 @@ export default function TextInputBox({ onEnterPressed }: TextInputBoxProps) {
       value={inputValue}
       onChange={(event) => setInputValue(event.target.value)}
       onKeyDown={handleKeyDown}
+      autoFocus
     />
   );
 }
