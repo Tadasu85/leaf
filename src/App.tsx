@@ -9,7 +9,6 @@ import { z } from 'zod';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import gameObjects from './modules/gameObjects';
 
-
 function App() {
 
 	const hivenode = 'https://api.hive.blog'
@@ -31,139 +30,16 @@ function App() {
 		"If this is successful you will see your username in the top right." 
 		];
 
-	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const [errorMessage, setErrorMessage] = useState(null);
+	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);	
 	const [username, setUsername] = useState('');
 	const [roomdata, setRoomData] = useState({});
 	const [userProfileJSON, setuserProfileJSON] = useState({});
 	const [gameJSON, setgameJSON] = useState({});
 	const [userGreeted, setUserGreeted] = useState(false);
-	const [isLoading, setIsLoading] = useState(false);
-	const [isLoaded, setisLoaded] = useState(false);
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	const [isLoadedGame, setIsLoadedGame] = useState(false);
+	const [isLoadedPlayer, setIsLoadedPlayer] = useState(false);
 	const [isSignedIn, setIsSignedIn] = useState(false);
-
-	function handleTextEntered(enteredText: string): enteredText{
-		if(!isSignedIn){
-			outPut("You can't do much without signing in! Type 'login' 'your hive username'");
-		};
-		const words = enteredText.toLowerCase().split(" ");
-	//const characters = words[0].split('');
-
-		const firstword = words[0];
-	//const firstcharacter = characters[0];
-
-		if(isLoaded && isSignedIn) {
-			if (firstword in roomdata.exits) {
-				movePlayer(username, roomdata.exits[firstword]);
-			} 
-		} else {
-			switch(firstword) {
-			case "look":
-				displayRoom();
-				break;
-
-			case "login":
-
-				if(isSignedIn) {
-					outPut("You are already signed in!");
-				} else {
-					const tempuser = enteredText.split(/\s+/)[1];
-					setUsername(tempuser);
-					setGameOutputMessage([]);
-				}
-				break;
-
-			default:
-				outPut("I don't know what you want to do.")
-				break;
-			}
-		};
-	}
-
-	const outPut = (texttooutput: string, bold?: boolean) => {
-		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput, bold: bold}]);
-	};
-
-	const fetchData = useCallback(async(username: string)  => {
-		setIsLoading(true);
-		setErrorMessage(null);
-		try {
-			const accountInfo = await client.database.getAccounts([username]);
-			if(!accountInfo[0].posting_json_metadata) {
-				checkPlayer(username);
-			};
-			const gameInfo = await client.database.getAccounts(["hive-109456"]);
-			const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-			
-			const parsedgameInfo = JSON.parse(gameInfo[0].posting_json_metadata);
-			setuserProfileJSON(currentMetadata);
-			setgameJSON(parsedgameInfo.egodeathgamedata.rooms_authors_exits);
-			const playerLocation = currentMetadata.egodeathplayer.Location;
-			const transactionData = await client.database.call('get_content', [playerLocation.author, playerLocation.permlink]);
-			for (const obj in parsedgameInfo.egodeathgamedata.rooms_authors_exits) {
-				if (obj === playerLocation.permlink) {
-					let foundexits = parsedgameInfo.egodeathgamedata.rooms_authors_exits[obj].exits;
-					const obtaineddata = {
-						"body":transactionData.body, 
-						"title":transactionData.title, 
-						"exits": foundexits, 
-						"author":playerLocation.author, 
-						"permlink":playerLocation.permlink
-					};
-					setRoomData(obtaineddata);
-				};
-			};
-			setisLoaded(true);
-		} catch (error) {
-			setErrorMessage('Error fetching data.');
-			console.error('Error fetching data:', error);
-		} finally {
-			setIsLoading(false);
-		}		
-	}, [client, setgameJSON, checkPlayer]);
-
-	const handleSignIn = useCallback(async (username: string) => {
-		if(!isSignedIn) {
-			const data: Login = {
-				"username": username,
-				"message": "{\"login\":\"123\"}",
-				"method": KeychainKeyTypes.posting,
-				"title": "Login"
-			};
-
-			try {
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-				const login = await keychain.login(data as Login);
-			} catch (error) {
-				console.error("Login error:", error);
-			} finally {
-				setIsSignedIn(true);
-			}
-		}
-	}, [keychain, isSignedIn]);
-
-	const handleSignOut = () => {
-		setIsSignedIn(false);
-		setUsername('');
-	};
-
-	const movePlayer = (username: string, permlink: string) => {
-		const location = gameJSON[permlink];
-		updatePlayerData(username, {
-			newlocation: {
-				"permlink": permlink,
-				"author": location.author
-			}
-		})
-		.then(() => {
-			fetchData();
-		})
-		.catch((error) => {
-			console.error('Error updating player location:', error);
-		});
-		return;
-	};
 
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
@@ -207,8 +83,150 @@ function App() {
 		} finally {}
 	}, [ keychain, userProfileJSON]);
 
-	
+	const fetchPlayerData = useCallback(async(username: string)  => {
+		setIsLoadedPlayer(false);
+		try {
+			const accountInfo = await client.database.getAccounts([username]);
+			if(!accountInfo[0].posting_json_metadata) {
+				updatePlayerData(username);
+			} else {
+				const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+				setuserProfileJSON(currentMetadata);
+				const playerLocation = await currentMetadata.egodeathplayer.Location;
+				const transactionData = await client.database.call('get_content', [playerLocation.author, playerLocation.permlink]);
+				for (const obj in gameJSON) {
+					if (obj === playerLocation.permlink) {
+						let foundexits = gameJSON[obj].exits;
+						const obtaineddata = {
+							"body":transactionData.body, 
+							"title":transactionData.title, 
+							"exits": foundexits, 
+							"author":playerLocation.author, 
+							"permlink":playerLocation.permlink
+						};
+						setRoomData(obtaineddata);
+					};
+				};
+			}
+		} catch (error) {
+			console.error('Error fetching data:', error);
+		} finally {
+			setIsLoadedPlayer(true);
+			console.log("userprofilejson", userProfileJSON);
+			console.log("Roomdata", roomdata);
+		}		
+	}, [client, updatePlayerData, gameJSON, userProfileJSON, roomdata]);
 
+	const fetchgameData = useCallback(async()  => {
+		setIsLoadedGame(false);
+		try {
+			const gameInfo = await client.database.getAccounts(["hive-109456"]);	
+			const parsedgameInfo = JSON.parse(gameInfo[0].posting_json_metadata);
+			setgameJSON(parsedgameInfo.egodeathgamedata.rooms_authors_exits);
+		} catch (error) {
+			
+			console.error('Error fetching data:', error);
+		} finally {
+			setIsLoadedGame(true);
+		}		
+	}, [client, setgameJSON]);
+
+	const displayRoom = useCallback(() => {
+		outPut(roomdata.title, true);
+		outPut(roomdata.body);
+		outPut("There is a way to leave: ");
+		for(const exit in Object.keys(roomdata.exits)) {
+			outPut(Object.keys(roomdata.exits)[exit], true);
+		}
+	}, [roomdata]);
+
+	function handleTextEntered(enteredText: string): enteredText{
+		if(!isSignedIn){
+			outPut("You can't do much without signing in! Type 'login' 'your hive username'");
+		};
+		const words = enteredText.toLowerCase().split(" ");
+	//const characters = words[0].split('');
+
+		const firstword = words[0];
+	//const firstcharacter = characters[0];
+
+		if(isLoadedPlayer && isSignedIn) {
+			if (firstword in roomdata.exits) {
+				movePlayer(username, roomdata.exits[firstword]);
+			} 
+		} else {
+			switch(firstword) {
+			case "look":
+				console.log("In handled.");
+				displayRoom();
+				break;
+
+			case "login":
+
+				if(isSignedIn) {
+					outPut("You are already signed in!");
+				} else {
+					const tempuser = enteredText.split(/\s+/)[1];
+					setUsername(tempuser);
+					setGameOutputMessage([]);
+				}
+				break;
+
+			default:
+				outPut("I don't know what you want to do.")
+				break;
+			}
+		};
+	}
+
+	const outPut = (texttooutput: string, bold?: boolean) => {
+		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput, bold: bold}]);
+	};
+
+	const handleSignIn = useCallback(async (username: string) => {
+		if(!isSignedIn) {
+			const data: Login = {
+				"username": username,
+				"message": "{\"login\":\"123\"}",
+				"method": KeychainKeyTypes.posting,
+				"title": "Login"
+			};
+
+			try {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				const login = await keychain.login(data as Login);
+			} catch (error) {
+				console.error("Login error:", error);
+			} finally {
+				setIsSignedIn(true);
+			}
+		}
+	}, [keychain, isSignedIn]);
+
+	const handleSignOut = () => {
+		setIsSignedIn(false);
+		setUsername('');
+	};
+
+	const movePlayer = (username: string, permlink: string) => {
+		const location = gameJSON[permlink];
+		updatePlayerData(username, {
+			newlocation: {
+				"permlink": permlink,
+				"author": location.author
+			}
+		})
+		.then(() => {
+			fetchgameData();
+			fetchPlayerData(username);
+		})
+		.catch((error) => {
+			console.error('Error updating player location:', error);
+		});
+		return;
+	};
+
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	const checkPlayer = useCallback(async (username: string) => {
 		const playerSchema = z.object(
 		{
@@ -232,17 +250,8 @@ function App() {
 		} finally {}
 	}, [userProfileJSON, updatePlayerData]);
 
-	const displayRoom = useCallback(() => {
-		outPut(roomdata.title, true);
-		outPut(roomdata.body);
-		outPut("There is a way to leave: ");
-		for(const exit in Object.keys(roomdata.exits)) {
-			outPut(Object.keys(roomdata.exits)[exit], true);
-		}
-	}, [roomdata]);
 
 	if (!userGreeted && !isSignedIn) {
-		//console.log(gameGreeting);
 		gameGreeting.forEach((item, index) => {
 			outPut(item);
 		});
@@ -250,17 +259,19 @@ function App() {
 	};	
 
 	useEffect(() => {
+		if (!isLoadedGame) {
+			fetchgameData()
+		}
 		if (username) {
 			handleSignIn(username);
 		};
-		if (isSignedIn && !isLoading && !isLoaded) {
-			fetchData();
+		if (isSignedIn && !isLoadedPlayer) {
+			fetchPlayerData(username);
 		};
-		if (roomdata && !isLoading && isLoaded) {
-			checkPlayer(username);
+		if (roomdata && isLoadedPlayer && isLoadedGame) {
 			displayRoom();
 		};
-	}, [username, handleSignIn,isLoading, fetchData, isLoaded, isSignedIn, roomdata, displayRoom, checkPlayer ]);
+	}, [username, isLoadedGame, handleSignIn, fetchPlayerData, fetchgameData, isSignedIn, roomdata, displayRoom, isLoadedPlayer ]);
 
 
 	return (
