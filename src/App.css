@@ -1,0 +1,86 @@
+.App {
+  height: 100vh;
+  width: 100%;
+}
+
+.App-header {
+  background-color: #690979;
+  min-height: 10vh;
+  display: grid;
+  align-items: center;
+}
+
+.Title {
+  padding-top: 2vh;
+  justify-self: center;
+  font-family: "Lucida Console", "Courier New", monospace;
+  font-size: calc(30px + 2vmin);
+  color: #796909;
+}
+
+.GameOutputWindow {
+  text-align: left;
+  overflow: auto;
+  width: 86vw; 
+  height: 70vh;
+  max-height: 70vh;
+  background-color: white;
+  margin-left: 5vw;
+  padding-top: 1vmin;
+  margin-right: 5vw;
+}
+
+.game-output {
+  height: 100%; 
+  overflow: auto;
+  font-size: calc(1px + 2vmin);
+  margin-left: 5vmin;
+}
+
+.SignOutButton {
+  justify-self: right;
+  margin-right: 2vw;
+  min-height: 5vh;
+  min-width: 5vw;
+  background-color: #690979;
+  color: white;
+  text-decoration-color: black;
+}
+
+.TextInputBox {
+  width: 95vw; 
+  overflow: auto;
+  margin-left: 5vw;
+  margin-right: 5vw;
+}
+
+img[alt*="ProfileImage"] {
+  height: 7vh;
+  border-radius: 50%;
+}
+
+p {
+  padding: 0;
+  margin: 0;
+  margin-left: 1vw;
+}
+
+button {
+  min-height: inherit;
+  background-color: #690979;
+  min-width: inherit;
+  font-style: normal;
+  font-family: "Lucida Console", "Courier New", monospace;
+  cursor: pointer; 
+}
+
+input {
+  cursor: inherit;
+  background-color: white;
+  width: 85vw;
+  font-family: "Lucida Console", "Courier New", monospace;
+}
+
+body {
+  background-color: #097969;
+}
