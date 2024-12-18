@@ -39,6 +39,7 @@ function App() {
 	const [userGreeted, setUserGreeted] = useState(false);
 	const [isLoadedGame, setIsLoadedGame] = useState(false);
 	const [isLoadedPlayer, setIsLoadedPlayer] = useState(false);
+	const [isLoading, setisLoading] = useState(false);
 	const [isSignedIn, setIsSignedIn] = useState(false);
 
 	const fetchgameData = useCallback(async()  => {
@@ -57,15 +58,19 @@ function App() {
 		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput, bold: bold}]);
 	}, []);
 
+	const isEmpty = (obj) => Object.keys(obj).length === 0;
+
 	const displayRoom = useCallback(() => {
-		if(roomdata && isSignedIn && setIsLoadedPlayer) {
-		outPut(roomdata.title, true);
-		outPut(roomdata.body);
-		outPut("There is a way to leave: ");
-		for(const exit in roomdata.exits) {
-			outPut(exit, true);
-		};
-	}
+		if(!isEmpty(roomdata) && isSignedIn && setIsLoadedPlayer) {
+			outPut(roomdata.title, true);
+			outPut(roomdata.body);
+			if (Object.keys(roomdata.exits).length > 0) {
+				outPut("There is a way to leave: "); 
+			};
+			for(const exit in roomdata.exits) {
+				outPut(exit, true);
+			};
+		}
 	}, [roomdata, isSignedIn, outPut]);
 
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
@@ -80,6 +85,7 @@ function App() {
 		}
 	}) => {
 		try {
+			console.log("We tried!")
 			let currentMetadata = userProfileJSON;
 			currentMetadata.egodeathplayer = 
 			{"Name":username,
@@ -105,10 +111,13 @@ function App() {
 				'method': KeychainKeyTypes.posting
 			}
 			console.log("from update:::", broadcastData);
-			//await keychain.broadcast(broadcastData as unknown as Broadcast);
+			const result = await keychain.broadcast(broadcastData as unknown as Broadcast);
+			console.log(result);
 		} catch (error) {
 			console.error('Error updating account metadata:', {error});
-		} finally {}
+		} finally {
+			
+		}
 	}, [ keychain, userProfileJSON]);
 
 	const fetchPlayerData = useCallback(async(username: string)  => {
@@ -117,7 +126,7 @@ function App() {
 			const accountInfo = await client.database.getAccounts([username]);
 			if(!accountInfo[0].posting_json_metadata) {
 				//console.log("Structure was wrong!");
-				updatePlayerData(username);
+				await updatePlayerData(username);
 			} else {
 				const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
 				setuserProfileJSON(currentMetadata);
@@ -142,64 +151,51 @@ function App() {
 		}
 	}, [client, updatePlayerData, gameJSON]);
 
-	const movePlayer = useCallback((username: string, permlink: string) => {
+	const movePlayer = useCallback(async(username: string, permlink: string) => {
 		const location = gameJSON[permlink];
+		console.log(location);
 		setIsLoadedPlayer(false);
-		updatePlayerData(username, {
+		await updatePlayerData(username, {
 			newlocation: {
 				"permlink": permlink,
 				"author": location.author
 			}
 		})
 		.then(() => {
-			fetchgameData();
-			setIsLoadedGame(true);
 			fetchPlayerData(username);
 			setIsLoadedPlayer(true);
 		})
 		.catch((error) => {
 			console.error('Error updating player location:', error);
 		});
-		return;
-	}, [fetchPlayerData, fetchgameData, gameJSON, updatePlayerData]);
+	}, [fetchPlayerData, gameJSON, updatePlayerData]);
 
 	const handleTextEntered = useCallback((enteredText: string): enteredText => {
+		const words = enteredText.toLowerCase().split(" ");
+		//const characters = words[0].split('');
+		//const firstcharacter = characters[0];
+		const firstword = words[0];
 		if(!isSignedIn){
 			outPut("You can't do much without signing in! Type 'login' 'your hive username'");
 		};
-		const words = enteredText.toLowerCase().split(" ");
-	//const characters = words[0].split('');
-
-		const firstword = words[0];
-	//const firstcharacter = characters[0];
-
+		if(firstword === "login") {
+			if(isSignedIn) {
+				outPut("You are already signed in!");
+			} else {
+				const tempuser = enteredText.split(/\s+/)[1];
+				setUsername(tempuser);
+				setGameOutputMessage([]);
+			}
+		}
+		if(firstword === "look") {
+			displayRoom();
+		}
 		if(isLoadedPlayer && isSignedIn) {
 			if (firstword in roomdata.exits) {
 				movePlayer(username, roomdata.exits[firstword]);
-			} 
-		} else {
-			switch(firstword) {
-			case "look":
-				console.log("This fired?")
 				displayRoom();
-				break;
-
-			case "login":
-
-				if(isSignedIn) {
-					outPut("You are already signed in!");
-				} else {
-					const tempuser = enteredText.split(/\s+/)[1];
-					setUsername(tempuser);
-					setGameOutputMessage([]);
-				}
-				break;
-
-			default:
-				outPut("I don't know what you want to do.")
-				break;
-			}
-		};
+			} 
+		}
 	}, [username, outPut, roomdata, movePlayer, isLoadedPlayer, isSignedIn, displayRoom]);
 
 	const handleSignIn = useCallback(async (username: string) => {
@@ -212,11 +208,13 @@ function App() {
 			};
 
 			try {
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				const login = await keychain.login(data as Login);
+				console.log(login);
 			} catch (error) {
 				console.error("Login error:", error);
 			} finally {
+				
 				setIsSignedIn(true);
 			}
 		}
@@ -243,7 +241,7 @@ function App() {
 		}
 		try {
 			if(!validatePlayerObject(userProfileJSON.egodeathplayer)){
-				updatePlayerData(username);
+				await updatePlayerData(username);
 			}
 
 		} catch(error) {
@@ -270,7 +268,7 @@ function App() {
 			fetchPlayerData(username);
 			setIsLoadedPlayer(true);
 		};
-		if (roomdata && isLoadedPlayer && isLoadedGame) {
+		if (!isEmpty(roomdata) && isLoadedPlayer && isLoadedGame) {
 			displayRoom();
 		};
 	}, 
