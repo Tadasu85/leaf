@@ -39,7 +39,7 @@ function App() {
 	const [userGreeted, setUserGreeted] = useState(false);
 	const [isLoadedGame, setIsLoadedGame] = useState(false);
 	const [isLoadedPlayer, setIsLoadedPlayer] = useState(false);
-	const [isLoading, setisLoading] = useState(false);
+	const [isDisplayed, setisDisplayed] = useState(false);
 	const [isSignedIn, setIsSignedIn] = useState(false);
 
 	const fetchgameData = useCallback(async()  => {
@@ -61,7 +61,7 @@ function App() {
 	const isEmpty = (obj) => Object.keys(obj).length === 0;
 
 	const displayRoom = useCallback(() => {
-		if(!isEmpty(roomdata) && isSignedIn && setIsLoadedPlayer) {
+		if(!isEmpty(roomdata) && isSignedIn && setIsLoadedPlayer && !isDisplayed) {
 			outPut(roomdata.title, true);
 			outPut(roomdata.body);
 			if (Object.keys(roomdata.exits).length > 0) {
@@ -71,12 +71,13 @@ function App() {
 				outPut(exit, true);
 			};
 		}
-	}, [roomdata, isSignedIn, outPut]);
+		setisDisplayed(true);
+	}, [roomdata, isSignedIn, outPut, isDisplayed]);
 
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
 
-	const updatePlayerData = useCallback(async (username: string, options?: {
+	const updatePlayerData = useCallback(async(username: string, options?: {
 		desc?: string,
 		shortdesc?: string,
 		newlocation?: {
@@ -85,7 +86,6 @@ function App() {
 		}
 	}) => {
 		try {
-			console.log("We tried!")
 			let currentMetadata = userProfileJSON;
 			currentMetadata.egodeathplayer = 
 			{"Name":username,
@@ -109,14 +109,10 @@ function App() {
 						]
 					],
 				'method': KeychainKeyTypes.posting
-			}
-			console.log("from update:::", broadcastData);
-			const result = await keychain.broadcast(broadcastData as unknown as Broadcast);
-			console.log(result);
+			};
+			await keychain.broadcast(broadcastData as unknown as Broadcast);
 		} catch (error) {
 			console.error('Error updating account metadata:', {error});
-		} finally {
-			
 		}
 	}, [ keychain, userProfileJSON]);
 
@@ -125,7 +121,6 @@ function App() {
 		try {
 			const accountInfo = await client.database.getAccounts([username]);
 			if(!accountInfo[0].posting_json_metadata) {
-				//console.log("Structure was wrong!");
 				await updatePlayerData(username);
 			} else {
 				const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
@@ -137,7 +132,7 @@ function App() {
 						let foundexits = gameJSON[obj].exits;
 						const obtaineddata = {
 							"body":transactionData.body, 
-							"title":transactionData.title, 
+							"title":transactionData.title,
 							"exits": foundexits, 
 							"author":playerLocation.author, 
 							"permlink":playerLocation.permlink
@@ -152,25 +147,25 @@ function App() {
 	}, [client, updatePlayerData, gameJSON]);
 
 	const movePlayer = useCallback(async(username: string, permlink: string) => {
-		const location = gameJSON[permlink];
-		console.log(location);
-		setIsLoadedPlayer(false);
-		await updatePlayerData(username, {
-			newlocation: {
-				"permlink": permlink,
-				"author": location.author
-			}
-		})
-		.then(() => {
-			fetchPlayerData(username);
+		try {
+			const location = gameJSON[permlink];
+			await updatePlayerData(username, {
+				newlocation: {
+					"permlink": permlink,
+					"author": location.author
+				}
+			})
+			await fetchPlayerData(username);
 			setIsLoadedPlayer(true);
-		})
-		.catch((error) => {
-			console.error('Error updating player location:', error);
-		});
+			setisDisplayed(false);
+		} catch(error) {
+			console.error(error);
+		} finally {
+
+		}
 	}, [fetchPlayerData, gameJSON, updatePlayerData]);
 
-	const handleTextEntered = useCallback((enteredText: string): enteredText => {
+	const handleTextEntered = useCallback(async(enteredText: string): enteredText => {
 		const words = enteredText.toLowerCase().split(" ");
 		//const characters = words[0].split('');
 		//const firstcharacter = characters[0];
@@ -186,17 +181,24 @@ function App() {
 				setUsername(tempuser);
 				setGameOutputMessage([]);
 			}
+		};
+		if(firstword === "test") {
+			const updateOptions = {
+				desc: "Something new?" 
+			};
+			const test = await updatePlayerData(username, updateOptions);
+			console.log(test.success);
 		}
 		if(firstword === "look") {
 			displayRoom();
 		}
 		if(isLoadedPlayer && isSignedIn) {
 			if (firstword in roomdata.exits) {
-				movePlayer(username, roomdata.exits[firstword]);
+				await movePlayer(username, roomdata.exits[firstword]);
 				displayRoom();
 			} 
 		}
-	}, [username, outPut, roomdata, movePlayer, isLoadedPlayer, isSignedIn, displayRoom]);
+	}, [username, outPut, roomdata, updatePlayerData, movePlayer, isLoadedPlayer, isSignedIn, displayRoom]);
 
 	const handleSignIn = useCallback(async (username: string) => {
 		if(!isSignedIn) {
@@ -210,11 +212,9 @@ function App() {
 			try {
 				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 				const login = await keychain.login(data as Login);
-				console.log(login);
 			} catch (error) {
 				console.error("Login error:", error);
 			} finally {
-				
 				setIsSignedIn(true);
 			}
 		}
@@ -232,7 +232,7 @@ function App() {
 			Name: z.string(),
 			Description: z.string(),
 			ShortDesc: z.string(),
-			Location: z.string(),
+			Location: z.object(),
 		});
 
 		function validatePlayerObject(playerObject: Object) {
@@ -268,12 +268,13 @@ function App() {
 			fetchPlayerData(username);
 			setIsLoadedPlayer(true);
 		};
-		if (!isEmpty(roomdata) && isLoadedPlayer && isLoadedGame) {
+		if (isDisplayed) {
+			console.log("isDisplayed changed!");
 			displayRoom();
 		};
 	}, 
 	[
-		username, isLoadedGame, handleSignIn, fetchPlayerData, 
+		username, isLoadedGame, handleSignIn, fetchPlayerData, isDisplayed, 
 		fetchgameData, isSignedIn, roomdata, displayRoom, isLoadedPlayer 
 		]);
 
