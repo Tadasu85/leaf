@@ -29,7 +29,7 @@ function App() {
 		"Please make your way to https://ecency.com/ to create an account.",
 		"Otherwise you may proceed with a login command by typing 'login' 'your hive username'",
 		"If this is successful you will see your username in the top right." 
-		];
+	];
 
 	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);	
 	const [username, setUsername] = useState('');
@@ -43,6 +43,7 @@ function App() {
 	const [isSignedIn, setIsSignedIn] = useState(false);
 
 	const fetchgameData = useCallback(async()  => {
+		console.log("Fetch game data fired!");
 		try {
 			setIsLoadedGame(false);
 			const gameInfo = await client.database.getAccounts(["hive-109456"]);
@@ -60,19 +61,18 @@ function App() {
 
 	const isEmpty = (obj) => Object.keys(obj).length === 0;
 
-	const displayRoom = useCallback(() => {
-		if(!isEmpty(roomdata) && isSignedIn && setIsLoadedPlayer && !isDisplayed) {
+	const displayRoom = useCallback(async() => {
+		if(await roomdata && !isDisplayed) {
 			outPut(roomdata.title, true);
-			outPut(roomdata.body);
-			if (Object.keys(roomdata.exits).length > 0) {
-				outPut("There is a way to leave: "); 
+			outPut(roomdata.body, false);
+			if (!isEmpty(roomdata)) {
+				outPut("There is a way to leave: ", false); 
 			};
 			for(const exit in roomdata.exits) {
 				outPut(exit, true);
 			};
 		}
-		setisDisplayed(true);
-	}, [roomdata, isSignedIn, outPut, isDisplayed]);
+	}, [roomdata, outPut, isDisplayed]);
 
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
@@ -87,12 +87,14 @@ function App() {
 	}) => {
 		try {
 			let currentMetadata = userProfileJSON;
-			currentMetadata.egodeathplayer = 
-			{"Name":username,
-			"Description":options?.desc || "We really should define this but oh well.",
-			"ShortDesc":options?.shortdesc || "How do you imagine we have a short if we don't a long?",
-			"Location":options?.newlocation || {"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"}
-			} //This has to be the starting room object
+			const currentPlayerData = currentMetadata.egodeathplayer || {}; 
+
+			currentMetadata.egodeathplayer = {
+				"Name": username,
+				"Description": options?.desc ?? currentPlayerData.Description ?? "We really should define this but oh well.", 
+				"ShortDesc": options?.shortdesc ?? currentPlayerData.ShortDesc ?? "How do you imagine we have a short if we don't a long?",
+				"Location": options?.newlocation ?? currentPlayerData.Location ?? {"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"}
+			}; 
 
 			delete currentMetadata.reputation;
 
@@ -106,15 +108,15 @@ function App() {
 							"json_metadata": "",
 							"posting_json_metadata": JSON.stringify(currentMetadata)
 						}
-						]
-					],
+					]
+				],
 				'method': KeychainKeyTypes.posting
 			};
 			await keychain.broadcast(broadcastData as unknown as Broadcast);
 		} catch (error) {
 			console.error('Error updating account metadata:', {error});
 		}
-	}, [ keychain, userProfileJSON]);
+	}, [keychain, userProfileJSON]);
 
 	const fetchPlayerData = useCallback(async(username: string)  => {
 		setIsLoadedPlayer(false);
@@ -138,6 +140,7 @@ function App() {
 							"permlink":playerLocation.permlink
 						};
 						setRoomData(obtaineddata);
+						setisDisplayed(false);
 					};
 				};
 			}
@@ -157,7 +160,6 @@ function App() {
 			})
 			await fetchPlayerData(username);
 			setIsLoadedPlayer(true);
-			setisDisplayed(false);
 		} catch(error) {
 			console.error(error);
 		} finally {
@@ -167,58 +169,64 @@ function App() {
 
 	const handleTextEntered = useCallback(async(enteredText: string): enteredText => {
 		const words = enteredText.toLowerCase().split(" ");
-		//const characters = words[0].split('');
-		//const firstcharacter = characters[0];
 		const firstword = words[0];
-		if(!isSignedIn){
-			outPut("You can't do much without signing in! Type 'login' 'your hive username'");
-		};
-		if(firstword === "login") {
+		console.log(firstword);
+
+		if (firstword === "login") {
 			if(isSignedIn) {
-				outPut("You are already signed in!");
+				outPut("You are already signed in!", false);
 			} else {
 				const tempuser = enteredText.split(/\s+/)[1];
-				setUsername(tempuser);
-				setGameOutputMessage([]);
-			}
-		};
-		if(firstword === "test") {
-			const updateOptions = {
-				desc: "Something new?" 
-			};
-			const test = await updatePlayerData(username, updateOptions);
-			console.log(test.success);
-		}
-		if(firstword === "look") {
-			displayRoom();
-		}
-		if(isLoadedPlayer && isSignedIn) {
-			if (firstword in roomdata.exits) {
-				await movePlayer(username, roomdata.exits[firstword]);
-				displayRoom();
-			} 
-		}
-	}, [username, outPut, roomdata, updatePlayerData, movePlayer, isLoadedPlayer, isSignedIn, displayRoom]);
+				setUsername(tempuser); 
+      			outPut(`Logging in as ${tempuser}`, false); // Provide feedback to the user
+      		}
+      	} else if(isSignedIn) {
+      		if(firstword === "@describe") {
+      			const description = words.slice(1).join(" ");
+      			const updateOptions = {
+      				desc: description
+      			};
+      			await updatePlayerData(username, updateOptions);
+      			outPut("Your description has been updated.", false);
+      		} else if(firstword === "@describeshort") {
+      			const shortdescription = words.slice(1).join(" ");
+      			const updateOptions = {
+      				shortdesc: shortdescription
+      			};
+      			await updatePlayerData(username, updateOptions);
+      			outPut("Your short description has been updated.", false);
+      		} else if(firstword === "look") {
+      			setisDisplayed(false);
+      			displayRoom();
+      			setisDisplayed(true);
+      		} else if(firstword in roomdata.exits) {
+      			movePlayer(username, roomdata.exits[firstword]);
+      			setisDisplayed(false);
+      			displayRoom();
+      			setisDisplayed(true);
+      		}
+      	}
+      }, [username, outPut, roomdata, updatePlayerData, movePlayer, isSignedIn, displayRoom]);
 
 	const handleSignIn = useCallback(async (username: string) => {
 		if(!isSignedIn) {
 			const data: Login = {
 				"username": username,
 				"message": "{\"login\":\"123\"}",
-				"method": KeychainKeyTypes.posting,
-				"title": "Login"
-			};
+					"method": KeychainKeyTypes.posting,
+					"title": "Login"
+				};
 
-			try {
+				try {
 				// eslint-disable-next-line @typescript-eslint/no-unused-vars
-				const login = await keychain.login(data as Login);
-			} catch (error) {
-				console.error("Login error:", error);
-			} finally {
-				setIsSignedIn(true);
+					const login = await keychain.login(data as Login);
+				} catch (error) {
+					console.error("Login error:", error);
+				} finally {
+					setIsSignedIn(true);
+				}
 			}
-		}
-	}, [keychain, isSignedIn]);
+		}, [keychain, isSignedIn]);
 
 	const handleSignOut = () => {
 		setIsSignedIn(false);
@@ -251,7 +259,7 @@ function App() {
 
 	if (!userGreeted && !isSignedIn) {
 		gameGreeting.forEach((item, index) => {
-			outPut(item);
+			outPut(item, false);
 		});
 		setUserGreeted(true);
 	};
@@ -263,20 +271,16 @@ function App() {
 		}
 		if (username) {
 			handleSignIn(username);
-		};
+		}
 		if (isSignedIn && !isLoadedPlayer) {
 			fetchPlayerData(username);
 			setIsLoadedPlayer(true);
-		};
-		if (isDisplayed) {
-			console.log("isDisplayed changed!");
+		}
+		if (!isDisplayed) {
 			displayRoom();
-		};
-	}, 
-	[
-		username, isLoadedGame, handleSignIn, fetchPlayerData, isDisplayed, 
-		fetchgameData, isSignedIn, roomdata, displayRoom, isLoadedPlayer 
-		]);
+			setisDisplayed(true);
+		}
+	}, [username, isLoadedGame, isSignedIn, isDisplayed, displayRoom, fetchPlayerData, fetchgameData, handleSignIn, isLoadedPlayer]); 
 
 	return (
 		<div className="App">
