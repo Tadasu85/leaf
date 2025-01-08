@@ -61,18 +61,20 @@ function App() {
 
 	const isEmpty = (obj) => Object.keys(obj).length === 0;
 
-	const displayRoom = useCallback(async() => {
-		if(await roomdata && !isDisplayed) {
-			outPut(roomdata.title, true);
-			outPut(roomdata.body, false);
-			if (!isEmpty(roomdata)) {
-				outPut("There is a way to leave: ", false); 
-			};
-			for(const exit in roomdata.exits) {
-				outPut(exit, true);
-			};
-		}
-	}, [roomdata, outPut, isDisplayed]);
+	// const displayRoom = useCallback(async() => {
+	// 	console.log("Fired Displayroom!")
+	// 	if(await roomdata && !isDisplayed) {
+	// 		console.log("Met all criteria in display.")
+	// 		outPut(roomdata.title, true);
+	// 		outPut(roomdata.body, false);
+	// 		if (!isEmpty(roomdata)) {
+	// 			outPut("There is a way to leave: ", false); 
+	// 		};
+	// 		for(const exit in roomdata.exits) {
+	// 			outPut(exit, true);
+	// 		};
+	// 	}
+	// }, [roomdata, outPut, isDisplayed]);
 
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
@@ -188,27 +190,39 @@ function App() {
       			};
       			await updatePlayerData(username, updateOptions);
       			outPut("Your description has been updated.", false);
-      		} else if(firstword === "@describeshort") {
+      		}if(firstword === "@describeshort") {
       			const shortdescription = words.slice(1).join(" ");
       			const updateOptions = {
       				shortdesc: shortdescription
       			};
       			await updatePlayerData(username, updateOptions);
       			outPut("Your short description has been updated.", false);
-      		} else if(firstword === "look") {
-      			setisDisplayed(false);
-      			displayRoom();
+      		}if(firstword === "look") {
+      			outPut(roomdata.title, true);
+      			outPut(roomdata.body, false);
+      			if (!isEmpty(roomdata)) {
+      				outPut("There is a way to leave: ", false); 
+      			};
+      			for(const exit in roomdata.exits) {
+      				outPut(exit, true);
+      			};
       			setisDisplayed(true);
-      		} else if(firstword in roomdata.exits) {
+      		}if(firstword in roomdata.exits) {
       			movePlayer(username, roomdata.exits[firstword]);
-      			setisDisplayed(false);
-      			displayRoom();
+      			outPut(roomdata.title, true);
+      			outPut(roomdata.body, false);
+      			if (!isEmpty(roomdata)) {
+      				outPut("There is a way to leave: ", false); 
+      			};
+      			for(const exit in roomdata.exits) {
+      				outPut(exit, true);
+      			};
       			setisDisplayed(true);
       		}
       	}
-      }, [username, outPut, roomdata, updatePlayerData, movePlayer, isSignedIn, displayRoom]);
+      }, [username, outPut, roomdata, updatePlayerData, movePlayer, isSignedIn]);
 
-	const handleSignIn = useCallback(async (username: string) => {
+	const handleSignIn = useCallback(async(username: string) => {
 		if(!isSignedIn) {
 			const data: Login = {
 				"username": username,
@@ -234,7 +248,7 @@ function App() {
 	};
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const checkPlayer = useCallback(async (username: string) => {
+	const checkPlayer = useCallback(async(username: string) => {
 		const playerSchema = z.object(
 		{
 			Name: z.string(),
@@ -263,24 +277,41 @@ function App() {
 		});
 		setUserGreeted(true);
 	};
-
 	useEffect(() => {
 		if (!isLoadedGame) {
 			fetchgameData();
 			setIsLoadedGame(true);
 		}
+
+	}, [isLoadedGame, fetchgameData]);
+
+	useEffect(() => {
 		if (username) {
 			handleSignIn(username);
 		}
+
+	}, [username, handleSignIn]);
+
+	useEffect(() => {
 		if (isSignedIn && !isLoadedPlayer) {
 			fetchPlayerData(username);
 			setIsLoadedPlayer(true);
 		}
-		if (!isDisplayed) {
-			displayRoom();
-			setisDisplayed(true);
+
+	}, [isSignedIn, isLoadedPlayer, fetchPlayerData, username]);
+
+	useEffect(() => {
+		if (!isDisplayed && isLoadedPlayer) {
+			outPut(roomdata.title, true);
+			outPut(roomdata.body, false);
+			if (!isEmpty(roomdata)) {
+				outPut("There is a way to leave: ", false); 
+			};
+			for(const exit in roomdata.exits) {
+				outPut(exit, true);
+			};
 		}
-	}, [username, isLoadedGame, isSignedIn, isDisplayed, displayRoom, fetchPlayerData, fetchgameData, handleSignIn, isLoadedPlayer]); 
+	}, [isDisplayed, isLoadedPlayer, outPut, roomdata]); 
 
 	return (
 		<div className="App">
