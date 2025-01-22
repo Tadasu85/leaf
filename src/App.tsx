@@ -5,7 +5,7 @@ import TextInputBox from './components/TextInputBox';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
-import { z } from 'zod';
+//import { z } from 'zod';
 
 function App() {
 
@@ -61,21 +61,6 @@ function App() {
 
 	const isEmpty = (obj) => Object.keys(obj).length === 0;
 
-	// const displayRoom = useCallback(async() => {
-	// 	console.log("Fired Displayroom!")
-	// 	if(await roomdata && !isDisplayed) {
-	// 		console.log("Met all criteria in display.")
-	// 		outPut(roomdata.title, true);
-	// 		outPut(roomdata.body, false);
-	// 		if (!isEmpty(roomdata)) {
-	// 			outPut("There is a way to leave: ", false); 
-	// 		};
-	// 		for(const exit in roomdata.exits) {
-	// 			outPut(exit, true);
-	// 		};
-	// 	}
-	// }, [roomdata, outPut, isDisplayed]);
-
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
 
@@ -96,9 +81,7 @@ function App() {
 				"Description": options?.desc ?? currentPlayerData.Description ?? "We really should define this but oh well.", 
 				"ShortDesc": options?.shortdesc ?? currentPlayerData.ShortDesc ?? "How do you imagine we have a short if we don't a long?",
 				"Location": options?.newlocation ?? currentPlayerData.Location ?? {"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"}
-			}; 
-
-			delete currentMetadata.reputation;
+			};
 
 			const broadcastData = {
 				"username": username,
@@ -152,6 +135,8 @@ function App() {
 	}, [client, updatePlayerData, gameJSON]);
 
 	const movePlayer = useCallback(async(username: string, permlink: string) => {
+		console.log("Move player ran!");
+
 		try {
 			const location = gameJSON[permlink];
 			await updatePlayerData(username, {
@@ -160,12 +145,13 @@ function App() {
 					"author": location.author
 				}
 			})
-			await fetchPlayerData(username);
 			setIsLoadedPlayer(true);
 		} catch(error) {
 			console.error(error);
 		} finally {
-
+		await fetchPlayerData(username);
+		setisDisplayed(false);
+		//We need to make sure that roomdata gets filled with the new data here!!!
 		}
 	}, [fetchPlayerData, gameJSON, updatePlayerData]);
 
@@ -209,15 +195,6 @@ function App() {
       			setisDisplayed(true);
       		}if(firstword in roomdata.exits) {
       			movePlayer(username, roomdata.exits[firstword]);
-      			outPut(roomdata.title, true);
-      			outPut(roomdata.body, false);
-      			if (!isEmpty(roomdata)) {
-      				outPut("There is a way to leave: ", false); 
-      			};
-      			for(const exit in roomdata.exits) {
-      				outPut(exit, true);
-      			};
-      			setisDisplayed(true);
       		}
       	}
       }, [username, outPut, roomdata, updatePlayerData, movePlayer, isSignedIn]);
@@ -247,36 +224,13 @@ function App() {
 		setUsername('');
 	};
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	const checkPlayer = useCallback(async(username: string) => {
-		const playerSchema = z.object(
-		{
-			Name: z.string(),
-			Description: z.string(),
-			ShortDesc: z.string(),
-			Location: z.object(),
-		});
-
-		function validatePlayerObject(playerObject: Object) {
-			const result = playerSchema.safeParse(playerObject);
-			return result.success;
-		}
-		try {
-			if(!validatePlayerObject(userProfileJSON.egodeathplayer)){
-				await updatePlayerData(username);
-			}
-
-		} catch(error) {
-			console.error({ error })
-		} finally {}
-	}, [userProfileJSON, updatePlayerData]);
-
 	if (!userGreeted && !isSignedIn) {
 		gameGreeting.forEach((item, index) => {
 			outPut(item, false);
 		});
 		setUserGreeted(true);
 	};
+	
 	useEffect(() => {
 		if (!isLoadedGame) {
 			fetchgameData();
@@ -310,6 +264,7 @@ function App() {
 			for(const exit in roomdata.exits) {
 				outPut(exit, true);
 			};
+			setisDisplayed(true);
 		}
 	}, [isDisplayed, isLoadedPlayer, outPut, roomdata]); 
 
