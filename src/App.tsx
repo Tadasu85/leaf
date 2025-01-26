@@ -255,7 +255,7 @@ function App() {
 	}, [isSignedIn, isLoadedPlayer, fetchPlayerData, username]);
 
 	useEffect(() => {
-		if (!isDisplayed && isLoadedPlayer) {
+		if (!isDisplayed && isLoadedPlayer && !isEmpty(roomdata)) {
 			outPut(roomdata.title, true);
 			outPut(roomdata.body, false);
 			if (!isEmpty(roomdata)) {
