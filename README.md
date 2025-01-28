@@ -11,6 +11,7 @@ Ubuntu installation:::
 </ul>
 Windows installation:::
 <ul>
+<li>--We will nned to download sublime-text, git and nvm and install them all</li>
 <li>--We need Hive Keychain installed as an extension on the browser</li>
 <li>--Tested NVM version 1.2.1</li>
 <li>--On Windows 11 Feature Pack 1000.26100.36.0</li>
