@@ -125,7 +125,6 @@ function App() {
 							"permlink":playerLocation.permlink
 						};
 						setRoomData(obtaineddata);
-						setisDisplayed(false);
 					};
 				};
 			}
@@ -149,9 +148,7 @@ function App() {
 		} catch(error) {
 			console.error(error);
 		} finally {
-		await fetchPlayerData(username);
-		setisDisplayed(false);
-		//We need to make sure that roomdata gets filled with the new data here!!!
+			await fetchPlayerData(username);
 		}
 	}, [fetchPlayerData, gameJSON, updatePlayerData]);
 
@@ -186,15 +183,16 @@ function App() {
       		}if(firstword === "look") {
       			outPut(roomdata.title, true);
       			outPut(roomdata.body, false);
-      			if (!isEmpty(roomdata)) {
+      			if (roomdata.exits) {
       				outPut("There is a way to leave: ", false); 
+      				for(const exit in roomdata.exits) {
+      					outPut(exit, true);
+      				};
       			};
-      			for(const exit in roomdata.exits) {
-      				outPut(exit, true);
-      			};
-      			setisDisplayed(true);
       		}if(firstword in roomdata.exits) {
-      			movePlayer(username, roomdata.exits[firstword]);
+      			await movePlayer(username, roomdata.exits[firstword]);
+      			setisDisplayed(false);
+				//We need to make sure that roomdata gets filled with the new data here!!!
       		}
       	}
       }, [username, outPut, roomdata, updatePlayerData, movePlayer, isSignedIn]);
@@ -255,14 +253,14 @@ function App() {
 	}, [isSignedIn, isLoadedPlayer, fetchPlayerData, username]);
 
 	useEffect(() => {
-		if (!isDisplayed && isLoadedPlayer && !isEmpty(roomdata)) {
+		if (!isDisplayed && isLoadedPlayer && roomdata) {
 			outPut(roomdata.title, true);
 			outPut(roomdata.body, false);
-			if (!isEmpty(roomdata)) {
-				outPut("There is a way to leave: ", false); 
-			};
-			for(const exit in roomdata.exits) {
-				outPut(exit, true);
+			if (roomdata.exits) {
+				outPut("There is a way to leave: ", false);
+				for(const exit in roomdata.exits) {
+					outPut(exit, true);
+				};
 			};
 			setisDisplayed(true);
 		}
