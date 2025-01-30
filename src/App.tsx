@@ -59,8 +59,6 @@ function App() {
 		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput, bold: bold}]);
 	}, []);
 
-	const isEmpty = (obj) => Object.keys(obj).length === 0;
-
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
 
@@ -103,35 +101,49 @@ function App() {
 		}
 	}, [keychain, userProfileJSON]);
 
-	const fetchPlayerData = useCallback(async(username: string)  => {
-		setIsLoadedPlayer(false);
+	const fetchPlayerData = useCallback(async (username: string) => {
 		try {
 			const accountInfo = await client.database.getAccounts([username]);
-			if(!accountInfo[0].posting_json_metadata) {
-				await updatePlayerData(username);
-			} else {
-				const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
-				setuserProfileJSON(currentMetadata);
-				const playerLocation = currentMetadata.egodeathplayer.Location;
-				const transactionData = await client.database.call('get_content', [playerLocation.author, playerLocation.permlink]);
-				for (const obj in gameJSON) {
-					if (obj === playerLocation.permlink) {
-						let foundexits = gameJSON[obj].exits;
-						const obtaineddata = {
-							"body":transactionData.body, 
-							"title":transactionData.title,
-							"exits": foundexits, 
-							"author":playerLocation.author, 
-							"permlink":playerLocation.permlink
-						};
-						setRoomData(obtaineddata);
-					};
-				};
-			}
-		} catch (error) {
-			console.error('Error fetching data:', error);
-		}
-	}, [client, updatePlayerData, gameJSON]);
+			const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
+			setuserProfileJSON(currentMetadata);
+			const playerLocation = currentMetadata.egodeathplayer.Location;
+			const transactionData = await client.database.call('get_content', [playerLocation.author, playerLocation.permlink]);
+            // Instead of setting state here, directly use the data:
+            let obtaineddata = null; // Initialize
+            for (const obj in gameJSON) {
+            	if (obj === playerLocation.permlink) {
+            		let foundexits = gameJSON[obj].exits;
+                    obtaineddata = { // Assign the value
+                    	"body": await transactionData.body,
+                    	"title": await transactionData.title,
+                    	"exits": await foundexits,
+                    	"author": await playerLocation.author,
+                    	"permlink": await playerLocation.permlink
+                    };
+                    break; // Important: Exit the loop once found
+                };
+            };
+            if (obtaineddata) { // Check if data was found!
+                setRoomData(obtaineddata); // Update state *after* the data is ready
+                outPut(obtaineddata.title, true);  // Display directly from fetched data
+                outPut(obtaineddata.body, false);
+                if (obtaineddata.exits) {
+                	outPut("There is a way to leave: ", false);
+                	for (const exit in obtaineddata.exits) {
+                		outPut(exit, true);
+                	};
+                };
+                setisDisplayed(true);
+            } else {
+            	console.warn("Room data not found!");
+            	outPut("Room Data Not Found", false);
+            }
+        } catch (error) {
+        	console.error('Error fetching data:', error);
+        } finally {
+            //setIsLoadedPlayer(true); // Set this *after* the data is handled
+        }
+    }, [client, gameJSON, outPut, isDisplayed]); // Add outPut as dependency
 
 	const movePlayer = useCallback(async(username: string, permlink: string) => {
 		console.log("Move player ran!");
@@ -144,11 +156,13 @@ function App() {
 					"author": location.author
 				}
 			})
+			await fetchPlayerData(username);
 			setIsLoadedPlayer(true);
 		} catch(error) {
 			console.error(error);
 		} finally {
-			await fetchPlayerData(username);
+			
+			setIsLoadedPlayer(true);
 		}
 	}, [fetchPlayerData, gameJSON, updatePlayerData]);
 
@@ -251,20 +265,6 @@ function App() {
 		}
 
 	}, [isSignedIn, isLoadedPlayer, fetchPlayerData, username]);
-
-	useEffect(() => {
-		if (!isDisplayed && isLoadedPlayer && roomdata) {
-			outPut(roomdata.title, true);
-			outPut(roomdata.body, false);
-			if (roomdata.exits) {
-				outPut("There is a way to leave: ", false);
-				for(const exit in roomdata.exits) {
-					outPut(exit, true);
-				};
-			};
-			setisDisplayed(true);
-		}
-	}, [isDisplayed, isLoadedPlayer, outPut, roomdata]); 
 
 	return (
 		<div className="App">
