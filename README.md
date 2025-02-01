@@ -1,6 +1,6 @@
 Ubuntu installation:::
-
 <ul>
+</li>
 <li>--We need Hive Keychain installed as an extension on the browser</li>
 <li>--Tested NVM version 0.39.0</li>
 <li>--On Ubuntu 24.04.1</li>
@@ -11,8 +11,8 @@ Ubuntu installation:::
 <li>--You will need your hive keys installed on hive keychain and a minimum of Active key.</li>
 </ul>
 Windows installation:::
-
 <ul>
+</li>
 <li>--We will need to download sublime-text, git and nvm and install them all</li>
 <li>--We need Hive Keychain installed as an extension on the browser</li>
 <li>--Tested NVM version 1.2.1</li>
