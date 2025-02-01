@@ -102,6 +102,7 @@ function App() {
 	}, [keychain, userProfileJSON]);
 
 	const fetchPlayerData = useCallback(async (username: string) => {
+		console.log("Fetch players data fired!");
 		try {
 			const accountInfo = await client.database.getAccounts([username]);
 			const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
@@ -136,41 +137,46 @@ function App() {
                 setisDisplayed(true);
             } else {
             	console.warn("Room data not found!");
-            	outPut("Room Data Not Found", false);
             }
         } catch (error) {
         	console.error('Error fetching data:', error);
         } finally {
-            //setIsLoadedPlayer(true); // Set this *after* the data is handled
+            setIsLoadedPlayer(true); // Set this *after* the data is handled
         }
-    }, [client, gameJSON, outPut, isDisplayed]); // Add outPut as dependency
+    }, [client, gameJSON, outPut]); // Add outPut as dependency
 
-	const movePlayer = useCallback(async(username: string, permlink: string) => {
+	const movePlayer = useCallback(async (username: string, permlink: string) => {
 		console.log("Move player ran!");
-
 		try {
 			const location = gameJSON[permlink];
+
+    // Update player location in userProfileJSON
 			await updatePlayerData(username, {
 				newlocation: {
 					"permlink": permlink,
 					"author": location.author
 				}
-			})
-			await fetchPlayerData(username);
-			setIsLoadedPlayer(true);
-		} catch(error) {
+			});
+
+    // Update roomdata with initial location information
+			setRoomData({ 
+				author: location.author, 
+				permlink: permlink 
+			}); 
+
+    // Fetch full room data including title, body, and exits
+			await fetchPlayerData(username); 
+		} catch (error) {
 			console.error(error);
 		} finally {
-			
-			setIsLoadedPlayer(true);
 		}
-	}, [fetchPlayerData, gameJSON, updatePlayerData]);
+	}, [fetchPlayerData, gameJSON, updatePlayerData, setRoomData]);
+
 
 	const handleTextEntered = useCallback(async(enteredText: string): enteredText => {
 		const words = enteredText.toLowerCase().split(" ");
 		const firstword = words[0];
 		console.log(firstword);
-
 		if (firstword === "login") {
 			if(isSignedIn) {
 				outPut("You are already signed in!", false);
@@ -204,8 +210,8 @@ function App() {
       				};
       			};
       		}if(firstword in roomdata.exits) {
-      			await movePlayer(username, roomdata.exits[firstword]);
-      			setisDisplayed(false);
+      			await movePlayer(username, roomdata.exits[firstword])
+      			.then(setIsLoadedPlayer(false));
 				//We need to make sure that roomdata gets filled with the new data here!!!
       		}
       	}
@@ -219,7 +225,6 @@ function App() {
 					"method": KeychainKeyTypes.posting,
 					"title": "Login"
 				};
-
 				try {
 				// eslint-disable-next-line @typescript-eslint/no-unused-vars
 					const login = await keychain.login(data as Login);
@@ -261,7 +266,6 @@ function App() {
 	useEffect(() => {
 		if (isSignedIn && !isLoadedPlayer) {
 			fetchPlayerData(username);
-			setIsLoadedPlayer(true);
 		}
 
 	}, [isSignedIn, isLoadedPlayer, fetchPlayerData, username]);
