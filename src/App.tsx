@@ -55,6 +55,14 @@ function App() {
 		}
 	}, [client, setgameJSON]);
 
+	useEffect(() => {
+		if (!isLoadedGame) {
+			fetchgameData();
+			setIsLoadedGame(true);
+		}
+
+	}, [isLoadedGame, fetchgameData]);
+
 	const outPut = useCallback((texttooutput: string, bold?: boolean) => {
 		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput, bold: bold}]);
 	}, []);
@@ -144,6 +152,13 @@ function App() {
             setIsLoadedPlayer(true); // Set this *after* the data is handled
         }
     }, [client, gameJSON, outPut]); // Add outPut as dependency
+
+	useEffect(() => {
+		if (isSignedIn && !isLoadedPlayer) {
+			fetchPlayerData(username);
+		}
+
+	}, [isSignedIn, isLoadedPlayer, fetchPlayerData, username]);
 
 	const movePlayer = useCallback(async (username: string, permlink: string) => {
 		console.log("Move player ran!");
@@ -236,26 +251,6 @@ function App() {
 			}
 		}, [keychain, isSignedIn]);
 
-	const handleSignOut = () => {
-		setIsSignedIn(false);
-		setUsername('');
-	};
-
-	if (!userGreeted && !isSignedIn) {
-		gameGreeting.forEach((item, index) => {
-			outPut(item, false);
-		});
-		setUserGreeted(true);
-	};
-	
-	useEffect(() => {
-		if (!isLoadedGame) {
-			fetchgameData();
-			setIsLoadedGame(true);
-		}
-
-	}, [isLoadedGame, fetchgameData]);
-
 	useEffect(() => {
 		if (username) {
 			handleSignIn(username);
@@ -263,12 +258,16 @@ function App() {
 
 	}, [username, handleSignIn]);
 
-	useEffect(() => {
-		if (isSignedIn && !isLoadedPlayer) {
-			fetchPlayerData(username);
-		}
-
-	}, [isSignedIn, isLoadedPlayer, fetchPlayerData, username]);
+	const handleSignOut = () => {
+		setIsSignedIn(false);
+		setUsername('');
+	};
+	if (!userGreeted && !isSignedIn) {
+		gameGreeting.forEach((item, index) => {
+			outPut(item, false);
+		});
+		setUserGreeted(true);
+	};
 
 	return (
 		<div className="App">
