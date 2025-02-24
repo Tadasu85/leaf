@@ -5,7 +5,6 @@ import TextInputBox from './components/TextInputBox';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
-//import { z } from 'zod';
 
 function App() {
 
@@ -35,15 +34,13 @@ function App() {
 		"If this is successful you will see your username in the top right." 
 	];
 
-	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);	
+	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
 	const [username, setUsername] = useState('');
 	const [roomdata, setRoomData] = useState({});
 	const [userProfileJSON, setuserProfileJSON] = useState({});
 	const [gameJSON, setgameJSON] = useState({});
 	const [userGreeted, setUserGreeted] = useState(false);
 	const [isLoadedGame, setIsLoadedGame] = useState(false);
-	//const [isLoadedPlayer, setIsLoadedPlayer] = useState(false);
-	//const [isDisplayed, setisDisplayed] = useState(false);
 	const [isSignedIn, setIsSignedIn] = useState(false);
 
 	const fetchgameData = useCallback(async()  => {
@@ -81,56 +78,52 @@ function App() {
 			author: string
 		}
 	}) => {
-	console.log("Firing updatePlayerData!");
-	try {
-		let currentMetadata = userProfileJSON;
-		const currentPlayerData = currentMetadata.egodeathplayer || {};
+		console.log("Firing updatePlayerData!");
+		try {
+			let currentMetadata = userProfileJSON;
+			const currentPlayerData = currentMetadata.egodeathplayer || {};
 
-		currentMetadata.egodeathplayer = {
-			"Name": username,
-			"Description": options?.desc ?? currentPlayerData.Description ?? "We really should define this but oh well.",
-			"ShortDesc": options?.shortdesc ?? currentPlayerData.ShortDesc ?? "How do you imagine we have a short if we don't a long?",
-			"Location": options?.newlocation ?? currentPlayerData.Location ?? { "permlink": "genesis-scaffold-precipice", "author": "raymonjohnstone" }
-		};
+			currentMetadata.egodeathplayer = {
+				"Name": username,
+				"Description": options?.desc ?? currentPlayerData.Description ?? "We really should define this but oh well.",
+				"ShortDesc": options?.shortdesc ?? currentPlayerData.ShortDesc ?? "How do you imagine we have a short if we don't a long?",
+				"Location": options?.newlocation ?? currentPlayerData.Location ?? { "permlink": "genesis-scaffold-precipice", "author": "raymonjohnstone" }
+			};
 
-		const broadcastData = {
-			"username": username,
-			"operations": [
-				[
-				"account_update2",
-					{
-					"account": username,
-					"json_metadata": "",
-					"posting_json_metadata": JSON.stringify(currentMetadata)
-					}
-				]
-			],
-			'method': KeychainKeyTypes.posting
+			const broadcastData = {
+				"username": username,
+				"operations": [
+					[
+						"account_update2",
+						{
+							"account": username,
+							"json_metadata": "",
+							"posting_json_metadata": JSON.stringify(currentMetadata)
+						}
+					]
+				],
+				'method': KeychainKeyTypes.posting
 			};
 			console.log("Broadcast Data:", { broadcastData });
-      		const result = await keychain.broadcast(broadcastData as unknown as Broadcast); // Store the result
-      		console.log("Broadcast result::", { result });
+        const result = await keychain.broadcast(broadcastData as unknown as Broadcast); // Store the result
+        console.log("Broadcast result::", { result });
 
-      	if (result) { // Check for successful broadcast
-      		console.log("Account metadata updated successfully:", { result });
-        	// Important: Update userProfileJSON *only* after successful broadcast
-        	setuserProfileJSON(currentMetadata); // Update the local state to match blockchain
-        	// outPut("Player data updated successfully.", false); //User feedback
-    	} else {
-    		console.error("Broadcast failed:", { result });
-    		console.error("Broadcast result details:", JSON.stringify(result)); // Add this line
-    		outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
-    		throw new Error("Broadcast failed");
-		}
-		} catch (error) {
-			console.error('Error updating account metadata:', error);
-      		outPut("Error: Failed to update player data. Please check your Keychain and try again.", true); // User feedback
-      		// Consider if you want to re-throw the error here as well.
-      		// If you do, the calling function (e.g., in movePlayer or handleTextEntered)
-      		// will know that the update failed and can take appropriate action.
-      		throw error; // Uncomment to re-throw.
-  		}
-  	}, [keychain, userProfileJSON, outPut]); // Add outPut as a dependency
+        if (result && result.success && result.result && result.result.id) {
+        	console.log("Broadcast initiated successfully:", { result });
+        	setuserProfileJSON(currentMetadata);
+            return true; // Indicate success
+        } else {
+        	console.error("Broadcast failed:", { result });
+        	console.error("Broadcast result details:", JSON.stringify(result));
+        	outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
+            return false; // Indicate failure
+        }
+    } catch (error) {
+    	console.error('Error updating account metadata:', error);
+    	outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
+        return false; // Indicate failure
+    }
+}, [keychain, userProfileJSON, outPut]);
 
 	const fetchPlayerData = useCallback(async (username: string) => {
 		console.log("Fetch players data fired!");
@@ -176,6 +169,13 @@ function App() {
         }
     }, [client, gameJSON, outPut]); // Add outPut as dependency
 
+    // useEffect(() => {
+    // 	if (isSignedIn && username && userProfileJSON?.egodeathplayer?.Location) {
+    //     fetchPlayerData(username);
+    // 	}
+	// }, [isSignedIn, username, fetchPlayerData, userProfileJSON?.egodeathplayer?.Location]);
+
+
 	const handleTextEntered = useCallback(async(enteredText: string): enteredText => {
 		const words = enteredText.toLowerCase().split(" ");
 		const firstword = words[0];
@@ -213,33 +213,29 @@ function App() {
       				};
       			};
       		}if(firstword in roomdata.exits) {
-      			console.log("Move player ran!");
-      			console.log(roomdata.exits[firstword]);
-    			//setIsLoadedPlayer(false); // Set loading to false *before* the try block
-    			try {
-    				const newlocation = roomdata.exits[firstword];
-
-    				if (newlocation) {
-    					await updatePlayerData(username, {
-    						newlocation: {
-    							"permlink": newlocation,
-    							"author": gameJSON[roomdata.exits[firstword]].author
-    						}
-    					});
-        			await fetchPlayerData(username); // Fetch *only* if updatePlayerData is successful
-        		} else {
-        			console.warn("Location not found in game data:", permlink);
-        			outPut("Error: Invalid destination.", true);
-        		}
-        	} catch (error) {
-        		console.error("Error moving player:", error);
-        		outPut("Error moving player.", true);
-        		throw error;
-        	} finally {
-      				// It's important to keep the setting of the loading state in the finally block
-      				// to ensure it is always set.
-      				// However, we do not want to fetch the player data if the update fails.
-      				//setIsLoadedPlayer(true); // Ensure loading state is set in finally
+      			try {
+      				const newlocation = roomdata.exits[firstword];
+      				if (newlocation) {
+      					const updateSuccess = await updatePlayerData(username, {
+      						newlocation: {
+      							"permlink": newlocation,
+      							"author": gameJSON[roomdata.exits[firstword]].author
+      						}
+      					});
+      					if (updateSuccess) {
+                        // Introduce a delay
+      						setTimeout(async () => {
+      							await fetchPlayerData(username);
+                        }, 2000); // 2 seconds delay (adjust as needed)
+      					}
+      				} else {
+      					console.warn("Location not found in game data:", permlink);
+      					outPut("Error: Invalid destination.", true);
+      				}
+      			} catch (error) {
+      				console.error("Error moving player:", error);
+      				outPut("Error moving player.", true);
+      				throw error;
       			}
       		}
       	}
@@ -250,20 +246,20 @@ function App() {
 			const data: Login = {
 				"username": username,
 				"message": "{\"login\":\"123\"}",
-				"method": KeychainKeyTypes.posting,
-				"title": "Login"
-			};
-			try {
+					"method": KeychainKeyTypes.posting,
+					"title": "Login"
+				};
+				try {
 				// eslint-disable-next-line @typescript-eslint/no-unused-vars
-				const login = await keychain.login(data as Login);
-			} catch (error) {
-				console.error("Login error:", error);
-			} finally {
-				setIsSignedIn(true);
-				await fetchPlayerData(username);
+					const login = await keychain.login(data as Login);
+				} catch (error) {
+					console.error("Login error:", error);
+				} finally {
+					setIsSignedIn(true);
+					await fetchPlayerData(username);
 				}
 			}
-	}, [keychain, isSignedIn, fetchPlayerData]);
+		}, [keychain, isSignedIn, fetchPlayerData]);
 
 	useEffect(() => {
 		if (username) {
@@ -282,6 +278,33 @@ function App() {
 		});
 		setUserGreeted(true);
 	};
+
+	useEffect(() => {
+		const stream = client.blockchain.getOperationsStream('custom_json');
+
+		const handleOperation = (op) => {
+			console.log('Received custom_json operation:', op);
+		};
+
+		const handleError = (error) => {
+			console.error('Stream error:', error);
+		};
+
+		const handleEnd = () => {
+			console.log('Stream ended.');
+		};
+
+		stream.on('data', handleOperation);
+		stream.on('error', handleError);
+		stream.on('end', handleEnd);
+
+		return () => {
+			stream.removeListener('data', handleOperation);
+			stream.removeListener('error', handleError);
+			stream.removeListener('end', handleEnd);
+			stream.destroy();
+		}
+	}, [client]);
 
 	return (
 		<div className="App">
