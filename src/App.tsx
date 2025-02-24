@@ -19,7 +19,11 @@ function App() {
 	const keychain = useMemo(() => new KeychainSDK(window, {rpc:hivenode}), []);
 
 	async function initializeKeychain() {
-		await keychain.isKeychainInstalled();
+		try {
+			await keychain.isKeychainInstalled();
+		} catch (error) {
+			throw error;
+		}
 	};
 
 	window.onload = initializeKeychain();
@@ -38,8 +42,8 @@ function App() {
 	const [gameJSON, setgameJSON] = useState({});
 	const [userGreeted, setUserGreeted] = useState(false);
 	const [isLoadedGame, setIsLoadedGame] = useState(false);
-	const [isLoadedPlayer, setIsLoadedPlayer] = useState(false);
-	const [isDisplayed, setisDisplayed] = useState(false);
+	//const [isLoadedPlayer, setIsLoadedPlayer] = useState(false);
+	//const [isDisplayed, setisDisplayed] = useState(false);
 	const [isSignedIn, setIsSignedIn] = useState(false);
 
 	const fetchgameData = useCallback(async()  => {
@@ -49,7 +53,6 @@ function App() {
 			const gameInfo = await client.database.getAccounts(["hive-109456"]);
 			const parsedgameInfo = JSON.parse(gameInfo[0].posting_json_metadata);
 			setgameJSON(parsedgameInfo.egodeathgamedata.rooms_authors_exits);
-			//console.log("From fetching gamedate:::", parsedgameInfo.egodeathgamedata.rooms_authors_exits);
 		} catch (error) {
 			console.error('Error fetching data:', error);
 		}
@@ -70,7 +73,7 @@ function App() {
 	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
 	//set the short desc and be used when we move the player!
 
-	const updatePlayerData = useCallback(async(username: string, options?: {
+	const updatePlayerData = useCallback(async (username: string, options?: {
 		desc?: string,
 		shortdesc?: string,
 		newlocation?: {
@@ -78,36 +81,56 @@ function App() {
 			author: string
 		}
 	}) => {
-		try {
-			let currentMetadata = userProfileJSON;
-			const currentPlayerData = currentMetadata.egodeathplayer || {}; 
+	console.log("Firing updatePlayerData!");
+	try {
+		let currentMetadata = userProfileJSON;
+		const currentPlayerData = currentMetadata.egodeathplayer || {};
 
-			currentMetadata.egodeathplayer = {
-				"Name": username,
-				"Description": options?.desc ?? currentPlayerData.Description ?? "We really should define this but oh well.", 
-				"ShortDesc": options?.shortdesc ?? currentPlayerData.ShortDesc ?? "How do you imagine we have a short if we don't a long?",
-				"Location": options?.newlocation ?? currentPlayerData.Location ?? {"permlink":"genesis-scaffold-precipice", "author":"raymonjohnstone"}
-			};
+		currentMetadata.egodeathplayer = {
+			"Name": username,
+			"Description": options?.desc ?? currentPlayerData.Description ?? "We really should define this but oh well.",
+			"ShortDesc": options?.shortdesc ?? currentPlayerData.ShortDesc ?? "How do you imagine we have a short if we don't a long?",
+			"Location": options?.newlocation ?? currentPlayerData.Location ?? { "permlink": "genesis-scaffold-precipice", "author": "raymonjohnstone" }
+		};
 
-			const broadcastData = {
-				"username": username,
-				"operations": [
-					[
-						"account_update2",
-						{
-							"account": username,
-							"json_metadata": "",
-							"posting_json_metadata": JSON.stringify(currentMetadata)
-						}
-					]
-				],
-				'method': KeychainKeyTypes.posting
+		const broadcastData = {
+			"username": username,
+			"operations": [
+				[
+				"account_update2",
+					{
+					"account": username,
+					"json_metadata": "",
+					"posting_json_metadata": JSON.stringify(currentMetadata)
+					}
+				]
+			],
+			'method': KeychainKeyTypes.posting
 			};
-			await keychain.broadcast(broadcastData as unknown as Broadcast);
-		} catch (error) {
-			console.error('Error updating account metadata:', {error});
+			console.log("Broadcast Data:", { broadcastData });
+      		const result = await keychain.broadcast(broadcastData as unknown as Broadcast); // Store the result
+      		console.log("Broadcast result::", { result });
+
+      	if (result) { // Check for successful broadcast
+      		console.log("Account metadata updated successfully:", { result });
+        	// Important: Update userProfileJSON *only* after successful broadcast
+        	setuserProfileJSON(currentMetadata); // Update the local state to match blockchain
+        	// outPut("Player data updated successfully.", false); //User feedback
+    	} else {
+    		console.error("Broadcast failed:", { result });
+    		console.error("Broadcast result details:", JSON.stringify(result)); // Add this line
+    		outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
+    		throw new Error("Broadcast failed");
 		}
-	}, [keychain, userProfileJSON]);
+		} catch (error) {
+			console.error('Error updating account metadata:', error);
+      		outPut("Error: Failed to update player data. Please check your Keychain and try again.", true); // User feedback
+      		// Consider if you want to re-throw the error here as well.
+      		// If you do, the calling function (e.g., in movePlayer or handleTextEntered)
+      		// will know that the update failed and can take appropriate action.
+      		throw error; // Uncomment to re-throw.
+  		}
+  	}, [keychain, userProfileJSON, outPut]); // Add outPut as a dependency
 
 	const fetchPlayerData = useCallback(async (username: string) => {
 		console.log("Fetch players data fired!");
@@ -142,51 +165,16 @@ function App() {
                 		outPut(exit, true);
                 	};
                 };
-                setisDisplayed(true);
             } else {
             	console.warn("Room data not found!");
             }
         } catch (error) {
         	console.error('Error fetching data:', error);
+        	throw error; // Make sure to re-throw the error
         } finally {
-            setIsLoadedPlayer(true); // Set this *after* the data is handled
+            //setIsLoadedPlayer(true); // Set this *after* the data is handled
         }
     }, [client, gameJSON, outPut]); // Add outPut as dependency
-
-	useEffect(() => {
-		if (isSignedIn && !isLoadedPlayer) {
-			fetchPlayerData(username);
-		}
-
-	}, [isSignedIn, isLoadedPlayer, fetchPlayerData, username]);
-
-	const movePlayer = useCallback(async (username: string, permlink: string) => {
-		console.log("Move player ran!");
-		try {
-			const location = gameJSON[permlink];
-
-    // Update player location in userProfileJSON
-			await updatePlayerData(username, {
-				newlocation: {
-					"permlink": permlink,
-					"author": location.author
-				}
-			});
-
-    // Update roomdata with initial location information
-			setRoomData({ 
-				author: location.author, 
-				permlink: permlink 
-			}); 
-
-    // Fetch full room data including title, body, and exits
-			await fetchPlayerData(username); 
-		} catch (error) {
-			console.error(error);
-		} finally {
-		}
-	}, [fetchPlayerData, gameJSON, updatePlayerData, setRoomData]);
-
 
 	const handleTextEntered = useCallback(async(enteredText: string): enteredText => {
 		const words = enteredText.toLowerCase().split(" ");
@@ -225,31 +213,57 @@ function App() {
       				};
       			};
       		}if(firstword in roomdata.exits) {
-      			await movePlayer(username, roomdata.exits[firstword])
-      			.then(setIsLoadedPlayer(false));
-				//We need to make sure that roomdata gets filled with the new data here!!!
+      			console.log("Move player ran!");
+      			console.log(roomdata.exits[firstword]);
+    			//setIsLoadedPlayer(false); // Set loading to false *before* the try block
+    			try {
+    				const newlocation = roomdata.exits[firstword];
+
+    				if (newlocation) {
+    					await updatePlayerData(username, {
+    						newlocation: {
+    							"permlink": newlocation,
+    							"author": gameJSON[roomdata.exits[firstword]].author
+    						}
+    					});
+        			await fetchPlayerData(username); // Fetch *only* if updatePlayerData is successful
+        		} else {
+        			console.warn("Location not found in game data:", permlink);
+        			outPut("Error: Invalid destination.", true);
+        		}
+        	} catch (error) {
+        		console.error("Error moving player:", error);
+        		outPut("Error moving player.", true);
+        		throw error;
+        	} finally {
+      				// It's important to keep the setting of the loading state in the finally block
+      				// to ensure it is always set.
+      				// However, we do not want to fetch the player data if the update fails.
+      				//setIsLoadedPlayer(true); // Ensure loading state is set in finally
+      			}
       		}
       	}
-      }, [username, outPut, roomdata, updatePlayerData, movePlayer, isSignedIn]);
+      }, [username, outPut, roomdata, updatePlayerData, isSignedIn, fetchPlayerData, gameJSON]);
 
 	const handleSignIn = useCallback(async(username: string) => {
 		if(!isSignedIn) {
 			const data: Login = {
 				"username": username,
 				"message": "{\"login\":\"123\"}",
-					"method": KeychainKeyTypes.posting,
-					"title": "Login"
-				};
-				try {
+				"method": KeychainKeyTypes.posting,
+				"title": "Login"
+			};
+			try {
 				// eslint-disable-next-line @typescript-eslint/no-unused-vars
-					const login = await keychain.login(data as Login);
-				} catch (error) {
-					console.error("Login error:", error);
-				} finally {
-					setIsSignedIn(true);
+				const login = await keychain.login(data as Login);
+			} catch (error) {
+				console.error("Login error:", error);
+			} finally {
+				setIsSignedIn(true);
+				await fetchPlayerData(username);
 				}
 			}
-		}, [keychain, isSignedIn]);
+	}, [keychain, isSignedIn, fetchPlayerData]);
 
 	useEffect(() => {
 		if (username) {
