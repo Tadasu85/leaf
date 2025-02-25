@@ -2,7 +2,7 @@ import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
 
@@ -278,8 +278,10 @@ function App() {
 		});
 		setUserGreeted(true);
 	};
-
+	const isUnmounted = useRef(false);
 	useEffect(() => {
+
+
 		const stream = client.blockchain.getOperationsStream('custom_json');
 
 		const handleOperation = (op) => {
@@ -287,6 +289,7 @@ function App() {
 		};
 
 		const handleError = (error) => {
+			if (isUnmounted.current) return;
 			console.error('Stream error:', error);
 		};
 
@@ -299,6 +302,7 @@ function App() {
 		stream.on('end', handleEnd);
 
 		return () => {
+			isUnmounted.current = true;
 			stream.removeListener('data', handleOperation);
 			stream.removeListener('error', handleError);
 			stream.removeListener('end', handleEnd);
