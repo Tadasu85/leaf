@@ -53,14 +53,12 @@ function App() {
             for (let i = accountHistory.length - 1; i >= 0; i--) { // Iterate backward
             	const [seq, op] = accountHistory[i];
             	if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
-            		
             		const jsonData = JSON.parse(op.op[1].json);
             		if (jsonData.move_to) {
             			processedOperations.add(op.trx_id);
             			console.log(`User location found in operation ${seq}:`, jsonData.move_to, op);
             			return jsonData.move_to;
             		}
-            		
             	}
             }
           }
@@ -70,7 +68,7 @@ function App() {
         	console.error('Error fetching account history:', error);
         	return null;
         }
-      }, [client]);
+      }, [client, processedOperations]);
 
 	const fetchgameData = useCallback(async () => {
 		try {
@@ -131,7 +129,6 @@ function App() {
 			console.log("Broadcast Data:", { broadcastData });
 			const result = await keychain.broadcast(broadcastData as Broadcast);
 			console.log("Broadcast result::", { result });
-
 			if (result && result.success && result.result && result.result.id) {
 				console.log("Broadcast initiated successfully:", { result });
 				return true;
@@ -199,9 +196,12 @@ function App() {
 	}, [client, gameJSON, outPut, traceUserActivity]);
 
 	const debouncedFetchPlayerData = useMemo(
-        () => debounce(fetchPlayerData, 500), // Debounce for 500ms
-        [fetchPlayerData]
-        );
+		() => debounce((username) => {
+			console.log("Debounced fetchPlayerData called:", username);
+			fetchPlayerData(username);
+		}, 500),
+		[fetchPlayerData]
+		);
 
 
 	const handleTextEntered = useCallback(async (enteredText: string): enteredText => {
@@ -381,7 +381,6 @@ function App() {
 			}
 		};
 	}, [client, username, isSignedIn, debouncedFetchPlayerData, lastKnownLocation, processedOperations]);
-
 
 	return (
 		<div className="App">
