@@ -46,6 +46,7 @@
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@babel/plugin-transform-private-property-in-object": "7.25.9",
+    "lodash": "^4.17.21",
     "stylelint": "^16.10.0",
     "stylelint-config-standard": "^36.0.1"
   }

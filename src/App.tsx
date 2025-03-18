@@ -3,19 +3,31 @@ import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWind
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { KeychainSDK, Login, KeychainKeyTypes } from 'keychain-sdk';
+import { KeychainSDK, Login, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
+import { debounce } from 'lodash';
 
 function App() {
 
-	//We depend on keychain for signing and dhive for fetching data from the hive chain. 
-	//Here we initializse them both.
+	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
+	const [username, setUsername] = useState('');
+	const [roomdata, setRoomData] = useState({});
+	const [gameJSON, setgameJSON] = useState({});
+	const [userProfileJSON, setuserProfileJSON] = useState({});
+	const [userGreeted, setUserGreeted] = useState(false);
+	const [isLoadedGame, setIsLoadedGame] = useState(false);
+	const [isSignedIn, setIsSignedIn] = useState(false);
+	const [lastKnownLocation, setLastKnownLocation] = useState(null);
+	const processedOperations = useMemo(() => new Set(), []);
 
-	const hivenode = 'https://api.openhive.network'
+    //We depend on keychain for signing and dhive for fetching data from the hive chain.
+    //Here we initializse them both.
+
+	const hivenode = 'https://api.openhive.network';
 
 	const client = useMemo(() => new Client([hivenode]), []);
 
-	const keychain = useMemo(() => new KeychainSDK(window, {rpc:hivenode}), []);
+	const keychain = useMemo(() => new KeychainSDK(window, { rpc: hivenode }), []);
 
 	async function initializeKeychain() {
 		try {
@@ -27,24 +39,40 @@ function App() {
 
 	window.onload = initializeKeychain();
 
-	const gameGreeting =  [
+	const gameGreeting = [
 		"If you've arrived here by accident and do not have a Hive account. ",
 		"Please make your way to https://ecency.com/ to create an account.",
 		"Otherwise you may proceed with a login command by typing 'login' 'your hive username'",
-		"If this is successful you will see your username in the top right." 
+		"If this is successful you will see your username in the top right."
 	];
 
-	const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
-	const [username, setUsername] = useState('');
-	const [roomdata, setRoomData] = useState({});
-	const [userProfileJSON, setuserProfileJSON] = useState({});
-	const [gameJSON, setgameJSON] = useState({});
-	const [userGreeted, setUserGreeted] = useState(false);
-	const [isLoadedGame, setIsLoadedGame] = useState(false);
-	const [isSignedIn, setIsSignedIn] = useState(false);
+	const traceUserActivity = useCallback(async (username: string) => {
+		try {
+        const accountHistory = await client.database.getAccountHistory(username, -1, 100); // Or your desired window size
+        if (accountHistory.length > 0) {
+            for (let i = accountHistory.length - 1; i >= 0; i--) { // Iterate backward
+            	const [seq, op] = accountHistory[i];
+            	if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
+            		
+            		const jsonData = JSON.parse(op.op[1].json);
+            		if (jsonData.move_to) {
+            			processedOperations.add(op.trx_id);
+            			console.log(`User location found in operation ${seq}:`, jsonData.move_to, op);
+            			return jsonData.move_to;
+            		}
+            		
+            	}
+            }
+          }
+          console.warn(`User location not found in recent account history.`);
+          return null;
+        } catch (error) {
+        	console.error('Error fetching account history:', error);
+        	return null;
+        }
+      }, [client]);
 
-	const fetchgameData = useCallback(async()  => {
-		console.log("Fetch game data fired!");
+	const fetchgameData = useCallback(async () => {
 		try {
 			setIsLoadedGame(false);
 			const gameInfo = await client.database.getAccounts(["hive-109456"]);
@@ -64,15 +92,11 @@ function App() {
 	}, [isLoadedGame, fetchgameData]);
 
 	const outPut = useCallback((texttooutput: string, bold?: boolean) => {
-		setGameOutputMessage((prevOutput) => [...prevOutput, {output: texttooutput, bold: bold}]);
+		setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
 	}, []);
 
-	//I think this arbitrarily defines this function enough that it can be used to set player desc, as well as 
-	//set the short desc and be used when we move the player!
 
 	const updatePlayerData = useCallback(async (username: string, options?: {
-		desc?: string,
-		shortdesc?: string,
 		newlocation?: {
 			permlink: string,
 			author: string
@@ -81,12 +105,9 @@ function App() {
 		console.log("Firing updatePlayerData!");
 		try {
 			let currentMetadata = userProfileJSON;
-			const currentPlayerData = currentMetadata.egodeathplayer || {};
+			const currentPlayerData = currentMetadata || {};
 
-			currentMetadata.egodeathplayer = {
-				"Name": username,
-				"Description": options?.desc ?? currentPlayerData.Description ?? "We really should define this but oh well.",
-				"ShortDesc": options?.shortdesc ?? currentPlayerData.ShortDesc ?? "How do you imagine we have a short if we don't a long?",
+			let updatedPlayerData = {
 				"Location": options?.newlocation ?? currentPlayerData.Location ?? { "permlink": "genesis-scaffold-precipice", "author": "raymonjohnstone" }
 			};
 
@@ -94,155 +115,159 @@ function App() {
 				"username": username,
 				"operations": [
 					[
-						"account_update2",
+						"custom_json",
 						{
-							"account": username,
-							"json_metadata": "",
-							"posting_json_metadata": JSON.stringify(currentMetadata)
+							"required_auths": [username],
+							"required_posting_auths": [],
+							"id": "ego-death",
+							"json": JSON.stringify({
+								"move_to": updatedPlayerData
+							})
 						}
 					]
 				],
-				'method': KeychainKeyTypes.posting
+				'method': KeychainKeyTypes.active
 			};
 			console.log("Broadcast Data:", { broadcastData });
-        const result = await keychain.broadcast(broadcastData as unknown as Broadcast); // Store the result
-        console.log("Broadcast result::", { result });
+			const result = await keychain.broadcast(broadcastData as Broadcast);
+			console.log("Broadcast result::", { result });
 
-        if (result && result.success && result.result && result.result.id) {
-        	console.log("Broadcast initiated successfully:", { result });
-        	setuserProfileJSON(currentMetadata);
-            return true; // Indicate success
-        } else {
-        	console.error("Broadcast failed:", { result });
-        	console.error("Broadcast result details:", JSON.stringify(result));
-        	outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
-            return false; // Indicate failure
-        }
-    } catch (error) {
-    	console.error('Error updating account metadata:', error);
-    	outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
-        return false; // Indicate failure
-    }
-}, [keychain, userProfileJSON, outPut]);
+			if (result && result.success && result.result && result.result.id) {
+				console.log("Broadcast initiated successfully:", { result });
+				return true;
+			} else {
+				console.error("Broadcast failed:", { result });
+				console.error("Broadcast result details:", JSON.stringify(result));
+				outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
+				return false;
+			}
+		} catch (error) {
+			console.error('Error updating account metadata:', error);
+			outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
+			return false;
+		}
+	}, [keychain, userProfileJSON, outPut]);
 
 	const fetchPlayerData = useCallback(async (username: string) => {
 		console.log("Fetch players data fired!");
 		try {
+			const playerLocation = await traceUserActivity(username);
 			const accountInfo = await client.database.getAccounts([username]);
 			const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
 			setuserProfileJSON(currentMetadata);
-			const playerLocation = currentMetadata.egodeathplayer.Location;
-			const transactionData = await client.database.call('get_content', [playerLocation.author, playerLocation.permlink]);
-            // Instead of setting state here, directly use the data:
-            let obtaineddata = null; // Initialize
-            for (const obj in gameJSON) {
-            	if (obj === playerLocation.permlink) {
-            		let foundexits = gameJSON[obj].exits;
-                    obtaineddata = { // Assign the value
-                    	"body": await transactionData.body,
-                    	"title": await transactionData.title,
-                    	"exits": await foundexits,
-                    	"author": await playerLocation.author,
-                    	"permlink": await playerLocation.permlink
-                    };
-                    break; // Important: Exit the loop once found
-                };
-            };
-            if (obtaineddata) { // Check if data was found!
-                setRoomData(obtaineddata); // Update state *after* the data is ready
-                outPut(obtaineddata.title, true);  // Display directly from fetched data
-                outPut(obtaineddata.body, false);
-                if (obtaineddata.exits) {
-                	outPut("There is a way to leave: ", false);
-                	for (const exit in obtaineddata.exits) {
-                		outPut(exit, true);
-                	};
-                };
-            } else {
-            	console.warn("Room data not found!");
-            }
-        } catch (error) {
-        	console.error('Error fetching data:', error);
-        	throw error; // Make sure to re-throw the error
-        } finally {
-            //setIsLoadedPlayer(true); // Set this *after* the data is handled
-        }
-    }, [client, gameJSON, outPut]); // Add outPut as dependency
+			if (!playerLocation) {
+				console.warn("Player location not found.");
+				outPut("Player location not found.", true);
+				return;
+			}
 
-    // useEffect(() => {
-    // 	if (isSignedIn && username && userProfileJSON?.egodeathplayer?.Location) {
-    //     fetchPlayerData(username);
-    // 	}
-	// }, [isSignedIn, username, fetchPlayerData, userProfileJSON?.egodeathplayer?.Location]);
+			const transactionData = await client.database.call('get_content', [playerLocation.Location.author, playerLocation.Location.permlink]);
+
+			let obtaineddata = null;
+			for (const obj in gameJSON) {
+				if (obj === playerLocation.Location.permlink) {
+					let foundexits = gameJSON[obj].exits;
+					obtaineddata = {
+						"body": await transactionData.body,
+						"title": await transactionData.title,
+						"exits": await foundexits,
+						"author": await playerLocation.Location.author,
+						"permlink": await playerLocation.Location.permlink
+					};
+					break;
+				}
+			}
+
+			if (obtaineddata) {
+				setRoomData(obtaineddata);
+				outPut(obtaineddata.title, true);
+				outPut(obtaineddata.body, false);
+				if (obtaineddata.exits) {
+					outPut("There is a way to leave: ", false);
+					for (const exit in obtaineddata.exits) {
+						outPut(exit, true);
+					}
+				}
+			} else {
+				console.warn("Room data not found!");
+				outPut("Room data not found.", true);
+			}
+		} catch (error) {
+			console.error('Error fetching data:', error);
+			outPut("Error fetching data.", true);
+		}
+	}, [client, gameJSON, outPut, traceUserActivity]);
+
+	const debouncedFetchPlayerData = useMemo(
+        () => debounce(fetchPlayerData, 500), // Debounce for 500ms
+        [fetchPlayerData]
+        );
 
 
-	const handleTextEntered = useCallback(async(enteredText: string): enteredText => {
+	const handleTextEntered = useCallback(async (enteredText: string): enteredText => {
 		const words = enteredText.toLowerCase().split(" ");
 		const firstword = words[0];
 		console.log(firstword);
 		if (firstword === "login") {
-			if(isSignedIn) {
+			if (isSignedIn) {
 				outPut("You are already signed in!", false);
 			} else {
 				const tempuser = enteredText.split(/\s+/)[1];
-				setUsername(tempuser); 
-      			outPut(`Logging in as ${tempuser}`, false); // Provide feedback to the user
-      		}
-      	} else if(isSignedIn) {
-      		if(firstword === "@describe") {
-      			const description = words.slice(1).join(" ");
-      			const updateOptions = {
-      				desc: description
-      			};
-      			await updatePlayerData(username, updateOptions);
-      			outPut("Your description has been updated.", false);
-      		}if(firstword === "@describeshort") {
-      			const shortdescription = words.slice(1).join(" ");
-      			const updateOptions = {
-      				shortdesc: shortdescription
-      			};
-      			await updatePlayerData(username, updateOptions);
-      			outPut("Your short description has been updated.", false);
-      		}if(firstword === "look") {
-      			outPut(roomdata.title, true);
-      			outPut(roomdata.body, false);
-      			if (roomdata.exits) {
-      				outPut("There is a way to leave: ", false); 
-      				for(const exit in roomdata.exits) {
-      					outPut(exit, true);
-      				};
-      			};
-      		}if(firstword in roomdata.exits) {
-      			try {
-      				const newlocation = roomdata.exits[firstword];
-      				if (newlocation) {
-      					const updateSuccess = await updatePlayerData(username, {
-      						newlocation: {
-      							"permlink": newlocation,
-      							"author": gameJSON[roomdata.exits[firstword]].author
-      						}
-      					});
-      					if (updateSuccess) {
-                        // Introduce a delay
-      						setTimeout(async () => {
-      							await fetchPlayerData(username);
-                        }, 2000); // 2 seconds delay (adjust as needed)
-      					}
-      				} else {
-      					console.warn("Location not found in game data:", permlink);
-      					outPut("Error: Invalid destination.", true);
-      				}
-      			} catch (error) {
-      				console.error("Error moving player:", error);
-      				outPut("Error moving player.", true);
-      				throw error;
-      			}
-      		}
-      	}
-      }, [username, outPut, roomdata, updatePlayerData, isSignedIn, fetchPlayerData, gameJSON]);
+				setUsername(tempuser);
+				outPut(`Logging in as ${tempuser}`, false);
+			}
+		} else if (isSignedIn) {
+			if (firstword === "@describe") {
+				const description = words.slice(1).join(" ");
+				const updateOptions = {
+					desc: description
+				};
+				await updatePlayerData(username, updateOptions);
+				outPut("Your description has been updated.", false);
+			} if (firstword === "@describeshort") {
+				const shortdescription = words.slice(1).join(" ");
+				const updateOptions = {
+					shortdesc: shortdescription
+				};
+				await updatePlayerData(username, updateOptions);
+				outPut("Your short description has been updated.", false);
+			} if (firstword === "look") {
+				outPut(roomdata.title, true);
+				outPut(roomdata.body, false);
+				if (roomdata.exits) {
+					outPut("There is a way to leave: ", false);
+					for (const exit in roomdata.exits) {
+						outPut(exit, true);
+					};
+				};
+			} if (firstword in roomdata.exits) {
+				try {
+					const newlocation = roomdata.exits[firstword];
+					if (newlocation) {
+						const updateSuccess = await updatePlayerData(username, {
+							newlocation: {
+								"permlink": newlocation,
+								"author": gameJSON[roomdata.exits[firstword]].author
+							}
+						});
+						if (updateSuccess) {
+							debouncedFetchPlayerData(username);
+						}
+					} else {
+						console.warn("Location not found in game data:", permlink);
+						outPut("Error: Invalid destination.", true);
+					}
+				} catch (error) {
+					console.error("Error moving player:", error);
+					outPut("Error moving player.", true);
+					throw error;
+				}
+			}
+		}
+	}, [username, outPut, roomdata, updatePlayerData, isSignedIn, debouncedFetchPlayerData, gameJSON]);
 
-	const handleSignIn = useCallback(async(username: string) => {
-		if(!isSignedIn) {
+	const handleSignIn = useCallback(async (username: string) => {
+		if (!isSignedIn) {
 			const data: Login = {
 				"username": username,
 				"message": "{\"login\":\"123\"}",
@@ -250,16 +275,16 @@ function App() {
 					"title": "Login"
 				};
 				try {
-				// eslint-disable-next-line @typescript-eslint/no-unused-vars
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
 					const login = await keychain.login(data as Login);
 				} catch (error) {
 					console.error("Login error:", error);
 				} finally {
 					setIsSignedIn(true);
-					await fetchPlayerData(username);
+					debouncedFetchPlayerData(username);
 				}
 			}
-		}, [keychain, isSignedIn, fetchPlayerData]);
+		}, [keychain, isSignedIn, debouncedFetchPlayerData]);
 
 	useEffect(() => {
 		if (username) {
@@ -278,19 +303,64 @@ function App() {
 		});
 		setUserGreeted(true);
 	};
+
 	const isUnmounted = useRef(false);
+	const retryCount = useRef(0);
+
 	useEffect(() => {
+		let stream = client.blockchain.getOperationsStream();
 
+		const handleOperation = async (op) => {
+			if (op.op[1].id === 'ego-death') {
+				console.log('Received custom_json operation:', op);
+				if (processedOperations.has(op.trx_id)) {
+					console.log('Operation already processed:', op.trx_id);
+					return;
+				}
 
-		const stream = client.blockchain.getOperationsStream('custom_json');
+				processedOperations.add(op.trx_id);
 
-		const handleOperation = (op) => {
-			console.log('Received custom_json operation:', op);
+				try {
+					const jsonData = JSON.parse(op.op[1].json);
+					const newLocation = jsonData.move_to;
+
+					if (op.op[1].required_auths[0] === username && isSignedIn) {
+						if (newLocation && (!lastKnownLocation || newLocation.permlink !== lastKnownLocation.permlink || newLocation.author !== lastKnownLocation.author)) {
+							console.log("Player moved to new location. Displaying room data");
+							debouncedFetchPlayerData(username);
+							setLastKnownLocation(newLocation);
+						}
+					}
+				} catch (jsonError) {
+					console.error('Error parsing JSON:', jsonError);
+				}
+			}
 		};
 
 		const handleError = (error) => {
 			if (isUnmounted.current) return;
 			console.error('Stream error:', error);
+
+			const retryDelay = Math.min(30000, Math.pow(2, retryCount.current) * 1000);
+			retryCount.current++;
+
+			const handleEnd = () => {
+				console.log('Stream ended.');
+			};
+
+			setTimeout(() => {
+				if (!isUnmounted.current) {
+					stream = client.blockchain.getOperationsStream();
+					stream.on('data', handleOperation);
+					stream.on('error', handleError);
+					stream.on('end', handleEnd);
+					try {
+						stream.destroy();
+					} catch (e) {
+						console.error("Error destroying stream:", e);
+					}
+				}
+			}, retryDelay);
 		};
 
 		const handleEnd = () => {
@@ -303,19 +373,24 @@ function App() {
 
 		return () => {
 			isUnmounted.current = true;
-			stream.removeListener('data', handleOperation);
-			stream.removeListener('error', handleError);
-			stream.removeListener('end', handleEnd);
-			stream.destroy();
-		}
-	}, [client]);
+			processedOperations.clear();
+			try {
+				stream.destroy();
+			} catch (e) {
+				console.error("Error destroying stream during unmount:", e);
+			}
+		};
+	}, [client, username, isSignedIn, debouncedFetchPlayerData, lastKnownLocation, processedOperations]);
+
 
 	return (
 		<div className="App">
 		<header className="App-header">
-		<div className="Title"> E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼ </div>
+		<div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼
+		</div>
 		<div className="SignOutButton">
-		<SignOutButton isSignedIn={isSignedIn} username={username} onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
+		<SignOutButton isSignedIn={isSignedIn} username={username} 
+		onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
 		</div>
 		</header>
 		<GameOutputWindow output={gameOutputMessage} />
