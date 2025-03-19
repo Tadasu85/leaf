@@ -18,6 +18,7 @@ function App() {
 	const [isLoadedGame, setIsLoadedGame] = useState(false);
 	const [isSignedIn, setIsSignedIn] = useState(false);
 	const [lastKnownLocation, setLastKnownLocation] = useState(null);
+	const [loading, setLoading] = useState(false);
 	const processedOperations = useMemo(() => new Set(), []);
 
     //We depend on keychain for signing and dhive for fetching data from the hive chain.
@@ -312,9 +313,6 @@ function App() {
 		}
 	}, [handleLogin, handleCommand, isSignedIn]);
 
-
-	
-
 	const handleSignOut = () => {
 		setIsSignedIn(false);
 		setUsername('');
@@ -348,13 +346,16 @@ function App() {
 
 					if (op.op[1].required_posting_auths[0] === username && isSignedIn) {
 						if (newLocation && (!lastKnownLocation || newLocation.permlink !== lastKnownLocation.permlink || newLocation.author !== lastKnownLocation.author)) {
+							setLoading(true);
 							console.log("Player moved to new location. Displaying room data");
 							await debouncedFetchPlayerData(username);
+							setLoading(false);
 							setLastKnownLocation(newLocation);
 						}
 					}
 				} catch (jsonError) {
 					console.error('Error parsing JSON:', jsonError);
+					setLoading(false);
 				}
 			}
 		};
@@ -363,9 +364,12 @@ function App() {
 			if (isUnmounted.current) return;
 			console.error('Stream error:', error);
 
-			const retryDelay = Math.min(30000, Math.pow(2, retryCount.current) * 1000);
-			retryCount.current++;
+			const baseDelay = 250; // 0.25 seconds base delay
+			const maxDelay = 2000; // 2 seconds maximum delay
+			const exponentialFactor = 1.2; //reduced exponential factor.
 
+			const retryDelay = Math.min(maxDelay, Math.pow(exponentialFactor, retryCount.current) * baseDelay);
+			retryCount.current++;
 			const handleEnd = () => {
 				console.log('Stream ended.');
 			};
@@ -405,21 +409,24 @@ function App() {
 	}, [client, username, isSignedIn, debouncedFetchPlayerData, lastKnownLocation, processedOperations]);
 
 	return (
-		<div className="App">
-		<header className="App-header">
-		<div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼
-		</div>
-		<div className="SignOutButton">
-		<SignOutButton isSignedIn={isSignedIn} username={username} 
-		onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
-		</div>
-		</header>
-		<GameOutputWindow output={gameOutputMessage} />
-		<div className="TextInputBox">
-		<TextInputBox onEnterPressed={handleTextEntered} />
-		</div>
-		</div>
-		);
+    <div className="App">
+        <header className="App-header">
+            <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼
+            </div>
+            <div className="Loading">
+                {loading && "Loading..."}
+            </div>
+            <div className="SignOutButton">
+                <SignOutButton isSignedIn={isSignedIn} username={username}
+                    onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
+            </div>
+        </header>
+        <GameOutputWindow output={gameOutputMessage} />
+        <div className="TextInputBox">
+            <TextInputBox onEnterPressed={handleTextEntered} />
+        </div>
+    </div>
+);
 }
 
 export default App;

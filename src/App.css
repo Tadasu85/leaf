@@ -18,6 +18,13 @@
   color: #796909;
 }
 
+.Loading {
+  background-color: #690979;
+  min-height: 10vh;
+  display: grid;
+  align-items: center;
+}
+
 .GameOutputWindow {
   text-align: left;
   overflow: auto;
