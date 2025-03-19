@@ -61,14 +61,14 @@ function App() {
             		}
             	}
             }
-          }
-          console.warn(`User location not found in recent account history.`);
-          return null;
-        } catch (error) {
-        	console.error('Error fetching account history:', error);
-        	return null;
         }
-      }, [client, processedOperations]);
+        console.warn(`User location not found in recent account history.`);
+        return null;
+    } catch (error) {
+    	console.error('Error fetching account history:', error);
+    	return null;
+    }
+}, [client, processedOperations]);
 
 	const fetchgameData = useCallback(async () => {
 		try {
@@ -115,8 +115,8 @@ function App() {
 					[
 						"custom_json",
 						{
-							"required_auths": [username],
-							"required_posting_auths": [],
+							"required_auths": [],
+							"required_posting_auths": [username],
 							"id": "ego-death",
 							"json": JSON.stringify({
 								"move_to": updatedPlayerData
@@ -124,7 +124,7 @@ function App() {
 						}
 					]
 				],
-				'method': KeychainKeyTypes.active
+				'method': KeychainKeyTypes.posting
 			};
 			console.log("Broadcast Data:", { broadcastData });
 			const result = await keychain.broadcast(broadcastData as Broadcast);
@@ -199,72 +199,21 @@ function App() {
 		() => debounce((username) => {
 			console.log("Debounced fetchPlayerData called:", username);
 			fetchPlayerData(username);
-		}, 500),
+		}, 50),
 		[fetchPlayerData]
-		);
-
-
-	const handleTextEntered = useCallback(async (enteredText: string): enteredText => {
+	);
+	const handleLogin = useCallback(async (enteredText: string) => {
 		const words = enteredText.toLowerCase().split(" ");
 		const firstword = words[0];
-		console.log(firstword);
-		if (firstword === "login") {
-			if (isSignedIn) {
-				outPut("You are already signed in!", false);
-			} else {
-				const tempuser = enteredText.split(/\s+/)[1];
-				setUsername(tempuser);
-				outPut(`Logging in as ${tempuser}`, false);
-			}
-		} else if (isSignedIn) {
-			if (firstword === "@describe") {
-				const description = words.slice(1).join(" ");
-				const updateOptions = {
-					desc: description
-				};
-				await updatePlayerData(username, updateOptions);
-				outPut("Your description has been updated.", false);
-			} if (firstword === "@describeshort") {
-				const shortdescription = words.slice(1).join(" ");
-				const updateOptions = {
-					shortdesc: shortdescription
-				};
-				await updatePlayerData(username, updateOptions);
-				outPut("Your short description has been updated.", false);
-			} if (firstword === "look") {
-				outPut(roomdata.title, true);
-				outPut(roomdata.body, false);
-				if (roomdata.exits) {
-					outPut("There is a way to leave: ", false);
-					for (const exit in roomdata.exits) {
-						outPut(exit, true);
-					};
-				};
-			} if (firstword in roomdata.exits) {
-				try {
-					const newlocation = roomdata.exits[firstword];
-					if (newlocation) {
-						const updateSuccess = await updatePlayerData(username, {
-							newlocation: {
-								"permlink": newlocation,
-								"author": gameJSON[roomdata.exits[firstword]].author
-							}
-						});
-						if (updateSuccess) {
-							debouncedFetchPlayerData(username);
-						}
-					} else {
-						console.warn("Location not found in game data:", permlink);
-						outPut("Error: Invalid destination.", true);
-					}
-				} catch (error) {
-					console.error("Error moving player:", error);
-					outPut("Error moving player.", true);
-					throw error;
-				}
-			}
-		}
-	}, [username, outPut, roomdata, updatePlayerData, isSignedIn, debouncedFetchPlayerData, gameJSON]);
+
+		if (firstword === "login" || firstword === "connect") {
+			const tempuser = enteredText.split(/\s+/)[1];
+			setUsername(tempuser);
+			await outPut(`Logging in as ${tempuser}`, false);
+        return true; // Indicate successful login
+    	}
+    return false; // Indicate login failure
+	}, [setUsername, outPut]);
 
 	const handleSignIn = useCallback(async (username: string) => {
 		if (!isSignedIn) {
@@ -275,8 +224,7 @@ function App() {
 					"title": "Login"
 				};
 				try {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-					const login = await keychain.login(data as Login);
+					await keychain.login(data as Login);
 				} catch (error) {
 					console.error("Login error:", error);
 				} finally {
@@ -292,6 +240,80 @@ function App() {
 		}
 
 	}, [username, handleSignIn]);
+
+	const handleCommand = useCallback(async (enteredText: string) => {
+		const words = enteredText.toLowerCase().split(" ");
+		const command = words[0];
+
+		if (!isSignedIn) {
+			await outPut("Please log in first.", true);
+			return;
+		}
+
+		switch (command) {
+		case "@describe":
+			const description = words.slice(1).join(" ");
+			const updateOptionsDesc = { desc: description };
+			await updatePlayerData(username, updateOptionsDesc);
+			await outPut("Your description has been updated.", false);
+			break;
+
+		case "@describeshort":
+			const shortdescription = words.slice(1).join(" ");
+			const updateOptionsShort = { shortdesc: shortdescription };
+			await updatePlayerData(username, updateOptionsShort);
+			await outPut("Your short description has been updated.", false);
+			break;
+
+		case "look":
+			if (roomdata) {
+				await outPut(roomdata.title, true);
+				await outPut(roomdata.body, false);
+				if (roomdata.exits) {
+					await outPut("There is a way to leave: ", false);
+					for (const exit in roomdata.exits) {
+						await outPut(exit, true);
+					}
+				}
+			} else {
+				await outPut("Error: Room data not available.", true);
+			}
+			break;
+
+		default:
+			if (roomdata && roomdata.exits && roomdata.exits[command]) {
+				const newlocation = roomdata.exits[command];
+				try {
+					const updateSuccess = await updatePlayerData(username, {
+						newlocation: {
+							permlink: newlocation,
+							author: gameJSON[roomdata.exits[command]].author,
+						},
+					});
+					setLastKnownLocation(updateSuccess.newlocation);
+				} catch (error) {
+					console.error("Error moving player to:", newlocation, error);
+					await outPut(`Error moving player to: ${newlocation}.`, true);
+				}
+			} else if (roomdata && roomdata.exits && !(command in roomdata.exits)) {
+				await outPut("Error: Invalid destination.", true);
+			} else {
+				await outPut("Unknown command.", true);
+			}
+			break;
+		}
+	}, [username, outPut, roomdata, updatePlayerData, isSignedIn, gameJSON, setLastKnownLocation]);
+
+	const handleTextEntered = useCallback(async (enteredText: string) => {
+		const loggedIn = await handleLogin(enteredText);
+
+		if (!loggedIn && isSignedIn) {
+			await handleCommand(enteredText);
+		}
+	}, [handleLogin, handleCommand, isSignedIn]);
+
+
+	
 
 	const handleSignOut = () => {
 		setIsSignedIn(false);
@@ -324,10 +346,10 @@ function App() {
 					const jsonData = JSON.parse(op.op[1].json);
 					const newLocation = jsonData.move_to;
 
-					if (op.op[1].required_auths[0] === username && isSignedIn) {
+					if (op.op[1].required_posting_auths[0] === username && isSignedIn) {
 						if (newLocation && (!lastKnownLocation || newLocation.permlink !== lastKnownLocation.permlink || newLocation.author !== lastKnownLocation.author)) {
 							console.log("Player moved to new location. Displaying room data");
-							debouncedFetchPlayerData(username);
+							await debouncedFetchPlayerData(username);
 							setLastKnownLocation(newLocation);
 						}
 					}
