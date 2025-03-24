@@ -47,27 +47,26 @@ function App() {
 		"If this is successful you will see your username in the top right."
 	];
 
-	const traceUserActivity = useCallback(async (username: string, action?: string) => {
-		try {
+const traceUserActivity = useCallback(async (username: string, targetKey: string) => {
+    try {
         const accountHistory = await client.database.getAccountHistory(username, -1, 100); // Or your desired window size
         if (accountHistory.length > 0) {
             for (let i = accountHistory.length - 1; i >= 0; i--) { // Iterate backward
-            	const [seq, op] = accountHistory[i];
-            	if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
-            		const jsonData = JSON.parse(op.op[1].json);
-            		if (jsonData.move_to) {
-            			processedOperations.add(op.trx_id);
-            			console.log(`User location found in operation ${seq}:`, jsonData.move_to, op);
-            			return jsonData.move_to;
-            		}
-            	}
+                const [seq, op] = accountHistory[i];
+                if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
+                    const jsonData = JSON.parse(op.op[1].json);
+                    if (jsonData[targetKey]) {
+                        processedOperations.add(op.trx_id);
+                        return jsonData[targetKey];
+                    }
+                }
             }
         }
-        console.warn(`User location not found in recent account history.`);
+        console.warn(`User data not found in recent account history for key ${targetKey}.`);
         return null;
     } catch (error) {
-    	console.error('Error fetching account history:', error);
-    	return null;
+        console.error('Error fetching account history:', error);
+        return null;
     }
 }, [client, processedOperations]);
 
@@ -94,14 +93,12 @@ function App() {
 		setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
 	}, []);
 
-
 	const updatePlayerData = useCallback(async (username: string, options?: {
 		newlocation?: {
 			permlink: string,
 			author: string
 		}
 	}) => {
-		console.log("Firing updatePlayerData!");
 		try {
 			let currentMetadata = userProfileJSON;
 			const currentPlayerData = currentMetadata || {};
@@ -109,7 +106,6 @@ function App() {
 			let updatedPlayerData = {
 				"Location": options?.newlocation ?? currentPlayerData.Location ?? { "permlink": "genesis-scaffold-precipice", "author": "raymonjohnstone" }
 			};
-
 			const broadcastData = {
 				"username": username,
 				"operations": [
@@ -145,7 +141,7 @@ function App() {
 
 	const fetchPlayerData = useCallback(async (username: string) => {
 		try {
-			const playerLocation = await traceUserActivity(username);
+			const playerLocation = await traceUserActivity(username, "move_to");
 			const accountInfo = await client.database.getAccounts([username]);
 			const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
 			setuserProfileJSON(currentMetadata);
@@ -194,15 +190,13 @@ function App() {
 
 	const debouncedFetchPlayerData = useMemo(
 		() => debounce((username) => {
-			console.log("Debounced fetchPlayerData called:", username);
 			fetchPlayerData(username);
-		}, 50),
+		}, 10),
 		[fetchPlayerData]
 	);
 	const handleLogin = useCallback(async (enteredText: string) => {
 		const words = enteredText.toLowerCase().split(" ");
 		const firstword = words[0];
-
 		if (firstword === "login" || firstword === "connect") {
 			const tempuser = enteredText.split(/\s+/)[1];
 			setUsername(tempuser);
@@ -373,9 +367,7 @@ function App() {
 			}, retryDelay);
 		};
 
-		const handleEnd = () => {
-			console.log('Stream ended.');
-		};
+		const handleEnd = () => {};
 
 		stream.on('data', handleOperation);
 		stream.on('error', handleError);
