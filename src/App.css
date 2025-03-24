@@ -50,7 +50,7 @@
   min-height: 5vh;
   min-width: 5vw;
   background-color: #690979;
-  color: white;
+  color: black;
   text-decoration-color: black;
 }
 
@@ -74,7 +74,7 @@ p {
 
 button {
   min-height: inherit;
-  background-color: #690979;
+  background-color: white;
   min-width: inherit;
   font-style: normal;
   font-family: "Lucida Console", "Courier New", monospace;

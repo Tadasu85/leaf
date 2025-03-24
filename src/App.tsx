@@ -200,7 +200,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 		if (firstword === "login" || firstword === "connect") {
 			const tempuser = enteredText.split(/\s+/)[1];
 			setUsername(tempuser);
-			await outPut(`Logging in as ${tempuser}`, false);
+			outPut(`Logging in as ${tempuser}`, false);
         return true; // Indicate successful login
     	}
     return false; // Indicate login failure
@@ -235,9 +235,8 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 	const handleCommand = useCallback(async (enteredText: string) => {
 		const words = enteredText.toLowerCase().split(" ");
 		const command = words[0];
-
 		if (!isSignedIn) {
-			await outPut("Please log in first.", true);
+			outPut("Please log in first.", true);
 			return;
 		}
 
@@ -246,24 +245,24 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 			const description = words.slice(1).join(" ");
 			const updateOptionsDesc = { desc: description };
 			await updatePlayerData(username, updateOptionsDesc);
-			await outPut("Your description has been updated.", false);
+			outPut("Your description has been updated.", false);
 			break;
 
 		case "@describeshort":
 			const shortdescription = words.slice(1).join(" ");
 			const updateOptionsShort = { shortdesc: shortdescription };
 			await updatePlayerData(username, updateOptionsShort);
-			await outPut("Your short description has been updated.", false);
+			outPut("Your short description has been updated.", false);
 			break;
 
 		case "look":
 			if (roomdata) {
-				await outPut(roomdata.title, true);
-				await outPut(roomdata.body, false);
+				outPut(roomdata.title, true);
+				outPut(roomdata.body, false);
 				if (roomdata.exits) {
-					await outPut("There is a way to leave: ", false);
+					outPut("There is a way to leave: ", false);
 					for (const exit in roomdata.exits) {
-						await outPut(exit, true);
+						outPut(exit, true);
 					}
 				}
 			} else {
@@ -281,15 +280,16 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 							author: gameJSON[roomdata.exits[command]].author,
 						},
 					});
+					outPut(`You traipse off towards ${newlocation}.`, false);
 					setLastKnownLocation(updateSuccess.newlocation);
 				} catch (error) {
 					console.error("Error moving player to:", newlocation, error);
-					await outPut(`Error moving player to: ${newlocation}.`, true);
+					outPut(`Error moving player to: ${newlocation}.`, true);
 				}
 			} else if (roomdata && roomdata.exits && !(command in roomdata.exits)) {
-				await outPut("Error: Invalid destination.", true);
+				outPut("Error: Invalid destination.", true);
 			} else {
-				await outPut("Unknown command.", true);
+				outPut("Unknown command.", true);
 			}
 			break;
 		}
@@ -346,8 +346,8 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 		const handleError = (error) => {
 			if (isUnmounted.current) return;
 			console.error('Stream error:', error);
-			const baseDelay = 10; // 0.10 seconds base delay
-			const maxDelay = 1000; // 1 seconds maximum delay
+			const baseDelay = 5; // 0.5 seconds base delay
+			const maxDelay = 500; // 0.5 seconds maximum delay
 			const exponentialFactor = 0.2; //reduced exponential factor.
 			const retryDelay = Math.min(maxDelay, Math.pow(exponentialFactor, retryCount.current) * baseDelay);
 			retryCount.current++;
