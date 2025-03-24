@@ -47,7 +47,7 @@ function App() {
 		"If this is successful you will see your username in the top right."
 	];
 
-	const traceUserActivity = useCallback(async (username: string) => {
+	const traceUserActivity = useCallback(async (username: string, action?: string) => {
 		try {
         const accountHistory = await client.database.getAccountHistory(username, -1, 100); // Or your desired window size
         if (accountHistory.length > 0) {
@@ -127,11 +127,8 @@ function App() {
 				],
 				'method': KeychainKeyTypes.posting
 			};
-			console.log("Broadcast Data:", { broadcastData });
 			const result = await keychain.broadcast(broadcastData as Broadcast);
-			console.log("Broadcast result::", { result });
 			if (result && result.success && result.result && result.result.id) {
-				console.log("Broadcast initiated successfully:", { result });
 				return true;
 			} else {
 				console.error("Broadcast failed:", { result });
@@ -147,7 +144,6 @@ function App() {
 	}, [keychain, userProfileJSON, outPut]);
 
 	const fetchPlayerData = useCallback(async (username: string) => {
-		console.log("Fetch players data fired!");
 		try {
 			const playerLocation = await traceUserActivity(username);
 			const accountInfo = await client.database.getAccounts([username]);
@@ -329,25 +325,18 @@ function App() {
 
 	useEffect(() => {
 		let stream = client.blockchain.getOperationsStream();
-
 		const handleOperation = async (op) => {
 			if (op.op[1].id === 'ego-death') {
-				console.log('Received custom_json operation:', op);
 				if (processedOperations.has(op.trx_id)) {
-					console.log('Operation already processed:', op.trx_id);
-					return;
+				return;
 				}
-
 				processedOperations.add(op.trx_id);
-
 				try {
 					const jsonData = JSON.parse(op.op[1].json);
 					const newLocation = jsonData.move_to;
-
 					if (op.op[1].required_posting_auths[0] === username && isSignedIn) {
 						if (newLocation && (!lastKnownLocation || newLocation.permlink !== lastKnownLocation.permlink || newLocation.author !== lastKnownLocation.author)) {
 							setLoading(true);
-							console.log("Player moved to new location. Displaying room data");
 							await debouncedFetchPlayerData(username);
 							setLoading(false);
 							setLastKnownLocation(newLocation);
@@ -363,17 +352,12 @@ function App() {
 		const handleError = (error) => {
 			if (isUnmounted.current) return;
 			console.error('Stream error:', error);
-
-			const baseDelay = 250; // 0.25 seconds base delay
-			const maxDelay = 2000; // 2 seconds maximum delay
-			const exponentialFactor = 1.2; //reduced exponential factor.
-
+			const baseDelay = 10; // 0.10 seconds base delay
+			const maxDelay = 1000; // 1 seconds maximum delay
+			const exponentialFactor = 0.2; //reduced exponential factor.
 			const retryDelay = Math.min(maxDelay, Math.pow(exponentialFactor, retryCount.current) * baseDelay);
 			retryCount.current++;
-			const handleEnd = () => {
-				console.log('Stream ended.');
-			};
-
+			const handleEnd = () => {};
 			setTimeout(() => {
 				if (!isUnmounted.current) {
 					stream = client.blockchain.getOperationsStream();
