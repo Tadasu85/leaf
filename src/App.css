@@ -19,7 +19,7 @@
 }
 
 .Loading {
-  background-color: #690979;
+  background-color: white;
   min-height: 0.5vh;
   display: grid;
   align-items: center;

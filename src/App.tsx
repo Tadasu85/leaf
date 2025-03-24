@@ -44,6 +44,7 @@ function App() {
 		"If you've arrived here by accident and do not have a Hive account. ",
 		"Please make your way to https://ecency.com/ to create an account.",
 		"Otherwise you may proceed with a login command by typing 'login' 'your hive username'",
+		"You will also need the hive keychain extension installed and the account added.",
 		"If this is successful you will see your username in the top right."
 	];
 
@@ -52,6 +53,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
         const accountHistory = await client.database.getAccountHistory(username, -1, 100); // Or your desired window size
         if (accountHistory.length > 0) {
             for (let i = accountHistory.length - 1; i >= 0; i--) { // Iterate backward
+            	// eslint-disable-next-line
                 const [seq, op] = accountHistory[i];
                 if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
                     const jsonData = JSON.parse(op.op[1].json);
@@ -280,7 +282,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 							author: gameJSON[roomdata.exits[command]].author,
 						},
 					});
-					outPut(`You traipse off towards ${newlocation}.`, false);
+					outPut(`You traipse off towards ${command}.`, false);
 					setLastKnownLocation(updateSuccess.newlocation);
 				} catch (error) {
 					console.error("Error moving player to:", newlocation, error);
@@ -389,9 +391,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
         <header className="App-header">
             <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼
             </div>
-            <div className="Loading">
-                {loading && "Loading..."}
-            </div>
+                {loading ? <div className="Loading">"Loading..."</div> : null}
             <div className="SignOutButton">
                 <SignOutButton isSignedIn={isSignedIn} username={username}
                     onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
