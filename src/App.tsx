@@ -48,27 +48,27 @@ function App() {
 		"If this is successful you will see your username in the top right."
 	];
 
-const traceUserActivity = useCallback(async (username: string, targetKey: string) => {
-    try {
+	const traceUserActivity = useCallback(async (username: string, targetKey: string) => {
+		try {
         const accountHistory = await client.database.getAccountHistory(username, -1, 100); // Or your desired window size
         if (accountHistory.length > 0) {
             for (let i = accountHistory.length - 1; i >= 0; i--) { // Iterate backward
             	// eslint-disable-next-line
-                const [seq, op] = accountHistory[i];
-                if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
-                    const jsonData = JSON.parse(op.op[1].json);
-                    if (jsonData[targetKey]) {
-                        processedOperations.add(op.trx_id);
-                        return jsonData[targetKey];
-                    }
-                }
+            	const [seq, op] = accountHistory[i];
+            	if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
+            		const jsonData = JSON.parse(op.op[1].json);
+            		if (jsonData[targetKey]) {
+            			processedOperations.add(op.trx_id);
+            			return jsonData[targetKey];
+            		}
+            	}
             }
         }
         console.warn(`User data not found in recent account history for key ${targetKey}.`);
         return null;
     } catch (error) {
-        console.error('Error fetching account history:', error);
-        return null;
+    	console.error('Error fetching account history:', error);
+    	return null;
     }
 }, [client, processedOperations]);
 
@@ -95,7 +95,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 		setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
 	}, []);
 
-	const updatePlayerData = useCallback(async (username: string, options?: {
+	const movePlayer = useCallback(async (username: string, options?: {
 		newlocation?: {
 			permlink: string,
 			author: string
@@ -105,7 +105,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 			let currentMetadata = userProfileJSON;
 			const currentPlayerData = currentMetadata || {};
 
-			let updatedPlayerData = {
+			let movedPlayer = {
 				"Location": options?.newlocation ?? currentPlayerData.Location ?? { "permlink": "genesis-scaffold-precipice", "author": "raymonjohnstone" }
 			};
 			const broadcastData = {
@@ -118,7 +118,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 							"required_posting_auths": [username],
 							"id": "ego-death",
 							"json": JSON.stringify({
-								"move_to": updatedPlayerData
+								"move_to": movedPlayer
 							})
 						}
 					]
@@ -182,7 +182,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 				}
 			} else {
 				console.warn("Room data not found!");
-				outPut("Room data not found.", true);
+				outPut("There doesnt seem to be a way to leave that direction.", true);
 			}
 		} catch (error) {
 			console.error('Error fetching data:', error);
@@ -190,23 +190,79 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 		}
 	}, [client, gameJSON, outPut, traceUserActivity]);
 
+	const updatePlayerDesc = useCallback(async (username: string, options?: {
+		desc?: string,
+		shortdesc?: string,
+	}) => {
+		console.log("Firing updatePlayerData!");
+		try {
+			let currentMetadata = userProfileJSON;
+			const currentPlayerData = currentMetadata.egodeathplayer || {};
+
+			currentMetadata.egodeathplayer = {
+				"Name": username,
+				"Description": options?.desc ?? currentPlayerData.Description ?? "We really should define this but oh well.",
+				"ShortDesc": options?.shortdesc ?? currentPlayerData.ShortDesc ?? "How do you imagine we have a short if we don't a long?",
+			};
+
+			const broadcastData = {
+				"username": username,
+				"operations": [
+					[
+						"account_update2",
+						{
+							"account": username,
+							"json_metadata": "",
+							"posting_json_metadata": JSON.stringify(currentMetadata)
+						}
+					]
+				],
+				'method': KeychainKeyTypes.posting
+			};
+			console.log("Broadcast Data:", { broadcastData });
+        const result = await keychain.broadcast(broadcastData as unknown as Broadcast); // Store the result
+        console.log("Broadcast result::", { result });
+
+        if (result && result.success && result.result && result.result.id) {
+        	console.log("Broadcast initiated successfully:", { result });
+        	setuserProfileJSON(currentMetadata);
+            return true; // Indicate success
+        } else {
+        	console.error("Broadcast failed:", { result });
+        	console.error("Broadcast result details:", JSON.stringify(result));
+        	outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
+            return false; // Indicate failure
+        }
+    } catch (error) {
+    	console.error('Error updating account metadata:', error);
+    	outPut("Error: Failed to update player data. Please check your Keychain and try again.", true);
+        return false; // Indicate failure
+    }
+}, [keychain, userProfileJSON, outPut]);
+
 	const debouncedFetchPlayerData = useMemo(
 		() => debounce((username) => {
 			fetchPlayerData(username);
 		}, 10),
 		[fetchPlayerData]
-	);
+		);
 	const handleLogin = useCallback(async (enteredText: string) => {
 		const words = enteredText.toLowerCase().split(" ");
 		const firstword = words[0];
 		if (firstword === "login" || firstword === "connect") {
 			const tempuser = enteredText.split(/\s+/)[1];
+			if(tempuser === undefined) {
+				outPut("You must follow your login/connect command with your hive username.", true);
+			} else {
 			setUsername(tempuser);
 			outPut(`Logging in as ${tempuser}`, false);
         return true; // Indicate successful login
-    	}
+    }
+    } else {
+    	outPut("Please log in first.", true);
+    }
     return false; // Indicate login failure
-	}, [setUsername, outPut]);
+}, [setUsername, outPut]);
 
 	const handleSignIn = useCallback(async (username: string) => {
 		if (!isSignedIn) {
@@ -219,7 +275,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 				try {
 					await keychain.login(data as Login);
 				} catch (error) {
-					console.error("Login error:", error);
+					throw("Login error:", error);
 				} finally {
 					setIsSignedIn(true);
 					debouncedFetchPlayerData(username);
@@ -229,7 +285,13 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 
 	useEffect(() => {
 		if (username) {
+			try {
 			handleSignIn(username);
+			console.log(handleSignIn(username))
+			} catch (error) {
+				setUsername('');
+				setIsSignedIn(false);
+			}
 		}
 
 	}, [username, handleSignIn]);
@@ -246,14 +308,14 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 		case "@describe":
 			const description = words.slice(1).join(" ");
 			const updateOptionsDesc = { desc: description };
-			await updatePlayerData(username, updateOptionsDesc);
+			await updatePlayerDesc(username, updateOptionsDesc);
 			outPut("Your description has been updated.", false);
 			break;
 
 		case "@describeshort":
 			const shortdescription = words.slice(1).join(" ");
 			const updateOptionsShort = { shortdesc: shortdescription };
-			await updatePlayerData(username, updateOptionsShort);
+			await updatePlayerDesc(username, updateOptionsShort);
 			outPut("Your short description has been updated.", false);
 			break;
 
@@ -268,15 +330,17 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 					}
 				}
 			} else {
-				await outPut("Error: Room data not available.", true);
+				outPut("Error: Room data not available.", true);
 			}
 			break;
 
 		default:
 			if (roomdata && roomdata.exits && roomdata.exits[command]) {
+				const now = new Date();
+				console.log("We fired the action: ", now);
 				const newlocation = roomdata.exits[command];
 				try {
-					const updateSuccess = await updatePlayerData(username, {
+					const updateSuccess = await movePlayer(username, {
 						newlocation: {
 							permlink: newlocation,
 							author: gameJSON[roomdata.exits[command]].author,
@@ -295,7 +359,10 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 			}
 			break;
 		}
-	}, [username, outPut, roomdata, updatePlayerData, isSignedIn, gameJSON, setLastKnownLocation]);
+	}, [username, outPut, roomdata, movePlayer, isSignedIn, gameJSON, setLastKnownLocation, updatePlayerDesc]);
+
+	
+
 
 	const handleTextEntered = useCallback(async (enteredText: string) => {
 		const loggedIn = await handleLogin(enteredText);
@@ -324,7 +391,7 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 		const handleOperation = async (op) => {
 			if (op.op[1].id === 'ego-death') {
 				if (processedOperations.has(op.trx_id)) {
-				return;
+					return;
 				}
 				processedOperations.add(op.trx_id);
 				try {
@@ -336,6 +403,8 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 							await debouncedFetchPlayerData(username);
 							setLoading(false);
 							setLastKnownLocation(newLocation);
+							const now = new Date();
+							console.log("The operation completed: ", now);
 						}
 					}
 				} catch (jsonError) {
@@ -348,9 +417,9 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 		const handleError = (error) => {
 			if (isUnmounted.current) return;
 			console.error('Stream error:', error);
-			const baseDelay = 5; // 0.5 seconds base delay
-			const maxDelay = 500; // 0.5 seconds maximum delay
-			const exponentialFactor = 0.2; //reduced exponential factor.
+			const baseDelay = 0; // 0.5 seconds base delay
+			const maxDelay = 0; // 0.5 seconds maximum delay
+			const exponentialFactor = 0.0; //reduced exponential factor.
 			const retryDelay = Math.min(maxDelay, Math.pow(exponentialFactor, retryCount.current) * baseDelay);
 			retryCount.current++;
 			const handleEnd = () => {};
@@ -387,22 +456,22 @@ const traceUserActivity = useCallback(async (username: string, targetKey: string
 	}, [client, username, isSignedIn, debouncedFetchPlayerData, lastKnownLocation, processedOperations]);
 
 	return (
-    <div className="App">
-        <header className="App-header">
-            <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼
-            </div>
-                {loading ? <div className="Loading">"Loading..."</div> : null}
-            <div className="SignOutButton">
-                <SignOutButton isSignedIn={isSignedIn} username={username}
-                    onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
-            </div>
-        </header>
-        <GameOutputWindow output={gameOutputMessage} />
-        <div className="TextInputBox">
-            <TextInputBox onEnterPressed={handleTextEntered} />
-        </div>
-    </div>
-);
+		<div className="App">
+		<header className="App-header">
+		<div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼
+		</div>
+		{loading ? <div className="Loading">"Loading..."</div> : null}
+		<div className="SignOutButton">
+		<SignOutButton isSignedIn={isSignedIn} username={username}
+		onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
+		</div>
+		</header>
+		<GameOutputWindow output={gameOutputMessage} />
+		<div className="TextInputBox">
+		<TextInputBox onEnterPressed={handleTextEntered} />
+		</div>
+		</div>
+		);
 }
 
 export default App;
