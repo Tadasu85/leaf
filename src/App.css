@@ -20,6 +20,7 @@
 
 .Loading {
   background-color: white;
+  justify-self: center;
   min-height: 0.5vh;
   display: grid;
   align-items: center;
