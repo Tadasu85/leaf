@@ -27,3 +27,7 @@ Windows installation:::
 <li>--npm start to run the script and you should browse to localhost:3000</li>
 <li>--You will need your hive keys installed on hive keychain and a minimum of Active key.</li>
 </ul>
+
+## Contributing
+
+Interested in contributing to Leaf? Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct, development process, and how to contribute to the project.
