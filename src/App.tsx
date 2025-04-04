@@ -281,7 +281,7 @@ function App() {
     () => {
       const debouncedFn = debounce((username: string) => {
         fetchPlayerData(username);
-      }, 1000);
+      }, 400);
       return debouncedFn;
     },
     [fetchPlayerData]
@@ -598,7 +598,7 @@ function App() {
     <div className="App">
       <header className="App-header">
         <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
-        {loading ? <div className="Loading">"Loading..."</div> : null}
+        {loading ? <div className="Loading">Loading</div> : null}
         {isSignedIn && (
           <div className="SignOutButton">
             <SignOutButton 
