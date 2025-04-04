@@ -7,20 +7,68 @@ import { KeychainSDK, Login, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
 import { debounce } from 'lodash';
 
+interface GameJSON {
+  [key: string]: {
+    exits: {
+      [key: string]: string;
+    };
+    author: string;
+  };
+}
+
+interface RoomData {
+  body: string;
+  title: string;
+  exits: {
+    [key: string]: string;
+  };
+  author: string;
+  permlink: string;
+}
+
+interface PlayerLocation {
+  Location: {
+    permlink: string;
+    author: string;
+  };
+}
+
+interface UserProfileJSON {
+  egodeathplayer?: {
+    Name?: string;
+    Description?: string;
+    ShortDesc?: string;
+  };
+  Location?: {
+    permlink: string;
+    author: string;
+  };
+  profile_image?: string;
+}
+
+interface StreamOperation {
+  op: [string, {
+    id: string;
+    json: string;
+    required_posting_auths: string[];
+  }];
+  trx_id: string;
+}
+
 function App() {
 
   const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
   const [username, setUsername] = useState<string | null>(null);
-  const [roomdata, setRoomData] = useState({});
-  const [gameJSON, setgameJSON] = useState({});
-  const [userProfileJSON, setuserProfileJSON] = useState({});
+  const [roomdata, setRoomData] = useState<RoomData | Record<string, never>>({});
+  const [gameJSON, setgameJSON] = useState<GameJSON>({});
+  const [userProfileJSON, setuserProfileJSON] = useState<UserProfileJSON>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [userGreeted, setUserGreeted] = useState(false);
   const [isLoadedGame, setIsLoadedGame] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [lastKnownLocation, setLastKnownLocation] = useState(null);
+  const [lastKnownLocation, setLastKnownLocation] = useState<PlayerLocation['Location'] | null>(null);
   const [loading, setLoading] = useState(false); // Added loading state
-  const processedOperations = useMemo(() => new Set(), []);
+  const processedOperations = useMemo(() => new Set<string>(), []);
 
   //We depend on keychain for signing and dhive for fetching data from the hive chain.
   //Here we initializse them both.
@@ -48,7 +96,7 @@ function App() {
   const checkAndInitialize = async () => {
     const initialized = await initializeKeychain();
     if (initialized) {
-      console.log("Can Play is set")
+      console.log("Keychain is good.")
     }
   }
 
@@ -116,7 +164,7 @@ function App() {
       author: string
     }
   }) => {
-    setLoading(true); // Start loading
+    setLoading(true);
     try {
       let currentMetadata = userProfileJSON;
       const currentPlayerData = currentMetadata || {};
@@ -140,26 +188,27 @@ function App() {
           ]
         ],
         'method': KeychainKeyTypes.posting
-      };
+      } as unknown as Broadcast;
+
       console.log("movePlayer broadcastData:", broadcastData);
-      const result = await keychain.broadcast(broadcastData as Broadcast);
+      const result = await keychain.broadcast(broadcastData);
       console.log("movePlayer result:", result);
       if (result && result.success && result.result && result.result.id) {
-        return true;
+        return movedPlayer;
       } else {
         const message = "Error: Failed to update player data. Please check your Keychain and try again.";
         console.error("Broadcast failed:", { result });
         console.error("Broadcast result details:", JSON.stringify(result));
         outPut(message, true);
-        setLoading(false); // Stop loading on error
-        return false;
+        setLoading(false);
+        return null;
       }
-    } catch (error) {
-      const message = `Error updating account metadata: ${error.message || error}`;
+    } catch (error: unknown) {
+      const message = `Error updating account metadata: ${error instanceof Error ? error.message : String(error)}`;
       console.error(message, error);
       outPut(message, true);
-      setLoading(false); // Stop loading on exception
-      return false;
+      setLoading(false);
+      return null;
     }
   }, [keychain, userProfileJSON, outPut]);
 
@@ -177,6 +226,7 @@ function App() {
         setLoading(false);
         return;
       }
+
       const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
       setuserProfileJSON(currentMetadata);
 
@@ -184,7 +234,6 @@ function App() {
         const message = "Welcome to the game!  You don't seem to have a location yet, so you start at the beginning.";
         console.warn(message);
         outPut(message, true);
-        //setLoading(false);  // Keep loading, we'll load genesis room.
         const transactionData = await client.database.call('get_content', ["raymonjohnstone", "genesis-scaffold-precipice"]);
         let obtaineddata = {
           "body": await transactionData.body,
@@ -198,58 +247,53 @@ function App() {
         outPut(obtaineddata.body, false);
         if (obtaineddata.exits) {
           outPut("There is a way to leave: ", false);
-          for (const exit in obtaineddata.exits) {
+          Object.keys(obtaineddata.exits).forEach(exit => {
             outPut(exit, true);
-          }
+          });
         }
-        setLoading(false);
-        return;
-      }
-
-      const transactionData = await client.database.call('get_content', [playerLocation.Location.author, playerLocation.Location.permlink]);
-      console.log("transactionData", transactionData);
-
-      let obtaineddata = null;
-      for (const obj in gameJSON) {
-        if (obj === playerLocation.Location.permlink) {
-          let foundexits = gameJSON[obj].exits;
-          obtaineddata = {
-            "body": await transactionData.body,
-            "title": await transactionData.title,
-            "exits": await foundexits,
-            "author": await playerLocation.Location.author,
-            "permlink": await playerLocation.Location.permlink
-          };
-          break;
-        }
-      }
-      console.log("Obtained Data: ", obtaineddata);
-
-      if (obtaineddata) {
+      } else {
+        const transactionData = await client.database.call('get_content', [playerLocation.Location.author, playerLocation.Location.permlink]);
+        let obtaineddata = {
+          "body": await transactionData.body,
+          "title": await transactionData.title,
+          "exits": gameJSON[playerLocation.Location.permlink].exits,
+          "author": playerLocation.Location.author,
+          "permlink": playerLocation.Location.permlink
+        };
         setRoomData(obtaineddata);
         outPut(obtaineddata.title, true);
         outPut(obtaineddata.body, false);
         if (obtaineddata.exits) {
           outPut("There is a way to leave: ", false);
-          for (const exit in obtaineddata.exits) {
+          Object.keys(obtaineddata.exits).forEach(exit => {
             outPut(exit, true);
-          }
+          });
         }
-        setLoading(false); // Stop loading here, after data is fetched and displayed
-      } else {
-        const message = "Room data not found!";
-        console.warn(message);
-        outPut(message, true);
-        setLoading(false);  // Stop loading if no room data
       }
+      setLoading(false);
     } catch (error) {
-      const message = `Error fetching data: ${error.message || error}`;
-      console.error(message, error);
-      setGeneralError(message);
-      outPut(message, true);
-      setLoading(false); // Stop loading on error
+      console.error('Error fetching player data:', error);
+      setLoading(false);
     }
   }, [client, gameJSON, outPut, traceUserActivity]);
+
+  const debouncedFetchPlayerData = useMemo(
+    () => {
+      const debouncedFn = debounce((username: string) => {
+        fetchPlayerData(username);
+      }, 1000);
+      return debouncedFn;
+    },
+    [fetchPlayerData]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (debouncedFetchPlayerData) {
+        debouncedFetchPlayerData.cancel();
+      }
+    };
+  }, [debouncedFetchPlayerData]);
 
   const updatePlayerDesc = useCallback(async (username: string, options?: {
     desc?: string,
@@ -297,8 +341,8 @@ function App() {
         setLoading(false); //stop loading
         return false;
       }
-    } catch (error) {
-      const message = `Error updating account metadata: ${error.message || error}`;
+    } catch (error: unknown) {
+      const message = `Error updating account metadata: ${error instanceof Error ? error.message : String(error)}`;
       console.error(message, error);
       outPut(message, true);
       setLoading(false); //stop loading
@@ -306,16 +350,10 @@ function App() {
     }
   }, [keychain, userProfileJSON, outPut]);
 
-  const debouncedFetchPlayerData = useMemo(
-    () => debounce((username) => {
-      fetchPlayerData(username);
-    }, 10),
-    [fetchPlayerData]
-  );
   const handleCommand = useCallback(async (enteredText: string) => {
   	const words = enteredText.toLowerCase().split(" ");
   	const command = words[0];
-  	if (!isSignedIn) {
+  	if (!isSignedIn || !username) {
   		outPut("Please log in first.", true);
   		return;
   	}
@@ -372,103 +410,99 @@ function App() {
   					},
   				});
   				outPut(`You traipse off towards ${command}.`, false);
-  				setLastKnownLocation(updateSuccess.newlocation);
-  			} catch (error) {
-  				const message = `Error moving player to: ${newlocation}.`;
-  				console.error(message, error);
+  				if (updateSuccess) {
+  					setLastKnownLocation(updateSuccess.Location);
+  				}
+  			} catch (error: unknown) {
+  				const message = `Error moving player to: ${newlocation}: ${error instanceof Error ? error.message : String(error)}`;
+  				console.error(message);
   				outPut(message, true);
-            setLoading(false); // Ensure loading is stopped on error
+  				setLoading(false);
+  			}
+  		} else if (roomdata && roomdata.exits && !(command in roomdata.exits)) {
+  			outPut("Error: Invalid destination.", true);
+  		} else {
+  			outPut("Unknown command.", true);
+  		}
+  		break;
+  	}
+  }, [username, outPut, roomdata, movePlayer, isSignedIn, gameJSON, setLastKnownLocation, updatePlayerDesc, userProfileJSON]);
+
+
+  const handleTextEntered = useCallback(async (enteredText: string) => {
+    try {
+      const words = enteredText.toLowerCase().split(" ");
+      if (words[0] === "login" || words[0] === "connect") {
+        const tempuser = words[1];
+        if (tempuser === undefined) {
+          outPut('You must follow your login/connect command with your hive username.', true);
+          return;
         }
-    } else if (roomdata && roomdata.exits && !(command in roomdata.exits)) {
-    	outPut("Error: Invalid destination.", true);
-    } else {
-    	outPut("Unknown command.", true);
-    }
-    break;
-}
-}, [username, outPut, roomdata, movePlayer, isSignedIn, gameJSON, setLastKnownLocation, updatePlayerDesc, userProfileJSON]);
 
+        outPut(`Attempting login as ${tempuser}`, false);
+        setGeneralError(null);
 
-  const handleTextEntered = useCallback(
-    async (enteredText: string) => {
-      try {
-        const words = enteredText.toLowerCase().split(' ');
-        const firstword = words[0];
-
-        if (firstword === 'login' || firstword === 'connect') {
-          const tempuser = enteredText.split(/\s+/)[1];
-          if (tempuser === undefined) {
-            outPut('You must follow your login/connect command with your hive username.', true);
-            return;
-          }
-
-          outPut(`Attempting login as ${tempuser}`, false);
-          setGeneralError(null);
-
-          const data: Login = {
-            username: tempuser,
-            message: '{"login":"123"}',
-            method: 'posting',
-            title: 'Login',
-          };
-          console.log("Calling keychain.login with:", data);
-          try {
-            const loginResult = await keychain.login(data as Login);
-            console.log("keychain.login result:", loginResult);
-            if (loginResult) {
-              setUsername(tempuser);
-              setIsSignedIn(true);
-              try {
-                debouncedFetchPlayerData(tempuser);
-              } catch (fetchError) {
-                const message = `Failed to fetch player data after login: ${fetchError.message || fetchError}`;
-                console.error(message, fetchError);
-                setGeneralError(message);
-                outPut(message, true);
-                setIsSignedIn(false);
-                setUsername(null);
-                return;
-              }
+        const data: Login = {
+          username: tempuser,
+          message: '{"login":"123"}',
+          method: KeychainKeyTypes.posting,
+          title: 'Login',
+        };
+        console.log("Calling keychain.login with:", data);
+        try {
+          const loginResult = await keychain.login(data as Login);
+          console.log("keychain.login result:", loginResult);
+          if (loginResult) {
+            setUsername(tempuser);
+            setIsSignedIn(true);
+            try {
+              await fetchPlayerData(tempuser);
               outPut(`Login successful as ${tempuser}`, false);
-            } else {
-              const message = 'Login failed, keychain returned false';
+            } catch (fetchError) {
+              const message = `Failed to fetch player data after login: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
+              console.error(message, fetchError);
+              setGeneralError(message);
+              outPut(message, true);
               setIsSignedIn(false);
               setUsername(null);
-              setGeneralError(message);
-              console.error(message);
-              outPut(message, true);
+              return;
             }
-          } catch (loginError) {
-            // Catch errors from keychain.login
-            const message = `Keychain login error: ${loginError.message || loginError}`;
-            console.error(message, loginError);
-            setGeneralError(message);
-            outPut(message, true);
+          } else {
+            const message = 'Login failed, keychain returned false';
             setIsSignedIn(false);
             setUsername(null);
-          }
-        } else {
-          if (isSignedIn) {
-            outPut(`Executing command: ${enteredText}`, false);
-            await handleCommand(enteredText);
-          } else {
-            const message = 'You must log in before executing commands.';
             setGeneralError(message);
             console.error(message);
             outPut(message, true);
           }
+        } catch (loginError) {
+          const message = `Keychain login error: ${loginError instanceof Error ? loginError.message : String(loginError)}`;
+          console.error(message, loginError);
+          setGeneralError(message);
+          outPut(message, true);
+          setIsSignedIn(false);
+          setUsername(null);
         }
-      } catch (error) {
-        const message = `An error occurred: ${error.message || error}`;
-        console.error(message, error);
-        setGeneralError(message);
-        outPut(message, true);
-        setIsSignedIn(false);
-        setUsername(null);
+      } else {
+        if (isSignedIn) {
+          outPut(`Executing command: ${enteredText}`, false);
+          await handleCommand(enteredText);
+        } else {
+          const message = 'You must log in before executing commands.';
+          setGeneralError(message);
+          console.error(message);
+          outPut(message, true);
+        }
       }
-    },
-    [keychain, debouncedFetchPlayerData, outPut, handleCommand, isSignedIn]
-  );
+    } catch (error) {
+      const message = `An error occurred: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(message, error);
+      setGeneralError(message);
+      outPut(message, true);
+      setIsSignedIn(false);
+      setUsername(null);
+    }
+  }, [keychain, fetchPlayerData, outPut, handleCommand, isSignedIn]);
 
   useEffect(() => {
     if (generalError) {
@@ -491,8 +525,8 @@ function App() {
   const retryCount = useRef(0);
 
   useEffect(() => {
-    let stream = client.blockchain.getOperationsStream();
-    const handleOperation = async (op) => {
+    let stream: any = client.blockchain.getOperationsStream();
+    const handleOperation = async (op: StreamOperation) => {
       if (op.op[1].id === 'ego-death') {
         if (processedOperations.has(op.trx_id)) {
           return;
@@ -501,23 +535,23 @@ function App() {
         try {
           const jsonData = JSON.parse(op.op[1].json);
           const newLocation = jsonData.move_to;
-          if (op.op[1].required_posting_auths[0] === username && isSignedIn) {
+          if (username && op.op[1].required_posting_auths[0] === username && isSignedIn) {
             if (newLocation && (!lastKnownLocation || newLocation.permlink !== lastKnownLocation.permlink || newLocation.author !== lastKnownLocation.author)) {
-              setLoading(true); //start loading
+              setLoading(true);
               debouncedFetchPlayerData(username);
-              setLastKnownLocation(newLocation);
+              setLastKnownLocation(newLocation.Location);
               const now = new Date();
               console.log("The operation completed: ", now);
             }
           }
-        } catch (jsonError) {
-          console.error('Error parsing JSON:', jsonError);
+        } catch (error: unknown) {
+          console.error('Error parsing JSON:', error);
           setLoading(false);
         }
       }
     };
 
-    const handleError = (error) => {
+    const handleError = (error: unknown) => {
       if (isUnmounted.current) return;
       console.error('Stream error:', error);
       const baseDelay = 0;
@@ -550,10 +584,12 @@ function App() {
     return () => {
       isUnmounted.current = true;
       processedOperations.clear();
-      try {
-        stream.destroy();
-      } catch (e) {
-        console.error("Error destroying stream during unmount:", e);
+      if (stream && typeof stream.destroy === 'function') {
+        try {
+          stream.destroy();
+        } catch (e) {
+          console.error("Error destroying stream during unmount:", e);
+        }
       }
     };
   }, [client, username, isSignedIn, debouncedFetchPlayerData, lastKnownLocation, processedOperations]);
@@ -561,13 +597,18 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼
-        </div>
+        <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
         {loading ? <div className="Loading">"Loading..."</div> : null}
-        <div className="SignOutButton">
-          <SignOutButton isSignedIn={isSignedIn} username={username}
-            onSignOut={handleSignOut} userProfileJSON={userProfileJSON} />
-        </div>
+        {isSignedIn && (
+          <div className="SignOutButton">
+            <SignOutButton 
+              isSignedIn={isSignedIn} 
+              username={username || undefined}
+              onSignOut={handleSignOut} 
+              userProfileJSON={userProfileJSON} 
+            />
+          </div>
+        )}
       </header>
       <GameOutputWindow output={gameOutputMessage} />
       <div className="TextInputBox">

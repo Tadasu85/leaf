@@ -1,28 +1,36 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 
 interface TextInputBoxProps {
-  onEnterPressed: (value: string) => void;
+  onEnterPressed: (text: string) => void;
 }
 
-export default function TextInputBox({ onEnterPressed }: TextInputBoxProps) {
-  const [inputValue, setInputValue] = useState('');
+function TextInputBox({ onEnterPressed }: TextInputBoxProps) {
+  const [inputText, setInputText] = useState('');
 
-  const handleKeyDown = (event: React.KeyboardEvent<EventTarget>) => {
-  if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
-    // Capture the input value and call the provided callback
-    setInputValue(event.target.value); // Now `event.target` is narrowed to HTMLInputElement
-    onEnterPressed(event.target.value); // Assuming onEnterPressed handles string
-    setInputValue('');
-  }
-};
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      onEnterPressed(inputText);
+      setInputText('');
+    }
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setInputText(event.target.value);
+  };
 
   return (
-    <input
-      type="text"
-      value={inputValue}
-      onChange={(event) => setInputValue(event.target.value)}
-      onKeyDown={handleKeyDown}
-      autoFocus
-    />
+    <div className="TextInputBox">
+      <input
+        type="text"
+        value={inputText}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        placeholder="Enter command"
+        autoFocus={true}
+        data-testid="command-input"
+      />
+    </div>
   );
 }
+
+export default TextInputBox;

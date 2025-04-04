@@ -16,24 +16,32 @@ function GameOutputWindow({ output }: GameOutputWindowProps) {
   const outputRef = useRef<HTMLDivElement>(null); // Correct type
 
   useLayoutEffect(() => {
-  if (outputRef.current) {
-    outputRef.current.scrollTo(0, outputRef.current.scrollHeight); // Scroll on every output change
-  }
-}, [output]); // Dependency array includes output
+    if (outputRef.current) {
+      try {
+        // Try to use scrollTo if available
+        outputRef.current.scrollTo(0, outputRef.current.scrollHeight);
+      } catch (e) {
+        // Fallback for environments where scrollTo is not available (like jsdom in tests)
+        if (outputRef.current.scrollTop !== undefined) {
+          outputRef.current.scrollTop = outputRef.current.scrollHeight;
+        }
+      }
+    }
+  }, [output]); // Dependency array includes output
 
   return (
     <div className="GameOutputWindow" ref={outputRef}>
-    {output.map((message: GameOutputMessage, index: number) => (
-      <p key={index}>
-      {message.bold ? (
-        <b>{message.output}</b>
-        ) : (
-        <span>{message.output}</span>
-        )}
+      {output.map((message: GameOutputMessage, index: number) => (
+        <p key={index}>
+          {message.bold ? (
+            <b>{message.output}</b>
+          ) : (
+            <span>{message.output}</span>
+          )}
         </p>
-        ))}
+      ))}
     </div>
-    );
+  );
 }
 
 export default GameOutputWindow;

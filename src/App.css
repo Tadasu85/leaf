@@ -1,94 +1,132 @@
 .App {
   height: 100vh;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #097969;
 }
 
 .App-header {
   background-color: #690979;
   min-height: 10vh;
   display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
+  padding: 1rem;
 }
 
 .Title {
-  padding-top: 2vh;
   justify-self: center;
   font-family: "Lucida Console", "Courier New", monospace;
   font-size: calc(30px + 2vmin);
-  color: #796909;
+  color: #ffffff;
+  grid-column: 1 / -1;
+  text-align: center;
+  margin-bottom: 1rem;
 }
 
 .Loading {
-  background-color: white;
-  justify-self: center;
-  min-height: 0.5vh;
-  display: grid;
-  align-items: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 1rem 2rem;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
 }
 
 .GameOutputWindow {
-  text-align: left;
+  flex: 1;
   overflow: auto;
-  width: 86vw; 
-  height: 70vh;
-  max-height: 70vh;
+  width: 90%;
+  max-width: 1200px;
+  margin: 2rem auto;
   background-color: white;
-  margin-left: 5vw;
-  padding-top: 1vmin;
-  margin-right: 5vw;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
 }
 
 .game-output {
-  height: 100%; 
+  height: 100%;
   overflow: auto;
-  font-size: calc(1px + 2vmin);
-  margin-left: 5vmin;
+  font-size: calc(12px + 0.5vmin);
+  line-height: 1.5;
+  padding: 0 1rem;
+}
+
+.game-output b {
+  color: #690979;
+  font-weight: 700;
 }
 
 .SignOutButton {
-  justify-self: right;
-  margin-right: 2vw;
-  min-height: 5vh;
-  min-width: 5vw;
-  background-color: #690979;
-  color: black;
-  text-decoration-color: black;
+  justify-self: end;
+  padding: 0.5rem 1rem;
+  background-color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.SignOutButton:hover {
+  background-color: #f0f0f0;
 }
 
 .TextInputBox {
-  width: 95vw; 
-  overflow: auto;
-  margin-left: 5vw;
-  margin-right: 5vw;
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto 2rem auto;
 }
 
 img[alt*="ProfileImage"] {
-  height: 7vh;
+  height: 2.5rem;
+  width: 2.5rem;
   border-radius: 50%;
+  object-fit: cover;
 }
 
 p {
-  padding: 0;
+  padding: 0.5rem 0;
   margin: 0;
-  margin-left: 1vw;
+}
+
+p b {
+  color: #690979;
+  font-weight: 700;
 }
 
 button {
-  min-height: inherit;
-  background-color: white;
-  min-width: inherit;
-  font-style: normal;
   font-family: "Lucida Console", "Courier New", monospace;
-  cursor: pointer; 
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0.5rem 1rem;
 }
 
 input {
-  cursor: inherit;
-  background-color: white;
-  width: 85vw;
+  width: 100%;
+  padding: 0.75rem;
   font-family: "Lucida Console", "Courier New", monospace;
+  font-size: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  transition: border-color 0.2s;
+}
+
+input:focus {
+  outline: none;
+  border-color: #690979;
 }
 
 body {
+  margin: 0;
+  padding: 0;
   background-color: #097969;
+  color: #333;
+  font-family: "Lucida Console", "Courier New", monospace;
 }
