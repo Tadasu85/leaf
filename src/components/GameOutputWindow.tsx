@@ -31,15 +31,18 @@ function GameOutputWindow({ output }: GameOutputWindowProps) {
 
   return (
     <div className="GameOutputWindow" ref={outputRef} data-testid="game-output">
-      {output.map((message: GameOutputMessage, index: number) => (
-        <p key={index}>
-          {message.bold ? (
-            <b>{message.output}</b>
-          ) : (
-            <span>{message.output}</span>
-          )}
-        </p>
-      ))}
+      {output.map((message: GameOutputMessage, index: number) => {
+        const lines = message.output.split('\n');
+        return lines.map((line, lineIndex) => (
+          <p key={`${index}-${lineIndex}`}>
+            {message.bold ? (
+              <b>{line}</b>
+            ) : (
+              <span>{line}</span>
+            )}
+          </p>
+        ));
+      })}
     </div>
   );
 }

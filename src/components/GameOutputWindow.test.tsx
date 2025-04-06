@@ -68,4 +68,21 @@ describe('GameOutputWindow', () => {
     
     expect(outputTexts).toEqual(['Message 1', 'Message 2', 'Message 3']);
   });
+
+  test('handles newlines correctly', () => {
+    const messages = [
+      { output: 'First line\nSecond line' },
+      { output: 'Third line\nFourth line', bold: true }
+    ];
+    
+    const { container } = render(<GameOutputWindow output={messages} />);
+    
+    const paragraphs = container.querySelectorAll('p');
+    expect(paragraphs).toHaveLength(4);
+    
+    expect(paragraphs[0].querySelector('span')).toHaveTextContent('First line');
+    expect(paragraphs[1].querySelector('span')).toHaveTextContent('Second line');
+    expect(paragraphs[2].querySelector('b')).toHaveTextContent('Third line');
+    expect(paragraphs[3].querySelector('b')).toHaveTextContent('Fourth line');
+  });
 }); 

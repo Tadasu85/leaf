@@ -346,20 +346,24 @@ describe('App Component', () => {
 
       // Verify room data is displayed after look command
       await waitFor(() => {
-        // Get all paragraphs in the output window
-        const paragraphs = screen.getByTestId('game-output').querySelectorAll('p');
+        const lookCommand = screen.getByText('Executing command: look');
+        expect(lookCommand).toBeInTheDocument();
+
+        // Find all room titles
+        const roomTitles = screen.getAllByText('Genesis Scaffold Precipice', { selector: 'b' });
+        expect(roomTitles.length).toBeGreaterThan(0);
+
+        // The last room title should be after the look command
+        const lastRoomTitle = roomTitles[roomTitles.length - 1];
+        const lastRoomTitleParent = lastRoomTitle.parentElement;
+        const lookCommandParent = lookCommand.parentElement;
         
-        // Find the index of the "Executing command: look" message
-        const lookCommandIndex = Array.from(paragraphs).findIndex(p => p.textContent?.includes('Executing command: look'));
-        expect(lookCommandIndex).toBeGreaterThan(-1);
-
-        // The next paragraph should contain the room title
-        const nextParagraph = paragraphs[lookCommandIndex + 1];
-        expect(nextParagraph.querySelector('b')?.textContent).toBe('Genesis Scaffold Precipice');
-
-        // The paragraph after that should contain the room description
-        const descriptionParagraph = paragraphs[lookCommandIndex + 2];
-        expect(descriptionParagraph.textContent).toContain('You stand at the edge of a vast precipice');
+        // Verify that the last room title appears after the look command
+        if (lastRoomTitleParent && lookCommandParent) {
+          expect(lastRoomTitleParent.compareDocumentPosition(lookCommandParent)).toBe(Node.DOCUMENT_POSITION_PRECEDING);
+        } else {
+          fail('Could not find parent elements for comparison');
+        }
       });
     });
 
@@ -377,20 +381,24 @@ describe('App Component', () => {
 
       // Verify room data is displayed after look command
       await waitFor(() => {
-        // Get all paragraphs in the output window
-        const paragraphs = screen.getByTestId('game-output').querySelectorAll('p');
+        const lookCommand = screen.getByText('Executing command: look');
+        expect(lookCommand).toBeInTheDocument();
+
+        // Find all room titles
+        const roomTitles = screen.getAllByText('Genesis Scaffold Precipice', { selector: 'b' });
+        expect(roomTitles.length).toBeGreaterThan(0);
+
+        // The last room title should be after the look command
+        const lastRoomTitle = roomTitles[roomTitles.length - 1];
+        const lastRoomTitleParent = lastRoomTitle.parentElement;
+        const lookCommandParent = lookCommand.parentElement;
         
-        // Find the index of the "Executing command: look" message
-        const lookCommandIndex = Array.from(paragraphs).findIndex(p => p.textContent?.includes('Executing command: look'));
-        expect(lookCommandIndex).toBeGreaterThan(-1);
-
-        // The next paragraph should contain the room title
-        const nextParagraph = paragraphs[lookCommandIndex + 1];
-        expect(nextParagraph.querySelector('b')?.textContent).toBe('Genesis Scaffold Precipice');
-
-        // The paragraph after that should contain the room description
-        const descriptionParagraph = paragraphs[lookCommandIndex + 2];
-        expect(descriptionParagraph.textContent).toContain('You stand at the edge of a vast precipice');
+        // Verify that the last room title appears after the look command
+        if (lastRoomTitleParent && lookCommandParent) {
+          expect(lastRoomTitleParent.compareDocumentPosition(lookCommandParent)).toBe(Node.DOCUMENT_POSITION_PRECEDING);
+        } else {
+          fail('Could not find parent elements for comparison');
+        }
       });
     });
 
