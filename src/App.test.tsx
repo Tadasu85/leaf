@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import App from './App';
 import { KeychainSDK } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
@@ -93,8 +94,8 @@ describe('App Component', () => {
         call: jest.fn().mockImplementation((method: string, params: string[]) => {
           if (method === 'get_content') {
             return Promise.resolve({
-              title: 'Test Room',
-              body: 'This is a test room.',
+              title: 'Genesis Scaffold Precipice',
+              body: 'You stand at the edge of a vast precipice, the ground beneath your feet crumbling away into the abyss below. The air is thick with the scent of ozone and the distant sound of thunder echoes through the void.',
               json_metadata: JSON.stringify({
                 rooms_authors_exits: {
                   exits: ['north', 'south']
@@ -244,15 +245,28 @@ describe('App Component', () => {
         'genesis-scaffold-precipice': {
           author: 'raymonjohnstone',
           exits: { north: 'north-room', south: 'south-room' }
+        },
+        'north-room': {
+          author: 'raymonjohnstone',
+          exits: { south: 'genesis-scaffold-precipice' }
         }
       };
 
       // Mock both get_content and get_accounts responses
       mockClient.database.call.mockImplementation((method: string, params: any[]) => {
-        if (method === 'get_content' && params[1] === 'genesis-scaffold-precipice') {
+        if (method === 'get_content') {
+          if (params[1] === 'north-room') {
+            return Promise.resolve({
+              title: 'North Room',
+              body: 'This is the north room.',
+              json_metadata: JSON.stringify({
+                exits: { south: 'genesis-scaffold-precipice' }
+              })
+            });
+          }
           return Promise.resolve({
-            title: 'Test Room',
-            body: 'This is a test room.',
+            title: 'Genesis Scaffold Precipice',
+            body: 'You stand at the edge of a vast precipice, the ground beneath your feet crumbling away into the abyss below. The air is thick with the scent of ozone and the distant sound of thunder echoes through the void.',
             json_metadata: JSON.stringify({
               exits: { north: 'north-room', south: 'south-room' }
             })
@@ -273,24 +287,108 @@ describe('App Component', () => {
       });
     });
 
-    test('look command displays room data', async () => {
+    test('new user sees welcome message after login', async () => {
+      // Mock getAccountHistory to return empty (new user)
+      mockClient.database.getAccountHistory.mockResolvedValueOnce([]);
+
       render(<App />);
       await loginUser();
 
+      // Verify welcome message is displayed
+      await waitFor(() => {
+        const welcomeMessage = screen.getByText((content, element) => {
+          return element?.tagName.toLowerCase() === 'b' && 
+                 content.includes('Welcome to the game! You don\'t seem to have a location yet, so you start at the beginning.');
+        });
+        expect(welcomeMessage).toBeInTheDocument();
+      });
+    });
+
+    test('existing user sees room data immediately after login', async () => {
+      // Mock getAccountHistory to return a move_to operation
+      mockClient.database.getAccountHistory.mockResolvedValueOnce([{
+        op: ['custom_json', {
+          id: 'ego-death',
+          required_posting_auths: ['testuser'],
+          json: JSON.stringify({
+            move_to: {
+              Location: {
+                permlink: 'north-room',
+                author: 'raymonjohnstone'
+              }
+            }
+          })
+        }]
+      }]);
+
+      render(<App />);
+      await loginUser();
+
+      // Issue look command
       const input = screen.getByTestId('command-input');
       fireEvent.change(input, { target: { value: 'look' } });
       fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
 
-      // Wait for the room data to be loaded and displayed
+      // Verify room data is displayed after look command
       await waitFor(() => {
-        expect(screen.getByText(/Test Room/i)).toBeInTheDocument();
-      }, { timeout: 3000 });
+        const roomTitle = screen.getByText((content, element) => {
+          return element?.tagName.toLowerCase() === 'b' && 
+                 content.includes('North Room');
+        });
+        expect(roomTitle).toBeInTheDocument();
 
-      // Then check for the other elements
-      expect(screen.getByText(/This is a test room/i)).toBeInTheDocument();
-      expect(screen.getByText(/There is a way to leave/i)).toBeInTheDocument();
-      expect(screen.getByText(/north/i)).toBeInTheDocument();
-      expect(screen.getByText(/south/i)).toBeInTheDocument();
+        const roomDescription = screen.getByText((content, element) => {
+          return element?.tagName.toLowerCase() === 'p' && 
+                 content.includes('This is the north room');
+        });
+        expect(roomDescription).toBeInTheDocument();
+      });
+    });
+
+    test('look command displays room data for new user', async () => {
+      // Mock getAccountHistory to return empty (new user)
+      mockClient.database.getAccountHistory.mockResolvedValueOnce([]);
+
+      render(<App />);
+      await loginUser();
+
+      // Issue look command
+      const input = screen.getByTestId('command-input');
+      fireEvent.change(input, { target: { value: 'look' } });
+      fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
+
+      // Verify room data is displayed after look command
+      await waitFor(() => {
+        const roomTitle = screen.getByText((content, element) => {
+          return element?.tagName.toLowerCase() === 'b' && 
+                 content.includes('Genesis Scaffold Precipice');
+        });
+        expect(roomTitle).toBeInTheDocument();
+
+        const roomDescription = screen.getByText((content, element) => {
+          return element?.tagName.toLowerCase() === 'p' && 
+                 content.includes('You stand at the edge of a vast precipice');
+        });
+        expect(roomDescription).toBeInTheDocument();
+
+        const exitsHeader = screen.getByText((content, element) => {
+          return element?.tagName.toLowerCase() === 'p' && 
+                 content.includes('There is a way to leave');
+        });
+        expect(exitsHeader).toBeInTheDocument();
+
+        const northExit = screen.getByText((content, element) => {
+          return element?.tagName.toLowerCase() === 'p' && 
+                 content.includes('north');
+        });
+        expect(northExit).toBeInTheDocument();
+
+        const southExit = screen.getByText((content, element) => {
+          return element?.tagName.toLowerCase() === 'p' && 
+                 content.includes('south');
+        });
+        expect(southExit).toBeInTheDocument();
+      }, { timeout: 3000 });
     });
 
     test('look self displays player description', async () => {
@@ -429,102 +527,6 @@ describe('App Component', () => {
           })
         );
         expect(screen.getByText(/Your short description has been updated./i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Stream Operations', () => {
-    beforeEach(() => {
-      // Mock the gameJSON state
-      (window as any).gameJSON = {
-        'genesis-scaffold-precipice': {
-          author: 'raymonjohnstone',
-          exits: { north: 'north-room' }
-        },
-        'north-room': {
-          author: 'raymonjohnstone',
-          exits: { south: 'genesis-scaffold-precipice' }
-        }
-      };
-
-      // Mock the room data responses
-      mockClient.database.call.mockImplementation((method: string, params: any[]) => {
-        if (method === 'get_content') {
-          if (params[1] === 'north-room') {
-            return Promise.resolve({
-              title: 'North Room',
-              body: 'This is the north room.',
-              json_metadata: JSON.stringify({
-                exits: { south: 'genesis-scaffold-precipice' }
-              })
-            });
-          }
-          if (params[1] === 'genesis-scaffold-precipice') {
-            return Promise.resolve({
-              title: 'Test Room',
-              body: 'This is a test room.',
-              json_metadata: JSON.stringify({
-                exits: { north: 'north-room' }
-              })
-            });
-          }
-        }
-        if (method === 'get_accounts') {
-          return Promise.resolve([{
-            posting_json_metadata: JSON.stringify({
-              egodeathplayer: {
-                Name: 'testuser',
-                Description: 'A test user',
-                ShortDesc: 'Testing'
-              }
-            })
-          }]);
-        }
-        return Promise.resolve([]);
-      });
-    });
-
-    test('handles new location updates from stream', async () => {
-      render(<App />);
-      await loginUser();
-
-      // Set up the stream callback
-      const streamCallback = mockClient.stream.call.mock.calls[0][1];
-      expect(streamCallback).toBeDefined();
-
-      // Create a location update
-      const locationUpdate = {
-        op: ['custom_json', {
-          id: 'ego-death',
-          required_posting_auths: ['testuser'],
-          json: JSON.stringify({
-            move_to: {
-              Location: {
-                permlink: 'north-room',
-                author: 'raymonjohnstone'
-              }
-            }
-          })
-        }]
-      };
-
-      // Simulate receiving the location update
-      await act(async () => {
-        streamCallback([locationUpdate]);
-      });
-
-      // Wait for the room data to be fetched and displayed
-      await waitFor(() => {
-        expect(mockClient.database.call).toHaveBeenCalledWith(
-          'get_content',
-          ['raymonjohnstone', 'north-room']
-        );
-      });
-
-      // Verify the new room data is displayed
-      await waitFor(() => {
-        expect(screen.getByText(/North Room/i)).toBeInTheDocument();
-        expect(screen.getByText(/This is the north room/i)).toBeInTheDocument();
       });
     });
   });
