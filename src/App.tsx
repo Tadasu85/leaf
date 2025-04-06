@@ -238,7 +238,7 @@ function App() {
         let obtaineddata = {
           "body": await transactionData.body,
           "title": await transactionData.title,
-          "exits": gameJSON["genesis-scaffold-precipice"].exits,
+          "exits": gameJSON?.["genesis-scaffold-precipice"]?.exits || {},
           "author": "raymonjohnstone",
           "permlink": "genesis-scaffold-precipice"
         };

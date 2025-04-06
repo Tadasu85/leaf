@@ -30,7 +30,7 @@ function GameOutputWindow({ output }: GameOutputWindowProps) {
   }, [output]); // Dependency array includes output
 
   return (
-    <div className="GameOutputWindow" ref={outputRef}>
+    <div className="GameOutputWindow" ref={outputRef} data-testid="game-output">
       {output.map((message: GameOutputMessage, index: number) => (
         <p key={index}>
           {message.bold ? (

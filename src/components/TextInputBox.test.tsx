@@ -50,7 +50,7 @@ describe('TextInputBox', () => {
     render(<TextInputBox onEnterPressed={mockOnEnterPressed} />);
     
     const inputElement = screen.getByTestId('command-input');
-    expect(inputElement).toHaveAttribute('autoFocus');
+    expect(document.activeElement).toBe(inputElement);
     expect(inputElement).toHaveAttribute('placeholder', 'Enter command');
   });
 }); 
