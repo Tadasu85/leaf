@@ -82,9 +82,8 @@ function App() {
   async function initializeKeychain() {
     try {
       const isInstalled = await keychain.isKeychainInstalled();
-      console.log("Keychain is installed:", isInstalled);
       if (isInstalled) {
-        console.log("Keychain Initialized");
+        console.log("Keychain installed");
       }
       return isInstalled; // Return boolean indicating success
     } catch (error) {
@@ -96,7 +95,7 @@ function App() {
   const checkAndInitialize = async () => {
     const initialized = await initializeKeychain();
     if (initialized) {
-      console.log("Keychain is good.")
+      console.log("Keychain is initialized.")
     }
   }
 
@@ -154,7 +153,6 @@ function App() {
   }, [isLoadedGame, fetchgameData]);
 
   const outPut = useCallback((texttooutput: string, bold?: boolean) => {
-    console.log("Outputting:", texttooutput, { bold });
     setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
   }, []);
 
@@ -189,10 +187,7 @@ function App() {
         ],
         'method': KeychainKeyTypes.posting
       } as unknown as Broadcast;
-
-      console.log("movePlayer broadcastData:", broadcastData);
       const result = await keychain.broadcast(broadcastData);
-      console.log("movePlayer result:", result);
       if (result && result.success && result.result && result.result.id) {
         return movedPlayer;
       } else {
@@ -214,11 +209,11 @@ function App() {
 
   const fetchPlayerData = useCallback(async (username: string) => {
     try {
-      console.log(`fetchPlayerData for ${username}`);
+     
       const playerLocation = await traceUserActivity(username, "move_to");
-      console.log("playerLocation:", playerLocation);
+     
       const accountInfo = await client.database.getAccounts([username]);
-      console.log("accountInfo:", accountInfo);
+     
       if (accountInfo.length === 0) {
         const message = "Account does not exist on the Hive blockchain.";
         console.error(message);
@@ -300,7 +295,7 @@ function App() {
     shortdesc?: string,
   }) => {
     setLoading(true); //start loading
-    console.log("Firing updatePlayerData!");
+    
     try {
       let currentMetadata = userProfileJSON;
       const currentPlayerData = currentMetadata.egodeathplayer || {};
@@ -325,11 +320,11 @@ function App() {
         ],
         'method': KeychainKeyTypes.posting
       };
-      console.log("updatePlayerDesc broadcastData:", broadcastData);
+      
       const result = await keychain.broadcast(broadcastData as unknown as Broadcast);
-      console.log("updatePlayerDesc result::", { result });
+      
       if (result && result.success && result.result && result.result.id) {
-        console.log("Broadcast initiated successfully:", { result });
+        
         setuserProfileJSON(currentMetadata);
         setLoading(false); //stop loading
         return true;
@@ -399,8 +394,7 @@ function App() {
 
   	default:
   		if (roomdata && roomdata.exits && roomdata.exits[command]) {
-  			const now = new Date();
-  			console.log("We fired the action: ", now);
+  			
   			const newlocation = roomdata.exits[command];
   			try {
   				const updateSuccess = await movePlayer(username, {
@@ -448,10 +442,10 @@ function App() {
           method: KeychainKeyTypes.posting,
           title: 'Login',
         };
-        console.log("Calling keychain.login with:", data);
+        
         try {
           const loginResult = await keychain.login(data as Login);
-          console.log("keychain.login result:", loginResult);
+          
           if (loginResult) {
             setUsername(tempuser);
             setIsSignedIn(true);
@@ -540,8 +534,7 @@ function App() {
               setLoading(true);
               debouncedFetchPlayerData(username);
               setLastKnownLocation(newLocation.Location);
-              const now = new Date();
-              console.log("The operation completed: ", now);
+              
             }
           }
         } catch (error: unknown) {
