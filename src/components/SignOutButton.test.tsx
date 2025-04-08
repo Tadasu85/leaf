@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import React from 'react'; // Add this line
 import SignOutButton from './SignOutButton';
 
 describe('SignOutButton', () => {

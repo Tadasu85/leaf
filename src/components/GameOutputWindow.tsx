@@ -1,4 +1,4 @@
-import { useRef, useLayoutEffect } from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
 
 export interface GameOutputMessage {
   // Define the type of each message in the output.

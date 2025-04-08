@@ -2,7 +2,7 @@ import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
 import { debounce } from 'lodash';
@@ -238,7 +238,7 @@ function App() {
         let obtaineddata = {
           "body": await transactionData.body,
           "title": await transactionData.title,
-          "exits": gameJSON?.["genesis-scaffold-precipice"]?.exits || {},
+          "exits": gameJSON?.["genesis-scaffold-precipice"]?.exits || [],
           "author": "raymonjohnstone",
           "permlink": "genesis-scaffold-precipice"
         };
