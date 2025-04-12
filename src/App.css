@@ -170,3 +170,28 @@ body {
   color: #333;
   font-family: "Lucida Console", "Courier New", monospace;
 }
+
+/* For WebKit browsers (Chrome, Safari) */
+.GameOutputWindow::-webkit-scrollbar {
+  width: 12px; /* Width of the scrollbar */
+}
+
+.GameOutputWindow::-webkit-scrollbar-track {
+  background: #f1f1f1; /* Background of the scrollbar track */
+  border-radius: 10px; /* Rounded corners for the track */
+}
+
+.GameOutputWindow::-webkit-scrollbar-thumb {
+  background: #690979; /* Color of the scrollbar thumb */
+  border-radius: 10px; /* Rounded corners for the thumb */
+}
+
+.GameOutputWindow::-webkit-scrollbar-thumb:hover {
+  background: #7FFF00; /* Color of the thumb on hover */
+}
+
+/* For Firefox */
+.GameOutputWindow {
+  scrollbar-width: thin; /* Make scrollbar thinner */
+  scrollbar-color: #690979 #f1f1f1; /* Thumb color and track color */
+}
