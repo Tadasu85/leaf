@@ -9,20 +9,20 @@
 .App-header {
   background-color: #690979;
   min-height: 10vh;
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex; /* Use flexbox for easier absolute positioning context */
   align-items: center;
   padding: 1rem;
+  position: relative; /* Make this the positioning context for absolute children */
 }
 
 .Title {
-  justify-self: center;
+  justify-self: center; /* This will now center within the flex container */
   font-family: "Lucida Console", "Courier New", monospace;
   font-size: calc(30px + 2vmin);
   color: #ffffff;
-  grid-column: 1 / -1;
   text-align: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0; /* Adjust margin as needed */
+  flex-grow: 1; /* Allow title to take up remaining space */
 }
 
 .Loading {
@@ -100,13 +100,16 @@
 }
 
 .SignOutButton {
-  justify-self: end;
+  position: absolute;
+  top: 1rem; /* Adjust top margin as needed */
+  right: 1rem; /* Adjust left margin as needed */
   padding: 0.5rem 1rem;
-  background-color: white;
+  background-color: #7FFF00;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
+  z-index: 10; /* Ensure it's above other header content if necessary */
 }
 
 .SignOutButton:hover {

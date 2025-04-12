@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { KeychainSDK, Login, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
 import { debounce } from 'lodash';
+import config from './config';
 
 interface GameJSON {
   [key: string]: {
@@ -73,11 +74,11 @@ function App() {
   //We depend on keychain for signing and dhive for fetching data from the hive chain.
   //Here we initializse them both.
 
-  const hivenode = 'https://api.openhive.network';
+  const hivenode = config.hive.node;
 
-  const client = useMemo(() => new Client([hivenode]), []);
+  const client = useMemo(() => new Client([hivenode]), [hivenode]);
 
-  const keychain = useMemo(() => new KeychainSDK(window, { rpc: hivenode }), []);
+  const keychain = useMemo(() => new KeychainSDK(window, { rpc: hivenode }), [hivenode]);
 
   async function initializeKeychain() {
     try {
@@ -597,7 +598,7 @@ function App() {
             <SignOutButton 
               isSignedIn={isSignedIn} 
               username={username || undefined}
-              onSignOut={handleSignOut} 
+              onSignOut={handleSignOut}
               userProfileJSON={userProfileJSON} 
             />
           </div>

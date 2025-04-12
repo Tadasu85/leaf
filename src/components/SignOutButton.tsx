@@ -12,9 +12,9 @@ interface SignOutButtonProps {
 function SignOutButton({ isSignedIn, username, onSignOut, userProfileJSON }: SignOutButtonProps) {
   if (isSignedIn) {
     return (
-      <div>
+      <div onClick={onSignOut}>
         <p>Signed in as: {username}</p>
-        <button onClick={onSignOut}>Sign Out</button>
+        <button>Sign Out</button>
         {userProfileJSON?.profile_image && (
           <img src={userProfileJSON.profile_image} alt="ProfileImage"/>
         )}
