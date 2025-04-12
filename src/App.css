@@ -104,7 +104,7 @@
   top: 1rem; /* Adjust top margin as needed */
   right: 1rem; /* Adjust left margin as needed */
   padding: 0.5rem 1rem;
-  background-color: #7FFF00;
+  background-color: #0066ff;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -113,7 +113,7 @@
 }
 
 .SignOutButton:hover {
-  background-color: #f0f0f0;
+  background-color: white;
 }
 
 .TextInputBox {
