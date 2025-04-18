@@ -20,6 +20,7 @@ interface GameJSON {
 interface RoomData {
   body: string;
   title: string;
+  players: string[]
   exits: {
     [key: string]: string;
   };
@@ -60,7 +61,14 @@ function App() {
 
   const [gameOutputMessage, setGameOutputMessage] = useState<GameOutputMessage[]>([]);
   const [username, setUsername] = useState<string | null>(null);
-  const [roomdata, setRoomData] = useState<RoomData | Record<string, never>>({});
+  const [roomdata, setRoomData] = useState<RoomData>({
+    body: '',
+    title: '',
+    players: [], // Initialize as an empty array
+    exits: {}, // Initialize as an empty object
+    author: '',
+    permlink: '',
+  });
   const [gameJSON, setgameJSON] = useState<GameJSON>({});
   const [userProfileJSON, setuserProfileJSON] = useState<UserProfileJSON>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -212,9 +220,9 @@ function App() {
     try {
      
       const playerLocation = await traceUserActivity(username, "move_to");
-     
+      
       const accountInfo = await client.database.getAccounts([username]);
-     
+      
       if (accountInfo.length === 0) {
         const message = "Account does not exist on the Hive blockchain.";
         console.error(message);
@@ -234,6 +242,7 @@ function App() {
         let obtaineddata = {
           "body": await transactionData.body,
           "title": await transactionData.title,
+          "players": [...roomdata.players], // Keep existing players
           "exits": gameJSON?.["genesis-scaffold-precipice"]?.exits || [],
           "author": "raymonjohnstone",
           "permlink": "genesis-scaffold-precipice"
@@ -252,6 +261,7 @@ function App() {
         let obtaineddata = {
           "body": await transactionData.body,
           "title": await transactionData.title,
+          "players": [...roomdata.players], // Keep existing players
           "exits": gameJSON[playerLocation.Location.permlink].exits,
           "author": playerLocation.Location.author,
           "permlink": playerLocation.Location.permlink
@@ -271,7 +281,7 @@ function App() {
       console.error('Error fetching player data:', error);
       setLoading(false);
     }
-  }, [client, gameJSON, outPut, traceUserActivity]);
+  }, [client, gameJSON, outPut, traceUserActivity, roomdata]);
 
   const debouncedFetchPlayerData = useMemo(
     () => {
@@ -281,7 +291,7 @@ function App() {
       return debouncedFn;
     },
     [fetchPlayerData]
-  );
+    );
 
   useEffect(() => {
     return () => {
@@ -380,48 +390,49 @@ function App() {
   			}
   		}
   		else if (roomdata) {
-  			outPut(roomdata.title, true);
-  			outPut(roomdata.body, false);
-  			if (roomdata.exits) {
-  				outPut("There is a way to leave: ", false);
-  				for (const exit in roomdata.exits) {
-  					outPut(exit, true);
-  				}
-  			}
-  		} else {
-  			outPut("Error: Room data not available.", true);
-  		}
-  		break;
+        console.log("This is our current roomdata:", roomdata);
+        outPut(roomdata.title, true);
+        outPut(roomdata.body, false);
+        if (roomdata.exits) {
+          outPut("There is a way to leave: ", false);
+          for (const exit in roomdata.exits) {
+           outPut(exit, true);
+         }
+       }
+     } else {
+       outPut("Error: Room data not available.", true);
+     }
+     break;
 
-  	default:
-  		if (roomdata && roomdata.exits && roomdata.exits[command]) {
-  			
-  			const newlocation = roomdata.exits[command];
-  			try {
-  				const updateSuccess = await movePlayer(username, {
-  					newlocation: {
-  						permlink: newlocation,
-  						author: gameJSON[roomdata.exits[command]].author,
-  					},
-  				});
-  				outPut(`You traipse off towards ${command}.`, false);
-  				if (updateSuccess) {
-  					setLastKnownLocation(updateSuccess.Location);
-  				}
-  			} catch (error: unknown) {
-  				const message = `Error moving player to: ${newlocation}: ${error instanceof Error ? error.message : String(error)}`;
-  				console.error(message);
-  				outPut(message, true);
-  				setLoading(false);
-  			}
-  		} else if (roomdata && roomdata.exits && !(command in roomdata.exits)) {
-  			outPut("Error: Invalid destination.", true);
-  		} else {
-  			outPut("Unknown command.", true);
-  		}
-  		break;
-  	}
-  }, [username, outPut, roomdata, movePlayer, isSignedIn, gameJSON, setLastKnownLocation, updatePlayerDesc, userProfileJSON]);
+   default:
+    if (roomdata && roomdata.exits && roomdata.exits[command]) {
+     
+     const newlocation = roomdata.exits[command];
+     try {
+      const updateSuccess = await movePlayer(username, {
+       newlocation: {
+        permlink: newlocation,
+        author: gameJSON[roomdata.exits[command]].author,
+      },
+    });
+      outPut(`You traipse off towards ${command}.`, false);
+      if (updateSuccess) {
+       setLastKnownLocation(updateSuccess.Location);
+     }
+   } catch (error: unknown) {
+    const message = `Error moving player to: ${newlocation}: ${error instanceof Error ? error.message : String(error)}`;
+    console.error(message);
+    outPut(message, true);
+    setLoading(false);
+  }
+} else if (roomdata && roomdata.exits && !(command in roomdata.exits)) {
+ outPut("Error: Invalid destination.", true);
+} else {
+ outPut("Unknown command.", true);
+}
+break;
+}
+}, [username, outPut, roomdata, movePlayer, isSignedIn, gameJSON, setLastKnownLocation, updatePlayerDesc, userProfileJSON]);
 
 
   const handleTextEntered = useCallback(async (enteredText: string) => {
@@ -521,6 +532,7 @@ function App() {
 
   useEffect(() => {
     let stream: any = client.blockchain.getOperationsStream();
+
     const handleOperation = async (op: StreamOperation) => {
       if (op.op[1].id === 'ego-death') {
         if (processedOperations.has(op.trx_id)) {
@@ -541,6 +553,30 @@ function App() {
         } catch (error: unknown) {
           console.error('Error parsing JSON:', error);
           setLoading(false);
+        }
+      }
+    };
+
+    const handlePlayerMove = async (op: StreamOperation) => {
+      if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
+        const jsonData = JSON.parse(op.op[1].json);
+        const newLocation = jsonData.move_to;
+        console.log(op);
+
+          // Check if the new location matches the current room and is not the current user
+        if (newLocation.Location.permlink === roomdata.permlink && op.op[1].required_posting_auths[0] !== username) {
+          const newPlayer = op.op[1].required_posting_auths[0];
+          outPut(`${op.op[1].required_posting_auths[0]} has entered the room.`, false);
+          setRoomData((prevRoomData) => {
+                // Check if the player is already in the list
+            if (!prevRoomData.players.includes(newPlayer)) {
+              return {
+                ...prevRoomData,
+                        players: [...prevRoomData.players, newPlayer], // Append the new player
+                      };
+                    }
+                return prevRoomData; // Return existing room data if player is already included
+              });
         }
       }
     };
@@ -571,7 +607,10 @@ function App() {
 
     const handleEnd = () => { };
 
-    stream.on('data', handleOperation);
+    stream.on('data', (op: StreamOperation) => {
+      handleOperation(op);
+      handlePlayerMove(op); // Call the new listener
+    });
     stream.on('error', handleError);
     stream.on('end', handleEnd);
 
@@ -586,30 +625,30 @@ function App() {
         }
       }
     };
-  }, [client, username, isSignedIn, debouncedFetchPlayerData, lastKnownLocation, processedOperations]);
+  }, [client, username, isSignedIn, roomdata, outPut, debouncedFetchPlayerData, lastKnownLocation, processedOperations]);
 
   return (
     <div className="App">
-      <header className="App-header">
-        <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
-        {loading ? <div className="Loading">Loading</div> : null}
-        {isSignedIn && (
-          <div className="SignOutButton">
-            <SignOutButton 
-              isSignedIn={isSignedIn} 
-              username={username || undefined}
-              onSignOut={handleSignOut}
-              userProfileJSON={userProfileJSON} 
-            />
-          </div>
-        )}
-      </header>
-      <GameOutputWindow output={gameOutputMessage} />
-      <div className="TextInputBox">
-        <TextInputBox onEnterPressed={handleTextEntered} />
+    <header className="App-header">
+    <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
+    {loading ? <div className="Loading">Loading</div> : null}
+    {isSignedIn && (
+      <div className="SignOutButton">
+      <SignOutButton 
+      isSignedIn={isSignedIn} 
+      username={username || undefined}
+      onSignOut={handleSignOut}
+      userProfileJSON={userProfileJSON} 
+      />
       </div>
+      )}
+    </header>
+    <GameOutputWindow output={gameOutputMessage} />
+    <div className="TextInputBox">
+    <TextInputBox onEnterPressed={handleTextEntered} />
     </div>
-  );
+    </div>
+    );
 }
 
 export default App;
