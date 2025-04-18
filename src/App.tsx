@@ -125,7 +125,7 @@ function App() {
         for (let i = accountHistory.length - 1; i >= 0; i--) {
           // eslint-disable-next-line
           const [seq, op] = accountHistory[i];
-          if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
+          if (op.op[0] === 'custom_json' && op.op[1].id === config.game.idName) {
             const jsonData = JSON.parse(op.op[1].json);
             if (jsonData[targetKey]) {
               processedOperations.add(op.trx_id);
@@ -145,7 +145,7 @@ function App() {
   const fetchgameData = useCallback(async () => {
     try {
       setIsLoadedGame(false);
-      const gameInfo = await client.database.getAccounts(["hive-109456"]);
+      const gameInfo = await client.database.getAccounts([config.game.accountName]);
       const parsedgameInfo = JSON.parse(gameInfo[0].posting_json_metadata);
       setgameJSON(parsedgameInfo.egodeathgamedata.rooms_authors_exits);
     } catch (error) {
@@ -187,7 +187,7 @@ function App() {
             {
               "required_auths": [],
               "required_posting_auths": [username],
-              "id": "ego-death",
+              "id": config.game.idName,
               "json": JSON.stringify({
                 "move_to": movedPlayer
               })
@@ -218,11 +218,11 @@ function App() {
 
   const fetchPlayerData = useCallback(async (username: string) => {
     try {
-     
+
       const playerLocation = await traceUserActivity(username, "move_to");
-      
+
       const accountInfo = await client.database.getAccounts([username]);
-      
+
       if (accountInfo.length === 0) {
         const message = "Account does not exist on the Hive blockchain.";
         console.error(message);
@@ -335,7 +335,7 @@ function App() {
       const result = await keychain.broadcast(broadcastData as unknown as Broadcast);
       
       if (result && result.success && result.result && result.result.id) {
-        
+
         setuserProfileJSON(currentMetadata);
         setLoading(false); //stop loading
         return true;
@@ -406,7 +406,7 @@ function App() {
 
    default:
     if (roomdata && roomdata.exits && roomdata.exits[command]) {
-     
+
      const newlocation = roomdata.exits[command];
      try {
       const updateSuccess = await movePlayer(username, {
@@ -534,7 +534,7 @@ break;
     let stream: any = client.blockchain.getOperationsStream();
 
     const handleOperation = async (op: StreamOperation) => {
-      if (op.op[1].id === 'ego-death') {
+      if (op.op[1].id === config.game.idName) {
         if (processedOperations.has(op.trx_id)) {
           return;
         }
@@ -558,7 +558,7 @@ break;
     };
 
     const handlePlayerMove = async (op: StreamOperation) => {
-      if (op.op[0] === 'custom_json' && op.op[1].id === 'ego-death') {
+      if (op.op[0] === 'custom_json' && op.op[1].id === config.game.idName) {
         const jsonData = JSON.parse(op.op[1].json);
         const newLocation = jsonData.move_to;
         console.log(op);

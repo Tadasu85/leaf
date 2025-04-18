@@ -6,6 +6,8 @@ interface Config {
   };
   game: {
     name: string;
+    idName: string;
+    accountName: string;
     startingRoom: string;
     defaultCharacterDescription: string;
   };
@@ -28,6 +30,8 @@ const config: Config = {
   },
   game: {
     name: process.env.REACT_APP_GAME_NAME || 'Ego Death',
+    idName: process.env.REACT_APP_GAME_ID_NAME || 'ego-death',
+    accountName: process.env.REACT_APP_ACCOUNT_NAME || 'hive-109456',
     startingRoom: process.env.REACT_APP_GAME_STARTING_ROOM || 'genesis-scaffold-precipice',
     defaultCharacterDescription: process.env.REACT_APP_GAME_DEFAULT_CHARACTER_DESCRIPTION || 'A mysterious figure stands before you.',
   },
