@@ -546,7 +546,7 @@ function App() {
       setLoading(false);
       return null;
     }
-  }, [keychain, userProfileJSON, lastKnownLocation, updateRoomPlayers, roomdata]);
+  }, [keychain, userProfileJSON, lastKnownLocation, updateRoomPlayers]);
 
   const fetchPlayerData = useCallback(async (username: string) => {
     try {
@@ -847,6 +847,25 @@ function App() {
             try {
               await fetchPlayerData(tempuser);
               outPutRef.current(`Login successful as ${tempuser}`, false);
+              
+              // Ensure socket is connected and join initial room
+              if (signalingSocket.current) {
+                const currentRoomdata = roomdataRef.current;
+                if (currentRoomdata?.author && currentRoomdata?.permlink) {
+                  const roomId = `${currentRoomdata.author}/${currentRoomdata.permlink}`;
+                  console.log('Joining initial room on login:', roomId);
+                  signalingSocket.current.emit('joinRoom', {
+                    room: roomId,
+                    username: tempuser,
+                    roomData: {
+                      ...currentRoomdata,
+                      players: [...currentRoomdata.players, tempuser],
+                      lastUpdated: Date.now()
+                    }
+                  });
+                  currentRoomIdentifier.current = roomId;
+                }
+              }
             } catch (fetchError) {
               const message = `Failed to fetch player data after login: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
               console.error(message, fetchError);
