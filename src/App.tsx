@@ -2,6 +2,7 @@ import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
+import TopRightButton from './components/TopRightButton';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { io, Socket } from 'socket.io-client';
@@ -114,6 +115,7 @@ function App() {
   const retryCount = useRef(0);
   const signalingSocket = useRef<Socket | null>(null);
   const isSettingUpSocket = useRef(false);
+  const [isButtonActive, setIsButtonActive] = useState(false);
 
   const outPut = useCallback((texttooutput: string, bold?: boolean) => {
     setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
@@ -394,7 +396,15 @@ function App() {
 
     try {
       console.log('Updating room players for location:', currentLocation);
-      // Get recent operations to find all players in the current room
+      
+      // First check the signaling server for current room state
+      if (signalingSocket.current) {
+        const roomId = `${currentLocation.author}/${currentLocation.permlink}`;
+        console.log('Requesting room state from signaling server:', roomId);
+        signalingSocket.current.emit('getRoomState', { room: roomId });
+      }
+
+      // Also check blockchain for recent movements
       const accountHistory = await client.database.getAccountHistory(config.game.accountName, -1, 100);
       const playersInRoom = new Set<string>();
       
@@ -408,7 +418,7 @@ function App() {
                 jsonData.move_to.Location.author === currentLocation.author) {
               const playerUsername = op.op[1].required_posting_auths[0];
               if (playerUsername !== username) {
-                console.log('Found player in room:', playerUsername);
+                console.log('Found player in room from blockchain:', playerUsername);
                 playersInRoom.add(playerUsername);
               }
             }
@@ -454,7 +464,14 @@ function App() {
           }
         });
 
-        outPutRef.current(`Found ${newPlayers.length} other player(s) in the room.`, false);
+        if (newPlayers.length > 0) {
+          outPutRef.current(`Found ${newPlayers.length} other player(s) in the room:`, false);
+          newPlayers.forEach(player => {
+            outPutRef.current(`- ${player}`, false);
+          });
+        } else {
+          outPutRef.current("No other players are currently in this room.", false);
+        }
       } else {
         console.log('No changes in room players, skipping update');
       }
@@ -581,6 +598,12 @@ function App() {
         setRoomData(obtaineddata);
         outPutRef.current(obtaineddata.title, true);
         outPutRef.current(obtaineddata.body, false);
+        if (obtaineddata.players) {
+          outPutRef.current("There are others here: ", false);
+          Object.keys(obtaineddata.players).forEach(player => {
+            outPutRef.current(player, true);
+          });
+        }
         if (obtaineddata.exits) {
           outPutRef.current("There is a way to leave: ", false);
           Object.keys(obtaineddata.exits).forEach(exit => {
@@ -735,6 +758,8 @@ function App() {
             presentPlayers.forEach(player => {
               outPutRef.current(`- ${player}`, false);
             });
+          } else {
+            outPutRef.current("No other players are currently in this room.", false);
           }
           
           // Show exits
@@ -1081,6 +1106,27 @@ function App() {
       });
     });
 
+    socket.on('roomState', ({ room, players }) => {
+      console.log('Received room state:', { room, players });
+      const currentRoomdata = roomdataRef.current;
+      if (room === `${currentRoomdata.author}/${currentRoomdata.permlink}`) {
+        const uniquePlayers = Array.from(new Set([...players, username]));
+        console.log('Setting room players from server state:', uniquePlayers);
+        setRoomData(prev => ({
+          ...prev,
+          players: uniquePlayers.filter(p => p !== username)
+        }));
+
+        // Connect to other players in the room
+        uniquePlayers.forEach(targetUser => {
+          if (targetUser !== username && !peers.current[targetUser]) {
+            console.log(`Found player ${targetUser} in room from server state, initiating connection`);
+            createPeer(targetUser, true);
+          }
+        });
+      }
+    });
+
     // Connect the socket
     socket.connect();
 
@@ -1213,28 +1259,41 @@ function App() {
     };
   }, [client, username, isSignedIn, roomdata, outPut, debouncedFetchPlayerData, lastKnownLocation, processedOperations, createPeer, destroyPeer, updateRoomPlayers]);
 
+  // Add handler for the button
+  const handleTopRightButtonClick = useCallback(() => {
+    setIsButtonActive(prev => !prev);
+    // Add your button click logic here
+  }, []);
+
   return (
     <div className="App">
-    <header className="App-header">
-    <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
-    {loading ? <div className="Loading">Loading</div> : null}
-    {isSignedIn && (
-      <div className="SignOutButton">
-      <SignOutButton 
-      isSignedIn={isSignedIn} 
-      username={username || undefined}
-      onSignOut={handleSignOut}
-      userProfileJSON={userProfileJSON} 
-      />
+      <header className="App-header">
+        <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
+        {loading ? <div className="Loading">Loading</div> : null}
+        <div className="header-buttons">
+          {isSignedIn && (
+            <>
+              <SignOutButton 
+                isSignedIn={isSignedIn} 
+                username={username || undefined}
+                onSignOut={handleSignOut}
+                userProfileJSON={userProfileJSON} 
+              />
+              <TopRightButton 
+                onClick={handleTopRightButtonClick}
+                label="Build"
+                isActive={isButtonActive}
+              />
+            </>
+          )}
+        </div>
+      </header>
+      <GameOutputWindow output={gameOutputMessage} />
+      <div className="TextInputBox">
+        <TextInputBox onEnterPressed={handleTextEntered} />
       </div>
-      )}
-    </header>
-    <GameOutputWindow output={gameOutputMessage} />
-    <div className="TextInputBox">
-    <TextInputBox onEnterPressed={handleTextEntered} />
     </div>
-    </div>
-    );
+  );
 }
 
 export default App;

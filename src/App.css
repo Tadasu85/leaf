@@ -99,21 +99,30 @@
   font-weight: 700;
 }
 
-.SignOutButton {
+.header-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
   position: absolute;
-  top: 1rem; /* Adjust top margin as needed */
-  right: 1rem; /* Adjust left margin as needed */
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+}
+
+.SignOutButton {
   padding: 0.5rem 1rem;
-  background-color: #0066ff;
-  border: none;
+  background-color: #0066ff !important;
+  border: none !important;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
-  z-index: 10; /* Ensure it's above other header content if necessary */
+  color: white !important;
 }
 
 .SignOutButton:hover {
-  background-color: white;
+  background-color: white !important;
+  color: #0066ff !important;
 }
 
 .TextInputBox {
