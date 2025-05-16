@@ -1200,15 +1200,21 @@ function App() {
                 }));
                 createPeer(playerUsername, true);
               }
-            } else if (roomdata.players.includes(playerUsername)) {
-              console.log(`${playerUsername} left the room`);
-              outPutRef.current(`${playerUsername} has left the room.`, false);
-              setRoomData(prev => ({
-                ...prev,
-                players: prev.players.filter(p => p !== playerUsername)
-              }));
-              destroyPeer(playerUsername);
-            }
+            } 
+            else if (newLocation && lastKnownLocation && 
+              (newLocation.Location.permlink !== lastKnownLocation.permlink || 
+               newLocation.Location.author !== lastKnownLocation.author)) {
+     // This condition checks if the player is leaving the room
+     if (roomdata.players.includes(playerUsername)) {
+       console.log(`${playerUsername} left the room`);
+       outPutRef.current(`${playerUsername} has left the room.`, false);
+       setRoomData(prev => ({
+         ...prev,
+         players: prev.players.filter(p => p !== playerUsername)
+       }));
+       destroyPeer(playerUsername);
+     }
+    }
           } catch (error) {
             console.error('Error processing operation:', error);
           }
