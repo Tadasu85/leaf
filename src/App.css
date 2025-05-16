@@ -125,6 +125,14 @@
   color: #0066ff !important; /* Force text color on hover */
 }
 
+.user-icon {
+  width: 40px; /* Set a width for the icon */
+  height: 40px; /* Set a height for the icon */
+  border-radius: 50%; /* Make it circular */
+  margin-right: 10px; /* Space between the icon and the button */
+  object-fit: cover; /* Ensure the image covers the area without distortion */
+}
+
 .top-right-button {
   background-color: #2c2c2c;
   color: #ffffff;

@@ -223,7 +223,7 @@ function App() {
         sender: username,
         signal: signal
       };
-      broadcastToBlockchain(signalData);
+      //broadcastToBlockchain(signalData);
     });
 
     peer.on('connect', () => {
@@ -278,7 +278,7 @@ function App() {
       destroyPeer(targetUser);
     });
 
-  }, [username, destroyPeer, broadcastToBlockchain]);
+  }, [username, destroyPeer]);
 
   // --- P2P Signaling Handlers ---
   const handleIncomingSignal = useCallback(({ from, signal }: { from: string, signal: SignalData }) => {
@@ -1275,16 +1275,18 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḓ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
+        <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḇ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
         {loading ? <div className="Loading">Loading</div> : null}
         <div className="header-buttons">
           {isSignedIn && (
             <>
+              {userProfileJSON.profile_image && (
+                <img src={userProfileJSON.profile_image} alt="User Icon" className="user-icon" />
+              )}
               <SignOutButton 
                 isSignedIn={isSignedIn} 
                 username={username || undefined}
                 onSignOut={handleSignOut}
-                //userProfileJSON={userProfileJSON}
               />
               <TopRightButton 
                 onClick={handleTopRightButtonClick}
