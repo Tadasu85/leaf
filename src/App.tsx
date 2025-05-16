@@ -945,7 +945,8 @@ function App() {
 
   const handleSignOut = () => {
     setIsSignedIn(false);
-    setUsername('');
+    setUsername(null);
+    setuserProfileJSON({});
   };
   if (!userGreeted && !isSignedIn) {
     gameGreeting.forEach((item, index) => {
@@ -1283,7 +1284,7 @@ function App() {
                 isSignedIn={isSignedIn} 
                 username={username || undefined}
                 onSignOut={handleSignOut}
-                userProfileJSON={userProfileJSON} 
+                //userProfileJSON={userProfileJSON}
               />
               <TopRightButton 
                 onClick={handleTopRightButtonClick}

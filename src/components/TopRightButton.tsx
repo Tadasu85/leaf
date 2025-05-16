@@ -1,5 +1,4 @@
 import React from 'react';
-import './TopRightButton.css';
 
 interface TopRightButtonProps {
   onClick: () => void;
