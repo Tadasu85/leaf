@@ -1,12 +1,12 @@
 import React from 'react';
 
-interface TopRightButtonProps {
+interface BuildButtonProps {
   onClick: () => void;
   label: string;
   isActive?: boolean;
 }
 
-const TopRightButton: React.FC<TopRightButtonProps> = ({ onClick, label, isActive = false }) => {
+const BuildButton: React.FC<BuildButtonProps> = ({ onClick, label, isActive = false }) => {
   return (
     <button 
       className={`top-right-button ${isActive ? 'active' : ''}`}
@@ -17,4 +17,4 @@ const TopRightButton: React.FC<TopRightButtonProps> = ({ onClick, label, isActiv
   );
 };
 
-export default TopRightButton; 
+export default BuildButton; 

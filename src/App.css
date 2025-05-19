@@ -256,3 +256,154 @@ body {
   background-color: #218838; /* Darker shade on hover */
   color: white; /* Keep text color white on hover */
 }
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background-color: #1a1a1a;
+  padding: 24px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #333;
+  margin-left: -24px;
+  margin-right: -24px;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-button:hover {
+  color: #ccc;
+}
+
+.modal-body {
+  color: #fff;
+}
+
+/* Modal form specific styles with unique class names */
+.modal-form-group {
+  margin-bottom: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.modal-form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.modal-content .modal-form-input,
+.modal-content .modal-form-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #fff;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.modal-content .modal-form-input:hover,
+.modal-content .modal-form-textarea:hover {
+  border-color: #555;
+}
+
+.modal-content .modal-form-input:focus,
+.modal-content .modal-form-textarea:focus {
+  outline: none;
+  border-color: #690979;
+  box-shadow: 0 0 0 2px rgba(105, 9, 121, 0.2);
+}
+
+.modal-content .modal-form-textarea {
+  resize: vertical;
+  min-height: 100px;
+  max-height: 200px;
+}
+
+/* Fix modal button styling */
+.modal-content .submit-button,
+.modal-content .cancel-button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 100px;
+  background-color: #690979;
+  color: white;
+}
+
+.modal-content .submit-button:hover {
+  background-color: #7a0a8a;
+  transform: translateY(-1px);
+}
+
+.modal-content .cancel-button {
+  background-color: #444;
+}
+
+.modal-content .cancel-button:hover {
+  background-color: #555;
+  transform: translateY(-1px);
+}
+
+.modal-content .form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+  margin-left: -24px;
+  margin-right: -24px;
+  padding-left: 24px;
+  padding-right: 24px;
+}

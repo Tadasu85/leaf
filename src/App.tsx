@@ -2,7 +2,7 @@ import './App.css';
 import GameOutputWindow, { GameOutputMessage } from './components/GameOutputWindow';
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
-import TopRightButton from './components/TopRightButton';
+import BuildButton from './components/BuildButton';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { KeychainSDK, Login, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { io, Socket } from 'socket.io-client';
@@ -10,6 +10,7 @@ import Peer, {SignalData} from 'simple-peer';
 import { Client } from '@hiveio/dhive';
 import { debounce } from 'lodash';
 import config from './config';
+import BuildModal from './components/BuildModal';
 
 // Interface for PeerConnection (refined)
 interface PeerConnection {
@@ -116,6 +117,7 @@ function App() {
   const signalingSocket = useRef<Socket | null>(null);
   const isSettingUpSocket = useRef(false);
   const [isButtonActive, setIsButtonActive] = useState(false);
+  const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
 
   const outPut = useCallback((texttooutput: string, bold?: boolean) => {
     setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
@@ -1266,10 +1268,16 @@ function App() {
     };
   }, [client, username, isSignedIn, roomdata, outPut, debouncedFetchPlayerData, lastKnownLocation, processedOperations, createPeer, destroyPeer, updateRoomPlayers]);
 
-  // Add handler for the button
+  // Update the button click handler
   const handleTopRightButtonClick = useCallback(() => {
     setIsButtonActive(prev => !prev);
-    // Add your button click logic here
+    setIsBuildModalOpen(true);
+  }, []);
+
+  // Add modal close handler
+  const handleCloseModal = useCallback(() => {
+    setIsBuildModalOpen(false);
+    setIsButtonActive(false);
   }, []);
 
   return (
@@ -1288,7 +1296,7 @@ function App() {
                 username={username || undefined}
                 onSignOut={handleSignOut}
               />
-              <TopRightButton 
+              <BuildButton 
                 onClick={handleTopRightButtonClick}
                 label="Build"
                 isActive={isButtonActive}
@@ -1301,6 +1309,10 @@ function App() {
       <div className="TextInputBox">
         <TextInputBox onEnterPressed={handleTextEntered} />
       </div>
+      <BuildModal 
+        isOpen={isBuildModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }
