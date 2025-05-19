@@ -1098,17 +1098,6 @@ function App() {
       outPutRef.current(`[P2P] ${sender} ${emote}`, false);
     });
 
-    socket.on('messageHistory', ({ messages }) => {
-      console.log('Received message history:', messages);
-      messages.forEach((msg: any) => {
-        if (msg.type === 'chat') {
-          outPutRef.current(`[${msg.username}]: ${msg.message}`, false);
-        } else if (msg.type === 'emote') {
-          outPutRef.current(`[P2P] ${msg.username} ${msg.emote}`, false);
-        }
-      });
-    });
-
     socket.on('roomState', ({ room, players }) => {
       console.log('Received room state:', { room, players });
       const currentRoomdata = roomdataRef.current;
