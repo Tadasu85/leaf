@@ -145,31 +145,32 @@ function App() {
   const keychain = useMemo(() => new KeychainSDK(window, { rpc: hivenode }), [hivenode]);
 
   // Helper function to broadcast data to the blockchain
-  const broadcastToBlockchain = useCallback(async (data: any) => {
-    if (!username) return;
+  // Commented out for the time being as we are not using it.
+  // const broadcastToBlockchain = useCallback(async (data: any) => {
+  //   if (!username) return;
     
-    try {
-      const broadcastData = {
-        username: username,
-        operations: [
-          [
-            "custom_json",
-            {
-              required_auths: [],
-              required_posting_auths: [username],
-              id: config.game.idName,
-              json: JSON.stringify(data)
-            }
-          ]
-        ],
-        method: KeychainKeyTypes.posting
-      };
+  //   try {
+  //     const broadcastData = {
+  //       username: username,
+  //       operations: [
+  //         [
+  //           "custom_json",
+  //           {
+  //             required_auths: [],
+  //             required_posting_auths: [username],
+  //             id: config.game.idName,
+  //             json: JSON.stringify(data)
+  //           }
+  //         ]
+  //       ],
+  //       method: KeychainKeyTypes.posting
+  //     };
 
-      await keychain.broadcast(broadcastData as unknown as Broadcast);
-    } catch (error) {
-      console.error('Error broadcasting to blockchain:', error);
-    }
-  }, [username, keychain]);
+  //     await keychain.broadcast(broadcastData as unknown as Broadcast);
+  //   } catch (error) {
+  //     console.error('Error broadcasting to blockchain:', error);
+  //   }
+  // }, [username, keychain]);
 
   // --- P2P Helper: Destroy Peer ---
   const destroyPeer = useCallback((targetUser: string) => {
@@ -199,7 +200,7 @@ function App() {
     }
     console.log(`Creating Peer connection to ${targetUser} (Initiator: ${initiator})`);
 
-    const peer = new Peer({ 
+    const peer = new Peer({
       initiator, 
       trickle: true,
       config: {
@@ -217,16 +218,18 @@ function App() {
     };
     peers.current[targetUser] = peerConn;
 
-    peer.on('signal', (signal: SignalData) => {
-      console.log(`Sending signal to ${targetUser}:`, signal.type);
-      const signalData = {
-        type: 'peer_signal',
-        target: targetUser,
-        sender: username,
-        signal: signal
-      };
-      //broadcastToBlockchain(signalData);
-    });
+    //Realtime doesnt need to be broadcast to the blockchain.
+
+    // peer.on('signal', (signal: SignalData) => {
+    //   console.log(`Sending signal to ${targetUser}:`, signal.type);
+    //   const signalData = {
+    //     type: 'peer_signal',
+    //     target: targetUser,
+    //     sender: username,
+    //     signal: signal
+    //   };
+    //   broadcastToBlockchain(signalData);
+    // });
 
     peer.on('connect', () => {
       console.log(`CONNECT: Connection established with ${targetUser}`);
