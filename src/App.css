@@ -101,13 +101,22 @@
 
 .header-buttons {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
+  flex-direction: column; /* Stack buttons vertically */
+  align-items: flex-end; /* Align items to the end (right) */
+  gap: 10px; /* Space between items */
   position: absolute;
   top: 1rem;
   right: 1rem;
   z-index: 10;
+}
+
+.header-buttons .user-signout-container {
+  display: flex; /* Use flexbox for user icon and sign-out button */
+  align-items: center; /* Center items vertically */
+}
+
+.header-buttons .user-icon {
+  margin-right: 5px; /* Space between icon and sign-out button */
 }
 
 .header-buttons .SignOutButton {
