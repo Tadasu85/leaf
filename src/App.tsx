@@ -118,6 +118,8 @@ function App() {
   const isSettingUpSocket = useRef(false);
   const [isButtonActive, setIsButtonActive] = useState(false);
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
+  const [builders, setBuilders] = useState<string[]>([]);
+  const [isBuilder, setIsBuilder] = useState<boolean>(false);
 
   const outPut = useCallback((texttooutput: string, bold?: boolean) => {
     setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
@@ -379,6 +381,22 @@ function App() {
   const fetchgameData = useCallback(async () => {
     try {
       setIsLoadedGame(false);
+      const communityDetailsArray = await client.hivemind.getCommunity({ 
+        name: config.game.accountName, 
+        observer: '' // Provide a valid observer value
+      });
+
+      // Check if the response is an array and get the first element
+      const communityDetails = Array.isArray(communityDetailsArray) ? communityDetailsArray[0] : communityDetailsArray;
+
+      // Extract builders from the team array
+      if (communityDetails && communityDetails.team) {
+        const buildersList = communityDetails.team
+          .filter(member => member[2] === "Builder") // Check if the title is "Builder"
+          .map(member => member[0]); // Get the username of the builder
+        setBuilders(buildersList); // Set the builders state
+      }
+
       const gameInfo = await client.database.getAccounts([config.game.accountName]);
       const parsedgameInfo = JSON.parse(gameInfo[0].posting_json_metadata);
       setgameJSON(parsedgameInfo.egodeathgamedata.rooms_authors_exits);
@@ -878,6 +896,13 @@ function App() {
               await fetchPlayerData(tempuser);
               outPutRef.current(`Login successful as ${tempuser}`, false);
               
+              // Check if the user is a builder
+              if (builders.includes(tempuser)) {
+                setIsBuilder(true);
+              } else {
+                setIsBuilder(false);
+              }
+
               // Ensure socket is connected and join initial room
               if (signalingSocket.current) {
                 const currentRoomdata = roomdataRef.current;
@@ -940,7 +965,7 @@ function App() {
       setIsSignedIn(false);
       setUsername(null);
     }
-  }, [keychain, fetchPlayerData, handleCommand, isSignedIn]);
+  }, [keychain, fetchPlayerData, handleCommand, isSignedIn, builders]);
 
   useEffect(() => {
     if (generalError) {
@@ -1288,7 +1313,7 @@ function App() {
               />
             </div>
           )}
-          {isSignedIn && (
+          {isSignedIn && isBuilder && (
             <BuildButton 
               onClick={handleTopRightButtonClick}
               label="Build"
