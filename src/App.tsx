@@ -424,13 +424,47 @@ function App() {
       if (signalingSocket.current) {
         const roomId = `${currentLocation.author}/${currentLocation.permlink}`;
         console.log('Requesting room state from signaling server:', roomId);
+        
+        // Emit a request to get the current room state
         signalingSocket.current.emit('getRoomState', { room: roomId });
+
+        // Listen for the response from the signaling server
+        signalingSocket.current.once('roomState', ({ players }: { players: string[] }) => {
+          console.log('Received room state from signaling server:', players);
+
+          // Update the players list in roomdata
+          setRoomData(prev => ({
+            ...prev,
+            players: players // Update players with the list received from the server
+          }));
+
+          // Connect to new players in the room
+          players.forEach((targetUser: string) => {
+            if (!peers.current[targetUser]) {
+              console.log(`Found player ${targetUser} in room, initiating connection`);
+              createPeer(targetUser, true);
+            } else {
+              console.log(`Already connected to ${targetUser}`);
+            }
+          });
+
+          if (players.length > 0) {
+            outPutRef.current(`Found ${players.length} other player(s) in the room:`, false);
+            players.forEach((player: string) => {
+              outPutRef.current(`- ${player}`, false);
+            });
+          } else {
+            outPutRef.current("No other players are currently in this room.", false);
+          }
+        });
       }
 
       // Also check blockchain for recent movements
       const accountHistory = await client.database.getAccountHistory(config.game.accountName, -1, 100);
-      const playersInRoom = new Set<string>();
       
+      // Create a Set from roomdata.players to avoid duplicates
+      const playersInRoom = new Set(roomdata.players);
+
       // First pass: Find all players who have moved to this room
       for (const [, op] of accountHistory) {
         if (op.op[0] === 'custom_json' && op.op[1].id === config.game.idName) {
@@ -442,7 +476,7 @@ function App() {
               const playerUsername = op.op[1].required_posting_auths[0];
               if (playerUsername !== username) {
                 console.log('Found player in room from blockchain:', playerUsername);
-                playersInRoom.add(playerUsername);
+                playersInRoom.add(playerUsername); // Add new player to the set
               }
             }
           } catch (error) {
@@ -451,7 +485,7 @@ function App() {
         }
       }
 
-      // Update room data with discovered players
+      // Convert Set back to Array for state update
       const newPlayers = Array.from(playersInRoom);
       
       // Only update if the player list has actually changed
@@ -459,7 +493,7 @@ function App() {
         console.log('Room players changed, updating:', newPlayers);
         setRoomData(prev => ({
           ...prev,
-          players: newPlayers
+          players: newPlayers // Update players with the new list
         }));
 
         // Sync with signaling server only if there's a change
@@ -470,7 +504,7 @@ function App() {
             username,
             roomData: {
               ...roomdata,
-              players: [...newPlayers, username],
+              players: newPlayers, // Ensure no duplicates
               lastUpdated: Date.now()
             }
           });
@@ -501,7 +535,7 @@ function App() {
     } catch (error) {
       console.error('Error updating room players:', error);
     }
-  }, [client, username, createPeer, roomdata]);
+  }, [username, createPeer, client, roomdata]);
 
   // Update movePlayer to be more efficient with room updates
   const movePlayer = useCallback(async (username: string, options?: {
