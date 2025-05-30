@@ -1339,7 +1339,9 @@ function App() {
         <div className="header-buttons">
           {isSignedIn && (
             <div className="user-signout-container">
-              <img src={userProfileJSON.profile_image} alt="User Icon" className="user-icon" />
+              {userProfileJSON.profile_image && (
+                <img src={userProfileJSON.profile_image} alt="User Icon" className="user-icon" />
+              )}
               <SignOutButton 
                 isSignedIn={isSignedIn} 
                 username={username || undefined}
