@@ -31,7 +31,10 @@ interface GameJSON {
 interface RoomData {
   body: string;
   title: string;
-  players: string[]
+  players: string[];
+  details: {
+    [key: string]: string;
+  };
   exits: {
     [key: string]: string;
   };
@@ -97,6 +100,7 @@ function App() {
     body: '',
     title: '',
     players: [], // Initialize as an empty array
+    details: {},
     exits: {}, // Initialize as an empty object
     author: '',
     permlink: '',
@@ -622,10 +626,24 @@ function App() {
     }
   }, [keychain, userProfileJSON, lastKnownLocation, updateRoomPlayers]);
 
+    const parseDetailString = useCallback((detailBody: string): { [key: string]: string } | null => {
+    const firstColonIndex = detailBody.indexOf(':');
+    if (firstColonIndex === -1) {
+      console.warn(`Detail string "${detailBody}" does not contain a colon. Skipping.`);
+      return null;
+    }
+    const key = detailBody.substring(0, firstColonIndex).trim();
+    const value = detailBody.substring(firstColonIndex + 1).trim();
+    if (key && value) {
+      return { [key]: value };
+    }
+    console.warn(`Parsed key or value is empty for detail string "${detailBody}". Skipping.`);
+    return null;
+  }, []);
+
   const fetchPlayerData = useCallback(async (username: string) => {
     try {
       const playerLocation = await traceUserActivity(username, "move_to");
-
       const accountInfo = await client.database.getAccounts([username]);
 
       if (accountInfo.length === 0) {
@@ -639,64 +657,80 @@ function App() {
       const currentMetadata = JSON.parse(accountInfo[0].posting_json_metadata);
       setuserProfileJSON(currentMetadata);
 
-      if (!playerLocation) {
-        const message = "Welcome to the game!  You don't seem to have a location yet, so you start at the beginning.";
+      let currentRoomPermlink: string;
+      let currentRoomAuthor: string;
+
+      if (!playerLocation || !playerLocation.Location) {
+        const message = "Welcome to the game! You don't seem to have a location yet, so you start at the beginning.";
         console.warn(message);
         outPutRef.current(message, true);
-        const transactionData = await client.database.call('get_content', ["raymonjohnstone", "genesis-scaffold-precipice"]);
-        let obtaineddata = {
-          "body": await transactionData.body,
-          "title": await transactionData.title,
-          "players": [], // Start with empty players array
-          "exits": gameJSON?.["genesis-scaffold-precipice"]?.exits || [],
-          "author": "raymonjohnstone",
-          "permlink": "genesis-scaffold-precipice"
-        };
-        setRoomData(obtaineddata);
-        outPutRef.current(obtaineddata.title, true);
-        outPutRef.current(obtaineddata.body, false);
-        if (obtaineddata.players) {
-          outPutRef.current("There are others here: ", false);
-          Object.keys(obtaineddata.players).forEach(player => {
-            outPutRef.current(player, true);
-          });
-        }
-        if (obtaineddata.exits) {
-          outPutRef.current("There is a way to leave: ", false);
-          Object.keys(obtaineddata.exits).forEach(exit => {
-            outPutRef.current(exit, true);
-          });
-        }
-        // Check for players in the starting room
-        await updateRoomPlayers({ permlink: "genesis-scaffold-precipice", author: "raymonjohnstone" });
+        currentRoomPermlink = "genesis-scaffold-precipice";
+        currentRoomAuthor = "raymonjohnstone";
       } else {
-        const transactionData = await client.database.call('get_content', [playerLocation.Location.author, playerLocation.Location.permlink]);
-        let obtaineddata = {
-          "body": await transactionData.body,
-          "title": await transactionData.title,
-          "players": [], // Start with empty players array
-          "exits": gameJSON[playerLocation.Location.permlink].exits,
-          "author": playerLocation.Location.author,
-          "permlink": playerLocation.Location.permlink
-        };
-        setRoomData(obtaineddata);
-        outPutRef.current(obtaineddata.title, true);
-        outPutRef.current(obtaineddata.body, false);
-        if (obtaineddata.exits) {
-          outPutRef.current("There is a way to leave: ", false);
-          Object.keys(obtaineddata.exits).forEach(exit => {
-            outPutRef.current(exit, true);
-          });
-        }
-        // Check for players in the current room
-        await updateRoomPlayers(playerLocation.Location);
+        currentRoomPermlink = playerLocation.Location.permlink;
+        currentRoomAuthor = playerLocation.Location.author;
       }
+
+      const transactionData = await client.database.call('get_content', [currentRoomAuthor, currentRoomPermlink]);
+      const roomDetailsReplies = await client.database.call('get_content_replies', [currentRoomAuthor, currentRoomPermlink]);
+
+      const transformedDetails: { [key: string]: string } = {};
+
+      if (Array.isArray(roomDetailsReplies)) {
+        roomDetailsReplies.forEach((reply: any) => { // 'any' here as reply structure isn't fully typed
+          if (reply && typeof reply.body === 'string') {
+            const parsedDetail = parseDetailString(reply.body);
+            if (parsedDetail) {
+              Object.assign(transformedDetails, parsedDetail); // Merge into the single object
+            }
+          }
+        });
+      }
+
+      let obtaineddata: RoomData = {
+        "body": transactionData.body,
+        "title": transactionData.title,
+        "players": [...roomdata.players], // Keep existing players for now
+        "details": transformedDetails, // Assign the transformed object
+        "exits": gameJSON[currentRoomPermlink]?.exits || {}, // Get exits from gameJSON
+        "author": currentRoomAuthor,
+        "permlink": currentRoomPermlink
+      };
+      setRoomData(obtaineddata);
+
+      outPutRef.current(obtaineddata.title, true);
+      outPutRef.current(obtaineddata.body, false);
+
+      if (obtaineddata.players && obtaineddata.players.length > 0) { // Check length for players
+        outPutRef.current("There are others here: ", false);
+        obtaineddata.players.forEach(player => { // Iterate over players array directly
+          outPutRef.current(player, true);
+        });
+      }
+
+      if (obtaineddata.exits && Object.keys(obtaineddata.exits).length > 0) {
+        outPutRef.current("There is a way to leave: ", false);
+        Object.keys(obtaineddata.exits).forEach(exit => {
+          outPutRef.current(exit, true);
+        });
+      }
+
+      if (obtaineddata.details && Object.keys(obtaineddata.details).length > 0) {
+        outPutRef.current("You also notice: ", false);
+        Object.keys(obtaineddata.details).forEach(detailKey => {
+          const detailDescription = obtaineddata.details[detailKey];
+          outPutRef.current(`- ${detailKey}: ${detailDescription}`, false);
+        });
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Error fetching player data:', error);
+      outPutRef.current(`Error fetching player data: ${error instanceof Error ? error.message : String(error)}`, true);
       setLoading(false);
     }
-  }, [client, gameJSON, traceUserActivity, updateRoomPlayers]);
+  }, [client, gameJSON, traceUserActivity, parseDetailString, roomdata]); // Added roomdata to deps
+
 
   const debouncedFetchPlayerData = useMemo(
     () => {
@@ -804,7 +838,7 @@ function App() {
           }
         }
         else if (roomdata) {
-          console.log("This is our current roomdata:", roomdata);
+          //console.log("This is our current roomdata:", roomdata);
           outPutRef.current(roomdata.title, true);
           outPutRef.current(roomdata.body, false);
           
