@@ -5,6 +5,9 @@ import App from './App';
 import { KeychainSDK } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
 import { debounce } from 'lodash';
+import userEvent from '@testing-library/user-event';
+import { io, Socket } from 'socket.io-client';
+import Peer, { SignalData } from 'simple-peer';
 
 // Mock external dependencies
 jest.mock('keychain-sdk');
@@ -16,6 +19,8 @@ jest.mock('lodash', () => ({
     return debouncedFn;
   })
 }));
+jest.mock('socket.io-client');
+jest.mock('simple-peer');
 
 interface MockKeychain {
   isKeychainInstalled: jest.Mock;
@@ -35,11 +40,23 @@ interface MockClient {
   stream: {
     call: jest.Mock;
   };
+  hivemind: {
+    getCommunity: jest.Mock;
+  };
+}
+
+// Define mock socket interface
+interface MockSocket extends Partial<Socket> {
+  rooms: Set<string>;
 }
 
 describe('App Component', () => {
   let mockKeychain: MockKeychain;
   let mockClient: MockClient;
+  let mockSocket: any;
+  let originalConsoleWarn: typeof console.warn;
+  let originalConsoleError: typeof console.error;
+  let isSettingUpSocket: boolean = false;
 
   const mockGameData = {
     "egodeathgamedata": {
@@ -61,9 +78,41 @@ describe('App Component', () => {
     }
   };
 
+  // Factory for a fresh mock socket
+  function createMockSocket() {
+    return {
+      on: jest.fn(),
+      emit: jest.fn(),
+      connect: jest.fn(),
+      disconnect: jest.fn(),
+      removeAllListeners: jest.fn(),
+      id: 'test-socket-id',
+      connected: true,
+      rooms: new Set(['test-room'])
+    };
+  }
+
   beforeEach(() => {
-    // Reset mocks before each test
+    // Save original console methods and mock them
+    originalConsoleWarn = console.warn;
+    originalConsoleError = console.error;
+    console.warn = jest.fn();
+    console.error = jest.fn();
+
     jest.clearAllMocks();
+    isSettingUpSocket = false;
+
+    // Setup fresh mock socket for each test
+    mockSocket = createMockSocket();
+    (io as jest.Mock).mockReturnValue(mockSocket);
+    mockSocket.connected = true;
+
+    // Setup socket event handlers
+    mockSocket.on.mockImplementation((event: string, callback: Function) => {
+      if (event === 'connect') {
+        setTimeout(() => callback(), 0);
+      }
+    });
 
     // Setup KeychainSDK mock
     mockKeychain = {
@@ -73,7 +122,7 @@ describe('App Component', () => {
     };
     (KeychainSDK as jest.MockedClass<typeof KeychainSDK>).mockImplementation(() => mockKeychain as any);
 
-    // Setup dhive Client mock
+    // Setup dhive Client mock with error handling
     mockClient = {
       database: {
         getAccounts: jest.fn().mockImplementation((accounts) => {
@@ -94,12 +143,10 @@ describe('App Component', () => {
         call: jest.fn().mockImplementation((method: string, params: string[]) => {
           if (method === 'get_content') {
             return Promise.resolve({
-              title: 'Genesis Scaffold Precipice',
-              body: 'You stand at the edge of a vast precipice, the ground beneath your feet crumbling away into the abyss below. The air is thick with the scent of ozone and the distant sound of thunder echoes through the void.',
+              title: 'Test Room',
+              body: 'This is a test room',
               json_metadata: JSON.stringify({
-                rooms_authors_exits: {
-                  exits: ['north', 'south']
-                }
+                exits: { north: 'north-room' }
               })
             });
           }
@@ -114,9 +161,24 @@ describe('App Component', () => {
       },
       stream: {
         call: jest.fn()
+      },
+      hivemind: {
+        getCommunity: jest.fn()
       }
     };
     (Client as unknown as jest.MockedClass<typeof Client>).mockImplementation(() => mockClient as any);
+
+    // Mock the gameJSON state
+    (window as any).gameJSON = {
+      'test-room': {
+        author: 'testuser',
+        exits: { north: 'north-room' }
+      },
+      'north-room': {
+        author: 'testuser',
+        exits: { south: 'test-room' }
+      }
+    };
 
     (window as any).hive_keychain = mockKeychain;
     (window as any).gameJSON = {
@@ -175,6 +237,36 @@ describe('App Component', () => {
         }
       });
     });
+
+    // Mock Hive client
+    mockClient.hivemind.getCommunity.mockResolvedValue([{
+      team: [['testuser', 'Builder']]
+    }]);
+  });
+
+  afterEach(() => {
+    // Restore original console methods
+    console.warn = originalConsoleWarn;
+    console.error = originalConsoleError;
+    
+    // Clean up socket
+    if (mockSocket) {
+      mockSocket.removeAllListeners();
+      mockSocket.disconnect();
+    }
+    isSettingUpSocket = false;
+  });
+
+  afterAll(() => {
+    // Clean up any remaining socket connections
+    if (mockSocket) {
+      mockSocket.removeAllListeners();
+      mockSocket.disconnect();
+    }
+    // Clean up any remaining peer connections
+    if (Peer.prototype.destroy) {
+      Peer.prototype.destroy();
+    }
   });
 
   test('renders the game title', () => {
@@ -538,6 +630,347 @@ describe('App Component', () => {
           })
         );
         expect(screen.getByText(/Your short description has been updated./i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Login Flow', () => {
+    it('should handle successful login', async () => {
+      mockKeychain.login.mockResolvedValue(true);
+      mockKeychain.broadcast.mockResolvedValue({
+        success: true,
+        result: { id: 'test-tx-id' }
+      });
+
+      render(<App />);
+      
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'login testuser' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Login successful as testuser')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it('should handle failed login', async () => {
+      mockKeychain.login.mockResolvedValue(false);
+
+      render(<App />);
+      
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'login testuser' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Login failed, keychain returned false')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('Room Movement', () => {
+    beforeEach(async () => {
+      // Setup successful login
+      mockKeychain.login.mockResolvedValue(true);
+      mockKeychain.broadcast.mockResolvedValue({
+        success: true,
+        result: { id: 'test-tx-id' }
+      });
+
+      render(<App />);
+      
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'login testuser' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Login successful as testuser')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it('should handle successful room movement', async () => {
+      mockClient.database.getAccountHistory.mockResolvedValueOnce([[
+        0,
+        {
+          op: ['custom_json', {
+            id: 'egodeathgame',
+            json: JSON.stringify({ move_to: { Location: { permlink: 'new-room', author: 'testuser' } } }),
+            required_posting_auths: ['testuser']
+          }],
+          trx_id: 'test-tx-id'
+        }
+      ]]);
+
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'north' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('You traipse off towards north.')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it('should handle invalid movement command', async () => {
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'invalid' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Error: Invalid destination.')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('P2P Communication', () => {
+    beforeEach(async () => {
+      // Setup successful login
+      mockKeychain.login.mockResolvedValue(true);
+      mockKeychain.broadcast.mockResolvedValue({
+        success: true,
+        result: { id: 'test-tx-id' }
+      });
+
+      render(<App />);
+      
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'login testuser' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Login successful as testuser')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it('should handle chat messages', async () => {
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'say Hello, world!' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('You say: Hello, world!')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Simulate receiving a chat message
+      const chatHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'chat')![1];
+      await act(async () => {
+        chatHandler({ username: 'otheruser', message: 'Hi there!' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('[otheruser]: Hi there!')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it('should handle emotes', async () => {
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'emote waves' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('You waves')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Simulate receiving an emote
+      const emoteHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'emote')![1];
+      await act(async () => {
+        emoteHandler({ username: 'otheruser', emote: 'dances' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('[P2P] otheruser dances')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('Room State Management', () => {
+    beforeEach(async () => {
+      // Setup successful login
+      mockKeychain.login.mockResolvedValue(true);
+      mockKeychain.broadcast.mockResolvedValue({
+        success: true,
+        result: { id: 'test-tx-id' }
+      });
+
+      // Mock the gameJSON state
+      (window as any).gameJSON = {
+        'test-room': {
+          author: 'testuser',
+          exits: { north: 'north-room' }
+        },
+        'north-room': {
+          author: 'testuser',
+          exits: { south: 'test-room' }
+        }
+      };
+
+      render(<App />);
+      
+      const input = screen.getByTestId('command-input');
+      await act(async () => {
+        fireEvent.change(input, { target: { value: 'login testuser' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+      });
+
+      // Wait for login to complete
+      await waitFor(() => {
+        expect(screen.getByText('Login successful as testuser')).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Wait for socket to be ready and handlers to be registered
+      await waitFor(() => {
+        expect(mockSocket.connected).toBe(true);
+        const registeredEvents = mockSocket.on.mock.calls.map((call: [string, Function]) => call[0]);
+        expect(registeredEvents).toContain('roomState');
+        expect(registeredEvents).toContain('roomJoined');
+        expect(registeredEvents).toContain('roomUpdate');
+        expect(registeredEvents).toContain('playerJoined');
+      }, { timeout: 3000 });
+    });
+
+    it('should handle player joining room', async () => {
+      // Simulate player joining
+      await act(async () => {
+        const playerJoinedHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'playerJoined')![1];
+        await playerJoinedHandler({
+          room: 'test-room',
+          username: 'newplayer',
+          players: ['testuser', 'newplayer']
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('newplayer has entered the room.')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it('should handle room state updates with other players', async () => {
+      // First set up initial room data
+      await act(async () => {
+        // First emit roomState to set initial state
+        const roomStateHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'roomState')![1];
+        await roomStateHandler({
+          room: 'test-room',
+          players: ['testuser']
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Then emit roomJoined to ensure room is properly joined
+        const roomJoinedHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'roomJoined')![1];
+        await roomJoinedHandler({
+          room: 'test-room',
+          username: 'testuser',
+          players: ['testuser']
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Now simulate room state update
+      await act(async () => {
+        const roomUpdateHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'roomUpdate')![1];
+        await roomUpdateHandler({
+          room: 'test-room',
+          players: ['testuser', 'player1', 'player2']
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Wait for the room data to be updated and rendered
+      await waitFor(() => {
+        const presentPlayersText = screen.getByText('Present players:');
+        expect(presentPlayersText).toBeInTheDocument();
+        
+        // Check for player entries
+        const player1Text = screen.getByText('- player1');
+        const player2Text = screen.getByText('- player2');
+        expect(player1Text).toBeInTheDocument();
+        expect(player2Text).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+
+    it('should handle room state updates with no other players', async () => {
+      // First set up initial room data
+      await act(async () => {
+        // First emit roomState to set initial state
+        const roomStateHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'roomState')![1];
+        await roomStateHandler({
+          room: 'test-room',
+          players: ['testuser']
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Then emit roomJoined to ensure room is properly joined
+        const roomJoinedHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'roomJoined')![1];
+        await roomJoinedHandler({
+          room: 'test-room',
+          username: 'testuser',
+          players: ['testuser']
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Now simulate room state update with no other players
+      await act(async () => {
+        const roomUpdateHandler = (mockSocket.on as jest.Mock).mock.calls.find((call: [string, Function]) => call[0] === 'roomUpdate')![1];
+        await roomUpdateHandler({
+          room: 'test-room',
+          players: ['testuser']
+        });
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+
+      // Wait for the room data to be updated and rendered
+      await waitFor(() => {
+        expect(screen.getByText('No other players are currently in this room.')).toBeInTheDocument();
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle blockchain errors', async () => {
+      mockClient.database.getAccounts.mockRejectedValue(new Error('Blockchain error'));
+
+      render(<App />);
+      
+      const input = screen.getByRole('textbox');
+      await userEvent.type(input, 'login testuser{enter}');
+
+      await waitFor(() => {
+        expect(screen.getByText(/Error fetching player data: Blockchain error/)).toBeInTheDocument();
+      });
+    });
+
+    it('should handle socket connection errors', async () => {
+      mockSocket.connected = false;
+      (mockSocket.on as jest.Mock).mockImplementation((event: string, callback: Function) => {
+        if (event === 'connect_error') {
+          callback(new Error('Connection error'));
+        }
+      });
+
+      render(<App />);
+      
+      const input = screen.getByRole('textbox');
+      await userEvent.type(input, 'login testuser{enter}');
+
+      await waitFor(() => {
+        expect(mockSocket.connect).toHaveBeenCalled();
       });
     });
   });

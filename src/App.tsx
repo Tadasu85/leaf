@@ -73,7 +73,7 @@ interface StreamOperation {
 
 // --- Helper type for P2P messages ---
 interface P2PMessage {
-  type: 'chat' | 'action' | 'emote'; // Add other types as needed
+  type: 'chat' | 'emote'; // Add other types as needed
   payload: any;
   sender: string;
 }
@@ -83,10 +83,10 @@ const createSignalingSocket = (username: string) => {
   const socket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:4001', {
     query: { username },
     transports: ['websocket'],
-    reconnection: false, // Disable automatic reconnection
-    timeout: 20000,
-    forceNew: false,
-    autoConnect: false // Prevent automatic connection
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 1000,
+    timeout: 20000
   });
 
   return socket;
@@ -182,7 +182,6 @@ function App() {
   const destroyPeer = useCallback((targetUser: string) => {
     const peerConn = peers.current[targetUser];
     if (peerConn) {
-      console.log(`Destroying peer connection with ${targetUser}`);
       peerConn.peer.destroy();
       delete peers.current[targetUser];
     }
@@ -190,7 +189,6 @@ function App() {
 
   // --- P2P Helper: Destroy All Peers ---
   const destroyAllPeers = useCallback(() => {
-    console.log('Destroying all peer connections.');
     Object.keys(peers.current).forEach(targetUser => {
       destroyPeer(targetUser);
     });
@@ -200,11 +198,8 @@ function App() {
   // --- P2P Helper: Create Peer ---
   const createPeer = useCallback((targetUser: string, initiator: boolean) => {
     if (!username || peers.current[targetUser]) {
-      if (peers.current[targetUser]) console.log(`Peer connection already exists for ${targetUser}`);
-      else console.error("Cannot create peer: Missing username or peer exists.");
       return;
     }
-    console.log(`Creating Peer connection to ${targetUser} (Initiator: ${initiator})`);
 
     const peer = new Peer({
       initiator, 
@@ -224,25 +219,10 @@ function App() {
     };
     peers.current[targetUser] = peerConn;
 
-    //Realtime doesnt need to be broadcast to the blockchain.
-
-    // peer.on('signal', (signal: SignalData) => {
-    //   console.log(`Sending signal to ${targetUser}:`, signal.type);
-    //   const signalData = {
-    //     type: 'peer_signal',
-    //     target: targetUser,
-    //     sender: username,
-    //     signal: signal
-    //   };
-    //   broadcastToBlockchain(signalData);
-    // });
-
     peer.on('connect', () => {
-      console.log(`CONNECT: Connection established with ${targetUser}`);
       peerConn.connected = true;
       outPutRef.current(`[P2P] Connected to ${targetUser}.`, false);
       
-      // Send a test message to verify the connection
       const testMessage: P2PMessage = {
         type: 'chat',
         payload: 'Connection established',
@@ -258,7 +238,6 @@ function App() {
     peer.on('data', (data: Buffer) => {
       try {
         const messageStr = data.toString();
-        console.log(`DATA from ${targetUser}: ${messageStr}`);
         const message: P2PMessage = JSON.parse(messageStr);
 
         switch (message.type) {
@@ -278,7 +257,6 @@ function App() {
     });
 
     peer.on('close', () => {
-      console.log(`CLOSE: Connection closed with ${targetUser}`);
       outPutRef.current(`[P2P] Disconnected from ${targetUser}.`, false);
       destroyPeer(targetUser);
     });
@@ -444,7 +422,7 @@ function App() {
 
           // Connect to new players in the room
           players.forEach((targetUser: string) => {
-            if (!peers.current[targetUser]) {
+            if (targetUser !== username && !peers.current[targetUser]) {
               console.log(`Found player ${targetUser} in room, initiating connection`);
               createPeer(targetUser, true);
             } else {
@@ -517,7 +495,7 @@ function App() {
 
         // Connect to new players in the room
         newPlayers.forEach(targetUser => {
-          if (!peers.current[targetUser]) {
+          if (targetUser !== username && !peers.current[targetUser]) {
             console.log(`Found player ${targetUser} in room, initiating connection`);
             createPeer(targetUser, true);
           } else {
@@ -541,30 +519,70 @@ function App() {
     }
   }, [username, createPeer, client, roomdata]);
 
-  // Update movePlayer to be more efficient with room updates
+  const displayRoom = useCallback((roomData: RoomData) => {
+    // Display room title and description
+    outPutRef.current(roomData.title, true);
+    outPutRef.current(roomData.body, false);
+
+    // Display present players (excluding only the current user)
+    const presentPlayers = roomData.players.filter(p => p !== username);
+    if (presentPlayers.length > 0) {
+      outPutRef.current(`Found ${presentPlayers.length} other player(s) in the room:`, false);
+      presentPlayers.forEach(player => {
+        outPutRef.current(`- ${player}`, false);
+      });
+    } else {
+      outPutRef.current("No other players are currently in this room.", false);
+    }
+
+    // Display exits
+    if (roomData.exits && Object.keys(roomData.exits).length > 0) {
+      outPutRef.current("There is a way to leave: ", false);
+      Object.keys(roomData.exits).forEach(exit => {
+        outPutRef.current(exit, true);
+      });
+    }
+  }, [username, outPutRef]);
+  
+const parseDetailString = useCallback((detailBody: string): { [key: string]: string } | null => {
+    const firstColonIndex = detailBody.indexOf(':');
+    if (firstColonIndex === -1) {
+      console.warn(`Detail string "${detailBody}" does not contain a colon. Skipping.`);
+      return null;
+    }
+    const key = detailBody.substring(0, firstColonIndex).trim();
+    const value = detailBody.substring(firstColonIndex + 1).trim();
+    if (key && value) {
+      return { [key]: value };
+    }
+    console.warn(`Parsed key or value is empty for detail string "${detailBody}". Skipping.`);
+    return null;
+  }, []);
+  
+  // Update movePlayer to use displayRoom
   const movePlayer = useCallback(async (username: string, options?: {
     newlocation?: {
       permlink: string,
       author: string
     }
   }) => {
-    setLoading(true);
-    const newRoomId = options?.newlocation ? 
-      `${options.newlocation.author}/${options.newlocation.permlink}` : 
-      `${lastKnownLocation?.author}/${lastKnownLocation?.permlink}`;
-
-    // Only leave current room if we're actually changing rooms
-    if (signalingSocket.current && currentRoomIdentifier.current && 
-        currentRoomIdentifier.current !== newRoomId) {
-      console.log('Leaving room:', currentRoomIdentifier.current);
-      signalingSocket.current.emit('leaveRoom', { 
-        username, 
-        room: currentRoomIdentifier.current 
-      });
-      destroyAllPeersRef.current();
-    }
-
     try {
+      setLoading(true);
+      const newRoomId = options?.newlocation ? 
+        `${options.newlocation.author}/${options.newlocation.permlink}` : 
+        `${lastKnownLocation?.author}/${lastKnownLocation?.permlink}`;
+
+      // Only leave current room if we're actually changing rooms
+      if (signalingSocket.current && currentRoomIdentifier.current && 
+          currentRoomIdentifier.current !== newRoomId) {
+        console.log('Leaving room:', currentRoomIdentifier.current);
+        signalingSocket.current.emit('leaveRoom', { 
+          username, 
+          room: currentRoomIdentifier.current 
+        });
+        destroyAllPeersRef.current();
+      }
+
       let currentMetadata = userProfileJSON;
       const currentPlayerData = currentMetadata || {};
 
@@ -590,59 +608,126 @@ function App() {
       } as unknown as Broadcast;
       const result = await keychain.broadcast(broadcastData);
       if (result && result.success && result.result && result.result.id) {
-        // After successful move, check for players in the new room
-        await updateRoomPlayers(movedPlayer.Location);
-        // Only notify signaling server if we've actually changed rooms
-        if (signalingSocket.current && currentRoomIdentifier.current !== newRoomId) {
-          console.log('Joining new room:', newRoomId);
-          // Get the current room data before joining
-          const currentRoomdata = roomdataRef.current;
-          signalingSocket.current.emit('joinRoom', {
-            room: newRoomId,
-            username,
-            roomData: {
-              ...currentRoomdata,
-              players: [...currentRoomdata.players, username],
-              lastUpdated: Date.now()
+        // Wait for the blockchain operation to be processed
+        const operationId = result.result.id;
+        console.log('Waiting for blockchain confirmation of move operation:', operationId);
+        
+        // Set up a promise that resolves when the operation is confirmed
+        const waitForConfirmation = new Promise<void>((resolve, reject) => {
+          const checkInterval = setInterval(async () => {
+            try {
+              const accountHistory = await client.database.getAccountHistory(username, -1, 100);
+              const operation = accountHistory.find(([, op]) => 
+                op.op[0] === 'custom_json' && 
+                op.op[1].id === config.game.idName &&
+                op.trx_id === operationId
+              );
+              
+              if (operation) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            } catch (error) {
+              console.error('Error checking operation confirmation:', error);
+              clearInterval(checkInterval);
+              reject(error);
             }
-          });
-          currentRoomIdentifier.current = newRoomId;
+          }, 1000); // Check every second
+
+          // Timeout after 30 seconds
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            reject(new Error('Operation confirmation timeout'));
+          }, 30000);
+        });
+
+        try {
+          await waitForConfirmation;
+          console.log('Move operation confirmed on blockchain');
+          
+          // Now that the operation is confirmed, update the room state
+          await updateRoomPlayers(movedPlayer.Location);
+          
+          // Only notify signaling server if we've actually changed rooms
+          if (signalingSocket.current && currentRoomIdentifier.current !== newRoomId) {
+            console.log('Joining new room:', newRoomId);
+            // Get the current room data before joining
+            const currentRoomdata = roomdataRef.current;
+            signalingSocket.current.emit('joinRoom', {
+              room: newRoomId,
+              username,
+              roomData: {
+                ...currentRoomdata,
+                players: [...currentRoomdata.players, username],
+                lastUpdated: Date.now()
+              }
+            });
+            currentRoomIdentifier.current = newRoomId;
+          }
+          
+          setLastKnownLocation(movedPlayer.Location);
+          
+          // Fetch and display the new room data
+          try {
+            const transactionData = await client.database.call('get_content', [movedPlayer.Location.author, movedPlayer.Location.permlink]);
+            const roomDetailsReplies = await client.database.call('get_content_replies', [movedPlayer.Location.author, movedPlayer.Location.permlink]);
+
+            const transformedDetails: { [key: string]: string } = {};
+
+            if (Array.isArray(roomDetailsReplies)) {
+              roomDetailsReplies.forEach((reply: any) => {
+                if (reply && typeof reply.body === 'string') {
+                  const parsedDetail = parseDetailString(reply.body);
+                  if (parsedDetail) {
+                    Object.assign(transformedDetails, parsedDetail);
+                  }
+                }
+              });
+            }
+
+            const newRoomData: RoomData = {
+              "body": transactionData.body,
+              "title": transactionData.title,
+              "players": [...roomdata.players],
+              "details": transformedDetails,
+              "exits": gameJSON[movedPlayer.Location.permlink]?.exits || {},
+              "author": movedPlayer.Location.author,
+              "permlink": movedPlayer.Location.permlink
+            };
+            
+            setRoomData(newRoomData);
+            displayRoom(newRoomData);
+          } catch (error) {
+            console.error('Error fetching new room data:', error);
+            outPutRef.current('Error: Failed to fetch new room data. Please try the look command.', true);
+          }
+          
+          return movedPlayer;
+        } catch (error) {
+          console.error('Error waiting for operation confirmation:', error);
+          outPutRef.current('Error: Move operation not confirmed. Please try again.', true);
+          throw error; // Re-throw to be caught by outer try-catch
         }
-        return movedPlayer;
       } else {
         const message = "Error: Failed to update player data. Please check your Keychain and try again.";
         console.error("Broadcast failed:", { result });
         console.error("Broadcast result details:", JSON.stringify(result));
         outPutRef.current(message, true);
-        setLoading(false);
-        return null;
+        throw new Error(message);
       }
     } catch (error: unknown) {
       const message = `Error updating account metadata: ${error instanceof Error ? error.message : String(error)}`;
       console.error(message, error);
       outPutRef.current(message, true);
-      setLoading(false);
-      return null;
+      throw error; // Re-throw to be caught by the caller
+    } finally {
+      setLoading(false); // Ensure loading state is cleared in all cases
     }
-  }, [keychain, userProfileJSON, lastKnownLocation, updateRoomPlayers]);
-
-    const parseDetailString = useCallback((detailBody: string): { [key: string]: string } | null => {
-    const firstColonIndex = detailBody.indexOf(':');
-    if (firstColonIndex === -1) {
-      console.warn(`Detail string "${detailBody}" does not contain a colon. Skipping.`);
-      return null;
-    }
-    const key = detailBody.substring(0, firstColonIndex).trim();
-    const value = detailBody.substring(firstColonIndex + 1).trim();
-    if (key && value) {
-      return { [key]: value };
-    }
-    console.warn(`Parsed key or value is empty for detail string "${detailBody}". Skipping.`);
-    return null;
-  }, []);
+  }, [keychain, userProfileJSON, lastKnownLocation, parseDetailString, updateRoomPlayers, client, gameJSON, roomdata, displayRoom]);
 
   const fetchPlayerData = useCallback(async (username: string) => {
     try {
+      setLoading(true);
       const playerLocation = await traceUserActivity(username, "move_to");
       const accountInfo = await client.database.getAccounts([username]);
 
@@ -677,11 +762,11 @@ function App() {
       const transformedDetails: { [key: string]: string } = {};
 
       if (Array.isArray(roomDetailsReplies)) {
-        roomDetailsReplies.forEach((reply: any) => { // 'any' here as reply structure isn't fully typed
+        roomDetailsReplies.forEach((reply: any) => {
           if (reply && typeof reply.body === 'string') {
             const parsedDetail = parseDetailString(reply.body);
             if (parsedDetail) {
-              Object.assign(transformedDetails, parsedDetail); // Merge into the single object
+              Object.assign(transformedDetails, parsedDetail);
             }
           }
         });
@@ -690,46 +775,21 @@ function App() {
       let obtaineddata: RoomData = {
         "body": transactionData.body,
         "title": transactionData.title,
-        "players": [...roomdata.players], // Keep existing players for now
-        "details": transformedDetails, // Assign the transformed object
-        "exits": gameJSON[currentRoomPermlink]?.exits || {}, // Get exits from gameJSON
+        "players": [...roomdata.players],
+        "details": transformedDetails,
+        "exits": gameJSON[currentRoomPermlink]?.exits || {},
         "author": currentRoomAuthor,
         "permlink": currentRoomPermlink
       };
       setRoomData(obtaineddata);
-
-      outPutRef.current(obtaineddata.title, true);
-      outPutRef.current(obtaineddata.body, false);
-
-      if (obtaineddata.players && obtaineddata.players.length > 0) { // Check length for players
-        outPutRef.current("There are others here: ", false);
-        obtaineddata.players.forEach(player => { // Iterate over players array directly
-          outPutRef.current(player, true);
-        });
-      }
-
-      if (obtaineddata.exits && Object.keys(obtaineddata.exits).length > 0) {
-        outPutRef.current("There is a way to leave: ", false);
-        Object.keys(obtaineddata.exits).forEach(exit => {
-          outPutRef.current(exit, true);
-        });
-      }
-
-      if (obtaineddata.details && Object.keys(obtaineddata.details).length > 0) {
-        outPutRef.current("You also notice: ", false);
-        Object.keys(obtaineddata.details).forEach(detailKey => {
-          const detailDescription = obtaineddata.details[detailKey];
-          outPutRef.current(`- ${detailKey}: ${detailDescription}`, false);
-        });
-      }
-
-      setLoading(false);
+      displayRoom(obtaineddata);
     } catch (error) {
       console.error('Error fetching player data:', error);
       outPutRef.current(`Error fetching player data: ${error instanceof Error ? error.message : String(error)}`, true);
+    } finally {
       setLoading(false);
     }
-  }, [client, gameJSON, traceUserActivity, parseDetailString, roomdata]); // Added roomdata to deps
+  }, [client, gameJSON, traceUserActivity, parseDetailString, roomdata, displayRoom]);
 
 
   const debouncedFetchPlayerData = useMemo(
@@ -838,28 +898,7 @@ function App() {
           }
         }
         else if (roomdata) {
-          //console.log("This is our current roomdata:", roomdata);
-          outPutRef.current(roomdata.title, true);
-          outPutRef.current(roomdata.body, false);
-          
-          // Show present players
-          const presentPlayers = roomdata.players.filter(p => p !== username);
-          if (presentPlayers.length > 0) {
-            outPutRef.current("Present players:", false);
-            presentPlayers.forEach(player => {
-              outPutRef.current(`- ${player}`, false);
-            });
-          } else {
-            outPutRef.current("No other players are currently in this room.", false);
-          }
-          
-          // Show exits
-          if (roomdata.exits) {
-            outPutRef.current("There is a way to leave: ", false);
-            for (const exit in roomdata.exits) {
-              outPutRef.current(exit, true);
-            }
-          }
+          displayRoom(roomdata);
         } else {
           outPutRef.current("Error: Room data not available.", true);
         }
@@ -919,11 +958,10 @@ function App() {
             if (updateSuccess) {
               setLastKnownLocation(updateSuccess.Location);
             }
-          } catch (error: unknown) {
-            const message = `Error moving player to: ${newlocation}: ${error instanceof Error ? error.message : String(error)}`;
+          } catch (error) {
+            const message = `Error moving player: ${error instanceof Error ? error.message : String(error)}`;
             console.error(message);
             outPutRef.current(message, true);
-            setLoading(false);
           }
         } else if (roomdata && roomdata.exits && !(command in roomdata.exits)) {
           outPutRef.current("Error: Invalid destination.", true);
@@ -932,7 +970,7 @@ function App() {
         }
         break;
     }
-  }, [isSignedIn, username, roomdata, movePlayer, gameJSON, updatePlayerDesc, userProfileJSON]);
+  }, [isSignedIn, username, roomdata, movePlayer, gameJSON, updatePlayerDesc, userProfileJSON, displayRoom]);
 
   const handleTextEntered = useCallback(async (enteredText: string) => {
     try {
@@ -1055,50 +1093,36 @@ function App() {
 
   // Memoize the socket setup function with minimal dependencies
   const setupSignalingSocket = useCallback(() => {
-    if (!username) return;
-
-    // Prevent multiple socket setups
-    if (isSettingUpSocket.current) {
-      console.log('Socket setup already in progress, skipping');
+    if (!username || isSettingUpSocket.current || signalingSocket.current?.connected) {
       return;
     }
 
     console.log('Initializing signaling connection for user:', username);
     isSettingUpSocket.current = true;
     
-    // Create socket connection
-    if (signalingSocket.current?.connected) {
-      console.log('Socket already connected, skipping new connection');
-      isSettingUpSocket.current = false;
-      return;
-    }
-
     // Clean up any existing socket
     if (signalingSocket.current) {
-      console.log('Cleaning up existing socket connection');
       signalingSocket.current.removeAllListeners();
       signalingSocket.current.disconnect();
       signalingSocket.current = null;
     }
 
-    console.log('Creating new socket connection');
-    signalingSocket.current = createSignalingSocket(username);
-
-    // Set up event handlers
-    if (!signalingSocket.current) return;
-
-    const socket = signalingSocket.current;
+    const socket = createSignalingSocket(username);
+    signalingSocket.current = socket;
 
     socket.on('connect', () => {
       console.log('Connected to signaling server');
       retryCount.current = 0;
       isSettingUpSocket.current = false;
       
-      // When connected, send current room data only if we have a valid room
       const currentRoomdata = roomdataRef.current;
       if (currentRoomdata?.author && currentRoomdata?.permlink && username) {
         const roomId = `${currentRoomdata.author}/${currentRoomdata.permlink}`;
-        console.log('Joining room on connect:', roomId);
+        
+        // First request current room state
+        socket.emit('getRoomState', { room: roomId });
+        
+        // Then join the room
         socket.emit('joinRoom', {
           room: roomId,
           username,
@@ -1109,75 +1133,129 @@ function App() {
           }
         });
         currentRoomIdentifier.current = roomId;
-      } else {
-        console.log('No valid room data available for initial join');
       }
     });
 
     socket.on('disconnect', (reason) => {
       console.log('Disconnected from signaling server:', reason);
-      if (!isUnmounted.current) {
-        // Only attempt reconnect if it wasn't a client-side disconnect
-        if (reason !== 'io client disconnect') {
-          console.log('Attempting to reconnect...');
-          setTimeout(() => {
-            if (!isUnmounted.current) {
-              setupSignalingSocket();
-            }
-          }, 1000);
-        }
+      if (!isUnmounted.current && reason !== 'io client disconnect') {
+        setTimeout(setupSignalingSocket, 1000);
       }
     });
 
     socket.on('signal', ({ from, signal }) => {
-      console.log('Received signal from:', from);
       handleIncomingSignalRef.current({ from, signal });
     });
 
-    socket.on('roomJoined', ({ room, players }) => {
-      console.log('Successfully joined room:', room, 'Players:', players);
+    socket.on('roomJoined', ({ room, players }: { room: string, players: string[] }) => {
       const currentRoomdata = roomdataRef.current;
       if (room === `${currentRoomdata.author}/${currentRoomdata.permlink}`) {
-        const uniquePlayers = Array.from(new Set([...players, username]));
-        console.log('Setting room players:', uniquePlayers);
+        // Update room data first
         setRoomData(prev => ({
           ...prev,
-          players: uniquePlayers.filter(p => p !== username)
+          players: players.filter((p: string) => p !== username)
         }));
 
-        // Connect to other players in the room
-        uniquePlayers.forEach(targetUser => {
+        // Then establish peer connections
+        players.forEach((targetUser: string) => {
           if (targetUser !== username && !peers.current[targetUser]) {
-            console.log(`Found player ${targetUser} in room, initiating connection`);
             createPeer(targetUser, true);
           }
         });
       }
     });
 
-    socket.on('roomUpdate', ({ room, players }) => {
-      console.log('Received room update:', { room, players });
+    socket.on('roomUpdate', ({ room, players }: { room: string, players: string[] }) => {
       const currentRoomdata = roomdataRef.current;
       if (room === `${currentRoomdata.author}/${currentRoomdata.permlink}`) {
-        const uniquePlayers = Array.from(new Set([...players, username]));
-        console.log('Updating room players:', uniquePlayers);
+        // Get current players excluding self
+        const currentPlayers = currentRoomdata.players.filter(p => p !== username);
+        // Get new players excluding self
+        const newPlayers = players.filter(p => p !== username);
+
+        // Only update if there's an actual change in players
+        if (JSON.stringify(currentPlayers) !== JSON.stringify(newPlayers)) {
+          // Find players who joined
+          const joinedPlayers = newPlayers.filter(p => !currentPlayers.includes(p));
+          // Find players who left
+          const leftPlayers = currentPlayers.filter(p => !newPlayers.includes(p));
+
+          // Display messages only for actual changes
+          joinedPlayers.forEach(player => {
+            outPutRef.current(`${player} has entered the room.`, false);
+          });
+          leftPlayers.forEach(player => {
+            outPutRef.current(`${player} has left the room.`, false);
+          });
+
+          // Update room data
+          setRoomData(prev => ({
+            ...prev,
+            players: newPlayers
+          }));
+
+          // Handle peer connections
+          const currentPeers = new Set(Object.keys(peers.current));
+          const newPeers = new Set(newPlayers);
+
+          // Create new peer connections
+          newPeers.forEach((targetUser: string) => {
+            if (targetUser !== username && !currentPeers.has(targetUser)) {
+              createPeer(targetUser, true);
+            }
+          });
+
+          // Remove old peer connections
+          currentPeers.forEach((targetUser: string) => {
+            if (!newPeers.has(targetUser)) {
+              destroyPeer(targetUser);
+            }
+          });
+        }
+      }
+    });
+
+    socket.on('playerJoined', ({ room, username: newPlayer, players }: { room: string, username: string, players: string[] }) => {
+      const currentRoomdata = roomdataRef.current;
+      if (room === `${currentRoomdata.author}/${currentRoomdata.permlink}`) {
+        outPutRef.current(`${newPlayer} has entered the room.`, false);
+        
+        // Update room data
         setRoomData(prev => ({
           ...prev,
-          players: uniquePlayers.filter(p => p !== username)
+          players: players.filter((p: string) => p !== username)
         }));
 
-        // Connect to new players in the room
-        uniquePlayers.forEach(targetUser => {
-          if (targetUser !== username && !peers.current[targetUser]) {
-            console.log(`Found new player ${targetUser} in room, initiating connection`);
+        // Create peer connection with new player
+        if (newPlayer !== username && !peers.current[newPlayer]) {
+          createPeer(newPlayer, true);
+        }
+      }
+    });
+
+    socket.on('roomState', ({ room, players }: { room: string, players: string[] }) => {
+      const currentRoomdata = roomdataRef.current;
+      if (room === `${currentRoomdata.author}/${currentRoomdata.permlink}`) {
+        // Update room data first
+        setRoomData(prev => ({
+          ...prev,
+          players: players.filter((p: string) => p !== username)
+        }));
+
+        // Then establish peer connections
+        const currentPeers = new Set(Object.keys(peers.current));
+        const newPeers = new Set(players.filter((p: string) => p !== username));
+
+        // Create new peer connections
+        newPeers.forEach((targetUser: string) => {
+          if (targetUser !== username && !currentPeers.has(targetUser)) {
             createPeer(targetUser, true);
           }
         });
 
-        // Disconnect from players who left
-        Object.keys(peers.current).forEach(targetUser => {
-          if (!uniquePlayers.includes(targetUser)) {
-            console.log(`Player ${targetUser} left the room, disconnecting`);
+        // Remove old peer connections
+        currentPeers.forEach((targetUser: string) => {
+          if (!newPeers.has(targetUser)) {
             destroyPeer(targetUser);
           }
         });
@@ -1185,42 +1263,16 @@ function App() {
     });
 
     socket.on('chat', ({ username: sender, message }) => {
-      console.log('Received chat message:', { sender, message });
       outPutRef.current(`[${sender}]: ${message}`, false);
     });
 
     socket.on('emote', ({ username: sender, emote }) => {
-      console.log('Received emote:', { sender, emote });
       outPutRef.current(`[P2P] ${sender} ${emote}`, false);
     });
 
-    socket.on('roomState', ({ room, players }) => {
-      console.log('Received room state:', { room, players });
-      const currentRoomdata = roomdataRef.current;
-      if (room === `${currentRoomdata.author}/${currentRoomdata.permlink}`) {
-        const uniquePlayers = Array.from(new Set([...players, username]));
-        console.log('Setting room players from server state:', uniquePlayers);
-        setRoomData(prev => ({
-          ...prev,
-          players: uniquePlayers.filter(p => p !== username)
-        }));
-
-        // Connect to other players in the room
-        uniquePlayers.forEach(targetUser => {
-          if (targetUser !== username && !peers.current[targetUser]) {
-            console.log(`Found player ${targetUser} in room from server state, initiating connection`);
-            createPeer(targetUser, true);
-          }
-        });
-      }
-    });
-
-    // Connect the socket
     socket.connect();
 
-    // Return cleanup function
     return () => {
-      console.log('Cleaning up signaling connection');
       isUnmounted.current = true;
       if (socket) {
         socket.removeAllListeners();
@@ -1246,13 +1298,16 @@ function App() {
     const setupStream = () => {
       if (!isStreamActive) return;
       
+      console.log('Setting up blockchain operations stream');
       stream = client.blockchain.getOperationsStream();
       
       const handleOperation = async (op: StreamOperation) => {
         if (!isStreamActive) return;
         
         if (op.op[1].id === config.game.idName) {
+          console.log('Received game operation:', op.op[1].json);
           if (processedOperations.has(op.trx_id)) {
+            console.log('Operation already processed:', op.trx_id);
             return;
           }
           processedOperations.add(op.trx_id);
@@ -1261,16 +1316,26 @@ function App() {
             const newLocation = jsonData.move_to;
             const playerUsername = op.op[1].required_posting_auths[0];
 
+            console.log('Processing move_to operation:', {
+              player: playerUsername,
+              newLocation,
+              currentLocation: lastKnownLocation
+            });
+
             // Skip if this is our own operation and we're already processing it
             if (username === playerUsername && isSignedIn) {
               if (newLocation && (!lastKnownLocation || 
                   newLocation.permlink !== lastKnownLocation.permlink || 
                   newLocation.author !== lastKnownLocation.author)) {
                 console.log('Current user moved to new location:', newLocation);
-                setLoading(true);
-                await debouncedFetchPlayerData(username);
-                setLastKnownLocation(newLocation.Location);
-                await updateRoomPlayers(newLocation.Location);
+                try {
+                  setLoading(true);
+                  await debouncedFetchPlayerData(username);
+                  setLastKnownLocation(newLocation.Location);
+                  await updateRoomPlayers(newLocation.Location);
+                } finally {
+                  setLoading(false);
+                }
               }
               return;
             }
@@ -1292,17 +1357,17 @@ function App() {
             else if (newLocation && lastKnownLocation && 
               (newLocation.Location.permlink !== lastKnownLocation.permlink || 
                newLocation.Location.author !== lastKnownLocation.author)) {
-     // This condition checks if the player is leaving the room
-     if (roomdata.players.includes(playerUsername)) {
-       console.log(`${playerUsername} left the room`);
-       outPutRef.current(`${playerUsername} has left the room.`, false);
-       setRoomData(prev => ({
-         ...prev,
-         players: prev.players.filter(p => p !== playerUsername)
-       }));
-       destroyPeer(playerUsername);
-     }
-    }
+              // This condition checks if the player is leaving the room
+              if (roomdata.players.includes(playerUsername)) {
+                console.log(`${playerUsername} left the room`);
+                outPutRef.current(`${playerUsername} has left the room.`, false);
+                setRoomData(prev => ({
+                  ...prev,
+                  players: prev.players.filter(p => p !== playerUsername)
+                }));
+                destroyPeer(playerUsername);
+              }
+            }
           } catch (error) {
             console.error('Error processing operation:', error);
           }
