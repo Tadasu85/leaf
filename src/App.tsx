@@ -429,15 +429,6 @@ function App() {
               console.log(`Already connected to ${targetUser}`);
             }
           });
-
-          if (players.length > 0) {
-            outPutRef.current(`Found ${players.length} other player(s) in the room:`, false);
-            players.forEach((player: string) => {
-              outPutRef.current(`- ${player}`, false);
-            });
-          } else {
-            outPutRef.current("No other players are currently in this room.", false);
-          }
         });
       }
 
@@ -498,19 +489,8 @@ function App() {
           if (targetUser !== username && !peers.current[targetUser]) {
             console.log(`Found player ${targetUser} in room, initiating connection`);
             createPeer(targetUser, true);
-          } else {
-            console.log(`Already connected to ${targetUser}`);
           }
         });
-
-        if (newPlayers.length > 0) {
-          outPutRef.current(`Found ${newPlayers.length} other player(s) in the room:`, false);
-          newPlayers.forEach(player => {
-            outPutRef.current(`- ${player}`, false);
-          });
-        } else {
-          outPutRef.current("No other players are currently in this room.", false);
-        }
       } else {
         console.log('No changes in room players, skipping update');
       }
@@ -947,6 +927,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       default:
         if (roomdata && roomdata.exits && roomdata.exits[command]) {
           const newlocation = roomdata.exits[command];
+          outPutRef.current(`You traipse off towards ${command}.`, false);
           try {
             const updateSuccess = await movePlayer(username, {
               newlocation: {
@@ -954,7 +935,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
                 author: gameJSON[roomdata.exits[command]].author,
               },
             });
-            outPutRef.current(`You traipse off towards ${command}.`, false);
+            
             if (updateSuccess) {
               setLastKnownLocation(updateSuccess.Location);
             }
