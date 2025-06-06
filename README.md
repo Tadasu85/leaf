@@ -10,15 +10,23 @@ Ego Death is the first game built using the Leaf framework. In this text-based a
 
 - Text-based adventure gameplay
 - Hive blockchain integration
+- Real-time player interactions
 - Character customization
 - Room exploration and movement
 - Real-time updates via blockchain operations
+- P2P communication between players
+- Builder system for content creation
+- Queue management system
+- Real-time chat and emotes
+- Room state synchronization
+- Automatic player tracking
 
 ## Prerequisites
 
 - [Hive Keychain](https://hive-keychain.com/) browser extension
 - Node.js and npm
 - Git
+- A Hive account (create one at [Ecency](https://ecency.com/))
 
 ## Installation
 
@@ -78,14 +86,60 @@ Ego Death is the first game built using the Leaf framework. In this text-based a
 
 6. Open your browser and navigate to `http://localhost:3000`
 
-## Ego Death Game Commands
+## Game Commands
 
+### Basic Commands
 - `login <username>` - Log in with your Hive username
 - `look` - View current room description
 - `look self` - View your character description
+- `look <object>` - Look at a specific detail or player in the room
 - `north/south/east/west` - Move in the specified direction
+
+### Character Customization
 - `@describe <description>` - Set your character's description
 - `@describeshort <short description>` - Set your character's short description
+
+### Social Interaction
+- `say <message>` - Send a message to all players in the room
+- `emote <action>` - Perform an emote visible to all players in the room
+
+### Builder Commands (Builder Role Required)
+- Use the "Build" button in the top-right corner to access the builder interface
+- Create and modify rooms
+- Add room details and exits
+- Manage room content
+
+### Queue Management (Game Account Only)
+- Use the "Queue" button in the top-right corner to access the queue management interface
+- View and manage the builder queue
+- Approve or reject builder applications
+
+## Technical Features
+
+### P2P Communication
+- Real-time peer-to-peer connections between players
+- Automatic connection management
+- Reliable message delivery
+- Connection state synchronization
+
+### Room System
+- Dynamic room state updates
+- Player presence tracking
+- Automatic room joining/leaving
+- Room detail management
+- Exit system for navigation
+
+### Blockchain Integration
+- Hive blockchain operations for game state
+- Custom JSON operations for game actions
+- Account metadata management
+- Real-time blockchain stream processing
+
+### Security
+- Hive Keychain integration for secure operations
+- Permission-based access control
+- Builder role management
+- Queue system for content creation
 
 ## Development
 

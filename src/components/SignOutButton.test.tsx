@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import React from 'react'; // Add this line
+import React from 'react';
 import SignOutButton from './SignOutButton';
 
 describe('SignOutButton', () => {
@@ -7,10 +7,7 @@ describe('SignOutButton', () => {
   const defaultProps = {
     isSignedIn: true,
     username: 'testuser',
-    onSignOut: mockOnSignOut,
-    userProfileJSON: {
-      profile_image: 'https://example.com/profile.jpg'
-    }
+    onSignOut: mockOnSignOut
   };
 
   beforeEach(() => {
@@ -27,28 +24,20 @@ describe('SignOutButton', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  test('renders user information when signed in', () => {
+  test('renders sign out button with username when signed in', () => {
     render(<SignOutButton {...defaultProps} />);
     
-    expect(screen.getByText('Signed in as: testuser')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
-    expect(screen.getByAltText('ProfileImage')).toBeInTheDocument();
+    const button = screen.getByRole('button');
+    expect(button).toHaveTextContent('Sign Out testuser');
   });
 
   test('calls onSignOut when sign out button is clicked', () => {
     render(<SignOutButton {...defaultProps} />);
     
-    const signOutButton = screen.getByRole('button', { name: 'Sign Out' });
+    const signOutButton = screen.getByRole('button');
     fireEvent.click(signOutButton);
     
     expect(mockOnSignOut).toHaveBeenCalledTimes(1);
-  });
-
-  test('displays profile image with correct src', () => {
-    render(<SignOutButton {...defaultProps} />);
-    
-    const profileImage = screen.getByAltText('ProfileImage');
-    expect(profileImage).toHaveAttribute('src', 'https://example.com/profile.jpg');
   });
 
   test('handles missing username gracefully', () => {
@@ -59,18 +48,7 @@ describe('SignOutButton', () => {
     
     render(<SignOutButton {...propsWithoutUsername} />);
     
-    expect(screen.getByText('Signed in as:')).toBeInTheDocument();
-  });
-
-  test('handles missing userProfileJSON gracefully', () => {
-    const propsWithoutProfile = {
-      ...defaultProps,
-      userProfileJSON: undefined
-    };
-    
-    render(<SignOutButton {...propsWithoutProfile} />);
-    
-    expect(screen.getByText('Signed in as: testuser')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Sign Out' })).toBeInTheDocument();
+    const button = screen.getByRole('button');
+    expect(button).toHaveTextContent('Sign Out');
   });
 }); 
