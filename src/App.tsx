@@ -11,6 +11,8 @@ import { Client } from '@hiveio/dhive';
 import { debounce } from 'lodash';
 import config from './config';
 import BuildModal from './components/BuildModal';
+import QueueButton from './components/QueueButton';
+import QueueManagementModal from './components/QueueManagementModal';
 
 // Interface for PeerConnection (refined)
 interface PeerConnection {
@@ -124,6 +126,8 @@ function App() {
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [builders, setBuilders] = useState<string[]>([]);
   const [isBuilder, setIsBuilder] = useState<boolean>(false);
+  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
+  const [isQueueButtonActive, setIsQueueButtonActive] = useState(false);
 
   const outPut = useCallback((texttooutput: string, bold?: boolean) => {
     setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
@@ -955,57 +959,60 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
 
   const handleTextEntered = useCallback(async (enteredText: string) => {
     try {
-      const words = enteredText.toLowerCase().split(" ");
-      if (words[0] === "login" || words[0] === "connect") {
-        const tempuser = words[1];
-        if (tempuser === undefined) {
-          outPutRef.current('You must follow your login/connect command with your hive username.', true);
+      if (enteredText.startsWith('login')) {
+        const words = enteredText.split(' ');
+        if (words.length < 2) {
+          outPutRef.current("You must follow your login/connect command with your hive username", true);
           return;
         }
 
-        outPutRef.current(`Attempting login as ${tempuser}`, false);
-        setGeneralError(null);
-
-        const data: Login = {
+        const tempuser = words[1];
+        const loginData: Login = {
           username: tempuser,
-          message: '{"login":"123"}',
-          method: KeychainKeyTypes.posting,
-          title: 'Login',
+          message: "Login to Ego Death",
+          method: KeychainKeyTypes.posting
         };
-        
+
         try {
-          const loginResult = await keychain.login(data as Login);
-          
-          if (loginResult) {
+          const result = await keychain.login(loginData);
+          if (result && result.success) {
             setUsername(tempuser);
             setIsSignedIn(true);
             try {
-              await fetchPlayerData(tempuser);
-              outPutRef.current(`Login successful as ${tempuser}`, false);
-              
-              // Check if the user is a builder
-              if (builders.includes(tempuser)) {
-                setIsBuilder(true);
+              // Special handling for game account
+              if (tempuser === config.game.accountName) {
+                // Skip normal player data fetching for game account
+                outPutRef.current(`Login successful as ${tempuser}`, false);
+                setIsBuilder(true); // Game account is always a builder
               } else {
-                setIsBuilder(false);
-              }
+                // Normal user flow
+                await fetchPlayerData(tempuser);
+                outPutRef.current(`Login successful as ${tempuser}`, false);
+                
+                // Check if the user is a builder
+                if (builders.includes(tempuser)) {
+                  setIsBuilder(true);
+                } else {
+                  setIsBuilder(false);
+                }
 
-              // Ensure socket is connected and join initial room
-              if (signalingSocket.current) {
-                const currentRoomdata = roomdataRef.current;
-                if (currentRoomdata?.author && currentRoomdata?.permlink) {
-                  const roomId = `${currentRoomdata.author}/${currentRoomdata.permlink}`;
-                  console.log('Joining initial room on login:', roomId);
-                  signalingSocket.current.emit('joinRoom', {
-                    room: roomId,
-                    username: tempuser,
-                    roomData: {
-                      ...currentRoomdata,
-                      players: [...currentRoomdata.players, tempuser],
-                      lastUpdated: Date.now()
-                    }
-                  });
-                  currentRoomIdentifier.current = roomId;
+                // Ensure socket is connected and join initial room
+                if (signalingSocket.current) {
+                  const currentRoomdata = roomdataRef.current;
+                  if (currentRoomdata?.author && currentRoomdata?.permlink) {
+                    const roomId = `${currentRoomdata.author}/${currentRoomdata.permlink}`;
+                    console.log('Joining initial room on login:', roomId);
+                    signalingSocket.current.emit('joinRoom', {
+                      room: roomId,
+                      username: tempuser,
+                      roomData: {
+                        ...currentRoomdata,
+                        players: [...currentRoomdata.players, tempuser],
+                        lastUpdated: Date.now()
+                      }
+                    });
+                    currentRoomIdentifier.current = roomId;
+                  }
                 }
               }
             } catch (fetchError) {
@@ -1411,6 +1418,18 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
     setIsButtonActive(false);
   }, []);
 
+  // Add queue button click handler
+  const handleQueueButtonClick = useCallback(() => {
+    setIsQueueButtonActive(prev => !prev);
+    setIsQueueModalOpen(true);
+  }, []);
+
+  // Add queue modal close handler
+  const handleCloseQueueModal = useCallback(() => {
+    setIsQueueModalOpen(false);
+    setIsQueueButtonActive(false);
+  }, []);
+
   return (
     <div className="App">
       <header className="App-header">
@@ -1436,15 +1455,40 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
               isActive={isButtonActive}
             />
           )}
+          {isSignedIn && username === config.game.accountName && (
+            <QueueButton
+              onClick={handleQueueButtonClick}
+              label="Queue"
+              isActive={isQueueButtonActive}
+            />
+          )}
         </div>
       </header>
       <GameOutputWindow output={gameOutputMessage} />
       <div className="TextInputBox">
         <TextInputBox onEnterPressed={handleTextEntered} />
       </div>
-      <BuildModal 
+      <BuildModal
         isOpen={isBuildModalOpen}
         onClose={handleCloseModal}
+        username={username}
+        currentRoom={roomdata.author && roomdata.permlink ? {
+          author: roomdata.author,
+          permlink: roomdata.permlink
+        } : null}
+        onRoomCreated={() => {
+          fetchgameData();
+          if (username) {
+            fetchPlayerData(username);
+          }
+        }}
+        socket={signalingSocket.current}
+      />
+      <QueueManagementModal
+        isOpen={isQueueModalOpen}
+        onClose={handleCloseQueueModal}
+        username={username}
+        socket={signalingSocket.current}
       />
     </div>
   );
