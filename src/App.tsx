@@ -872,6 +872,12 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
         break;
 
       case "look":
+        console.log('Room data:', roomdata);
+        console.log('Looking for:', words[1]);
+        if (roomdata && roomdata.details) {
+          console.log('Available details:', roomdata.details);
+          console.log('Detail keys:', Object.keys(roomdata.details));
+        }
         if (words[1] === 'self' || words[1] === 'me') {
           if (userProfileJSON && userProfileJSON.egodeathplayer) {
             outPutRef.current(`You see yourself.  ${userProfileJSON.egodeathplayer.Description}`, false);
@@ -879,6 +885,34 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
           }
           else {
             outPutRef.current("You look at yourself, but don't see anything special.", true);
+          }
+        }
+        else if (words[1]) {
+          // Check if it's a detail in the room by matching against the full key
+          if (roomdata && roomdata.details) {
+            const searchTerm = words[1].toLowerCase();
+            const matchingDetail = Object.entries(roomdata.details).find(([key]) => {
+              return key.toLowerCase().includes(searchTerm);
+            });
+            
+            if (matchingDetail) {
+              outPutRef.current(matchingDetail[1], false);
+            }
+            // Check if it's another player in the room
+            else if (roomdata.players.includes(words[1])) {
+              // TODO: Fetch and display other player's description
+              outPutRef.current(`You look at ${words[1]}.`, false);
+            }
+            else {
+              outPutRef.current(`You don't see any ${words[1]} here.`, true);
+            }
+          }
+          else if (roomdata && roomdata.players.includes(words[1])) {
+            // TODO: Fetch and display other player's description
+            outPutRef.current(`You look at ${words[1]}.`, false);
+          }
+          else {
+            outPutRef.current(`You don't see any ${words[1]} here.`, true);
           }
         }
         else if (roomdata) {
