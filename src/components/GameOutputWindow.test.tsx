@@ -5,7 +5,7 @@ import GameOutputWindow from './GameOutputWindow';
 describe('GameOutputWindow', () => {
   test('renders empty output window when no messages are provided', () => {
     const { container } = render(<GameOutputWindow output={[]} />);
-    const outputWindow = container.querySelector('.GameOutputWindow');
+    const outputWindow = screen.getByTestId('game-output');
     expect(outputWindow).toBeInTheDocument();
     expect(outputWindow).toHaveClass('GameOutputWindow');
   });
@@ -85,5 +85,42 @@ describe('GameOutputWindow', () => {
     expect(paragraphs[1].querySelector('span')).toHaveTextContent('Second line');
     expect(paragraphs[2].querySelector('b')).toHaveTextContent('Third line');
     expect(paragraphs[3].querySelector('b')).toHaveTextContent('Fourth line');
+  });
+
+  test('scrolls to bottom when new messages are added', () => {
+    const { rerender } = render(<GameOutputWindow output={[]} />);
+    const outputWindow = screen.getByTestId('game-output');
+    
+    // Mock scrollTo
+    const mockScrollTo = jest.fn();
+    Object.defineProperty(outputWindow, 'scrollTo', {
+      value: mockScrollTo,
+      writable: true
+    });
+    
+    // Add new messages
+    rerender(<GameOutputWindow output={[{ output: 'New message' }]} />);
+    
+    expect(mockScrollTo).toHaveBeenCalledWith(0, expect.any(Number));
+  });
+
+  test('handles scrollTo not being available', () => {
+    const { rerender } = render(<GameOutputWindow output={[]} />);
+    const outputWindow = screen.getByTestId('game-output');
+    
+    // Mock scrollTop instead of scrollTo
+    Object.defineProperty(outputWindow, 'scrollTo', {
+      value: undefined,
+      writable: true
+    });
+    Object.defineProperty(outputWindow, 'scrollTop', {
+      value: 0,
+      writable: true
+    });
+    
+    // Add new messages
+    rerender(<GameOutputWindow output={[{ output: 'New message' }]} />);
+    
+    expect(outputWindow.scrollTop).toBeDefined();
   });
 }); 

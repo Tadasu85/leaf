@@ -53,4 +53,15 @@ describe('TextInputBox', () => {
     expect(document.activeElement).toBe(inputElement);
     expect(inputElement).toHaveAttribute('placeholder', 'Enter command');
   });
+
+  test('handles invalid input gracefully', () => {
+    const mockOnEnterPressed = jest.fn();
+    render(<TextInputBox onEnterPressed={mockOnEnterPressed} />);
+    
+    const inputElement = screen.getByTestId('command-input');
+    // @ts-ignore - Testing invalid input
+    fireEvent.change(inputElement, { target: { value: null } });
+    
+    expect(inputElement).toHaveValue('');
+  });
 }); 

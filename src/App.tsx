@@ -11,6 +11,8 @@ import { Client } from '@hiveio/dhive';
 import { debounce } from 'lodash';
 import config from './config';
 import BuildModal from './components/BuildModal';
+import QueueButton from './components/QueueButton';
+import QueueManagementModal from './components/QueueManagementModal';
 
 // Interface for PeerConnection (refined)
 interface PeerConnection {
@@ -124,6 +126,8 @@ function App() {
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [builders, setBuilders] = useState<string[]>([]);
   const [isBuilder, setIsBuilder] = useState<boolean>(false);
+  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
+  const [isQueueButtonActive, setIsQueueButtonActive] = useState(false);
 
   const outPut = useCallback((texttooutput: string, bold?: boolean) => {
     setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
@@ -868,6 +872,12 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
         break;
 
       case "look":
+        console.log('Room data:', roomdata);
+        console.log('Looking for:', words[1]);
+        if (roomdata && roomdata.details) {
+          console.log('Available details:', roomdata.details);
+          console.log('Detail keys:', Object.keys(roomdata.details));
+        }
         if (words[1] === 'self' || words[1] === 'me') {
           if (userProfileJSON && userProfileJSON.egodeathplayer) {
             outPutRef.current(`You see yourself.  ${userProfileJSON.egodeathplayer.Description}`, false);
@@ -875,6 +885,34 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
           }
           else {
             outPutRef.current("You look at yourself, but don't see anything special.", true);
+          }
+        }
+        else if (words[1]) {
+          // Check if it's a detail in the room by matching against the full key
+          if (roomdata && roomdata.details) {
+            const searchTerm = words[1].toLowerCase();
+            const matchingDetail = Object.entries(roomdata.details).find(([key]) => {
+              return key.toLowerCase().includes(searchTerm);
+            });
+            
+            if (matchingDetail) {
+              outPutRef.current(matchingDetail[1], false);
+            }
+            // Check if it's another player in the room
+            else if (roomdata.players.includes(words[1])) {
+              // TODO: Fetch and display other player's description
+              outPutRef.current(`You look at ${words[1]}.`, false);
+            }
+            else {
+              outPutRef.current(`You don't see any ${words[1]} here.`, true);
+            }
+          }
+          else if (roomdata && roomdata.players.includes(words[1])) {
+            // TODO: Fetch and display other player's description
+            outPutRef.current(`You look at ${words[1]}.`, false);
+          }
+          else {
+            outPutRef.current(`You don't see any ${words[1]} here.`, true);
           }
         }
         else if (roomdata) {
@@ -955,57 +993,60 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
 
   const handleTextEntered = useCallback(async (enteredText: string) => {
     try {
-      const words = enteredText.toLowerCase().split(" ");
-      if (words[0] === "login" || words[0] === "connect") {
-        const tempuser = words[1];
-        if (tempuser === undefined) {
-          outPutRef.current('You must follow your login/connect command with your hive username.', true);
+      if (enteredText.startsWith('login')) {
+        const words = enteredText.split(' ');
+        if (words.length < 2) {
+          outPutRef.current("You must follow your login/connect command with your hive username", true);
           return;
         }
 
-        outPutRef.current(`Attempting login as ${tempuser}`, false);
-        setGeneralError(null);
-
-        const data: Login = {
+        const tempuser = words[1];
+        const loginData: Login = {
           username: tempuser,
-          message: '{"login":"123"}',
-          method: KeychainKeyTypes.posting,
-          title: 'Login',
+          message: "Login to Ego Death",
+          method: KeychainKeyTypes.posting
         };
-        
+
         try {
-          const loginResult = await keychain.login(data as Login);
-          
-          if (loginResult) {
+          const result = await keychain.login(loginData);
+          if (result && result.success) {
             setUsername(tempuser);
             setIsSignedIn(true);
             try {
-              await fetchPlayerData(tempuser);
-              outPutRef.current(`Login successful as ${tempuser}`, false);
-              
-              // Check if the user is a builder
-              if (builders.includes(tempuser)) {
-                setIsBuilder(true);
+              // Special handling for game account
+              if (tempuser === config.game.accountName) {
+                // Skip normal player data fetching for game account
+                outPutRef.current(`Login successful as ${tempuser}`, false);
+                setIsBuilder(true); // Game account is always a builder
               } else {
-                setIsBuilder(false);
-              }
+                // Normal user flow
+                await fetchPlayerData(tempuser);
+                outPutRef.current(`Login successful as ${tempuser}`, false);
+                
+                // Check if the user is a builder
+                if (builders.includes(tempuser)) {
+                  setIsBuilder(true);
+                } else {
+                  setIsBuilder(false);
+                }
 
-              // Ensure socket is connected and join initial room
-              if (signalingSocket.current) {
-                const currentRoomdata = roomdataRef.current;
-                if (currentRoomdata?.author && currentRoomdata?.permlink) {
-                  const roomId = `${currentRoomdata.author}/${currentRoomdata.permlink}`;
-                  console.log('Joining initial room on login:', roomId);
-                  signalingSocket.current.emit('joinRoom', {
-                    room: roomId,
-                    username: tempuser,
-                    roomData: {
-                      ...currentRoomdata,
-                      players: [...currentRoomdata.players, tempuser],
-                      lastUpdated: Date.now()
-                    }
-                  });
-                  currentRoomIdentifier.current = roomId;
+                // Ensure socket is connected and join initial room
+                if (signalingSocket.current) {
+                  const currentRoomdata = roomdataRef.current;
+                  if (currentRoomdata?.author && currentRoomdata?.permlink) {
+                    const roomId = `${currentRoomdata.author}/${currentRoomdata.permlink}`;
+                    console.log('Joining initial room on login:', roomId);
+                    signalingSocket.current.emit('joinRoom', {
+                      room: roomId,
+                      username: tempuser,
+                      roomData: {
+                        ...currentRoomdata,
+                        players: [...currentRoomdata.players, tempuser],
+                        lastUpdated: Date.now()
+                      }
+                    });
+                    currentRoomIdentifier.current = roomId;
+                  }
                 }
               }
             } catch (fetchError) {
@@ -1411,6 +1452,18 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
     setIsButtonActive(false);
   }, []);
 
+  // Add queue button click handler
+  const handleQueueButtonClick = useCallback(() => {
+    setIsQueueButtonActive(prev => !prev);
+    setIsQueueModalOpen(true);
+  }, []);
+
+  // Add queue modal close handler
+  const handleCloseQueueModal = useCallback(() => {
+    setIsQueueModalOpen(false);
+    setIsQueueButtonActive(false);
+  }, []);
+
   return (
     <div className="App">
       <header className="App-header">
@@ -1436,15 +1489,40 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
               isActive={isButtonActive}
             />
           )}
+          {isSignedIn && username === config.game.accountName && (
+            <QueueButton
+              onClick={handleQueueButtonClick}
+              label="Queue"
+              isActive={isQueueButtonActive}
+            />
+          )}
         </div>
       </header>
       <GameOutputWindow output={gameOutputMessage} />
       <div className="TextInputBox">
         <TextInputBox onEnterPressed={handleTextEntered} />
       </div>
-      <BuildModal 
+      <BuildModal
         isOpen={isBuildModalOpen}
         onClose={handleCloseModal}
+        username={username}
+        currentRoom={roomdata.author && roomdata.permlink ? {
+          author: roomdata.author,
+          permlink: roomdata.permlink
+        } : null}
+        onRoomCreated={() => {
+          fetchgameData();
+          if (username) {
+            fetchPlayerData(username);
+          }
+        }}
+        socket={signalingSocket.current}
+      />
+      <QueueManagementModal
+        isOpen={isQueueModalOpen}
+        onClose={handleCloseQueueModal}
+        username={username}
+        socket={signalingSocket.current}
       />
     </div>
   );

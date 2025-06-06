@@ -10,6 +10,7 @@ interface Config {
     accountName: string;
     startingRoom: string;
     defaultCharacterDescription: string;
+    category: string;
   };
   ui: {
     theme: 'light' | 'dark';
@@ -34,6 +35,7 @@ const config: Config = {
     accountName: process.env.REACT_APP_ACCOUNT_NAME || 'hive-109456',
     startingRoom: process.env.REACT_APP_GAME_STARTING_ROOM || 'genesis-scaffold-precipice',
     defaultCharacterDescription: process.env.REACT_APP_GAME_DEFAULT_CHARACTER_DESCRIPTION || 'A mysterious figure stands before you.',
+    category: process.env.REACT_APP_GAME_CATEGORY || 'hive-109456',
   },
   ui: {
     theme: (process.env.REACT_APP_UI_THEME as 'light' | 'dark') || 'light',
