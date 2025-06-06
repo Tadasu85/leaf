@@ -1,69 +1,818 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="jest tests" tests="29" failures="0" errors="0" time="1.24">
-  <testsuite name="TextInputBox" errors="0" failures="0" skipped="0" timestamp="2025-04-12T01:46:27" time="0.463" tests="5">
-    <testcase classname="TextInputBox renders input element" name="TextInputBox renders input element" time="0.021">
+<testsuites name="jest tests" tests="40" failures="26" errors="0" time="1.616">
+  <testsuite name="GameOutputWindow" errors="0" failures="0" skipped="0" timestamp="2025-06-06T01:42:38" time="0.46" tests="8">
+    <testcase classname="GameOutputWindow renders empty output window when no messages are provided" name="GameOutputWindow renders empty output window when no messages are provided" time="0.019">
+    </testcase>
+    <testcase classname="GameOutputWindow renders regular messages correctly" name="GameOutputWindow renders regular messages correctly" time="0.007">
+    </testcase>
+    <testcase classname="GameOutputWindow renders bold messages correctly" name="GameOutputWindow renders bold messages correctly" time="0.003">
+    </testcase>
+    <testcase classname="GameOutputWindow renders mixed regular and bold messages in order" name="GameOutputWindow renders mixed regular and bold messages in order" time="0.003">
+    </testcase>
+    <testcase classname="GameOutputWindow preserves message order" name="GameOutputWindow preserves message order" time="0.004">
+    </testcase>
+    <testcase classname="GameOutputWindow handles newlines correctly" name="GameOutputWindow handles newlines correctly" time="0.002">
+    </testcase>
+    <testcase classname="GameOutputWindow scrolls to bottom when new messages are added" name="GameOutputWindow scrolls to bottom when new messages are added" time="0.003">
+    </testcase>
+    <testcase classname="GameOutputWindow handles scrollTo not being available" name="GameOutputWindow handles scrollTo not being available" time="0.002">
+    </testcase>
+  </testsuite>
+  <testsuite name="TextInputBox" errors="0" failures="0" skipped="0" timestamp="2025-06-06T01:42:38" time="0.463" tests="6">
+    <testcase classname="TextInputBox renders input element" name="TextInputBox renders input element" time="0.022">
     </testcase>
     <testcase classname="TextInputBox updates input value when typing" name="TextInputBox updates input value when typing" time="0.006">
     </testcase>
-    <testcase classname="TextInputBox calls onEnterPressed and clears input when Enter is pressed" name="TextInputBox calls onEnterPressed and clears input when Enter is pressed" time="0.005">
+    <testcase classname="TextInputBox calls onEnterPressed and clears input when Enter is pressed" name="TextInputBox calls onEnterPressed and clears input when Enter is pressed" time="0.006">
     </testcase>
     <testcase classname="TextInputBox does not call onEnterPressed when other keys are pressed" name="TextInputBox does not call onEnterPressed when other keys are pressed" time="0.003">
     </testcase>
     <testcase classname="TextInputBox has autofocus and placeholder" name="TextInputBox has autofocus and placeholder" time="0.003">
     </testcase>
-  </testsuite>
-  <testsuite name="GameOutputWindow" errors="0" failures="0" skipped="0" timestamp="2025-04-12T01:46:27" time="0.466" tests="6">
-    <testcase classname="GameOutputWindow renders empty output window when no messages are provided" name="GameOutputWindow renders empty output window when no messages are provided" time="0.017">
-    </testcase>
-    <testcase classname="GameOutputWindow renders regular messages correctly" name="GameOutputWindow renders regular messages correctly" time="0.007">
-    </testcase>
-    <testcase classname="GameOutputWindow renders bold messages correctly" name="GameOutputWindow renders bold messages correctly" time="0.004">
-    </testcase>
-    <testcase classname="GameOutputWindow renders mixed regular and bold messages in order" name="GameOutputWindow renders mixed regular and bold messages in order" time="0.003">
-    </testcase>
-    <testcase classname="GameOutputWindow preserves message order" name="GameOutputWindow preserves message order" time="0.003">
-    </testcase>
-    <testcase classname="GameOutputWindow handles newlines correctly" name="GameOutputWindow handles newlines correctly" time="0.003">
+    <testcase classname="TextInputBox handles invalid input gracefully" name="TextInputBox handles invalid input gracefully" time="0.002">
     </testcase>
   </testsuite>
-  <testsuite name="SignOutButton" errors="0" failures="0" skipped="0" timestamp="2025-04-12T01:46:27" time="0.497" tests="6">
-    <testcase classname="SignOutButton renders nothing when not signed in" name="SignOutButton renders nothing when not signed in" time="0.009">
+  <testsuite name="App Component" errors="0" failures="26" skipped="0" timestamp="2025-06-06T01:42:38" time="1.107" tests="26">
+    <testcase classname="App Component renders the game title" name="App Component renders the game title" time="0.103">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:386:11)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="SignOutButton renders user information when signed in" name="SignOutButton renders user information when signed in" time="0.043">
+    <testcase classname="App Component handleTextEntered - Login Command successful login calls keychain.login and fetches player data" name="App Component handleTextEntered - Login Command successful login calls keychain.login and fetches player data" time="0.007">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at recursivelyFlushAsyncActWork (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2633:9)
+    at /home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2545:15
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
     </testcase>
-    <testcase classname="SignOutButton calls onSignOut when sign out button is clicked" name="SignOutButton calls onSignOut when sign out button is clicked" time="0.014">
+    <testcase classname="App Component handleTextEntered - Login Command login without username shows error" name="App Component handleTextEntered - Login Command login without username shows error" time="0.005">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at recursivelyFlushAsyncActWork (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2633:9)
+    at /home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2545:15
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
     </testcase>
-    <testcase classname="SignOutButton displays profile image with correct src" name="SignOutButton displays profile image with correct src" time="0.002">
+    <testcase classname="App Component handleTextEntered - Login Command failed login shows error message" name="App Component handleTextEntered - Login Command failed login shows error message" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at recursivelyFlushAsyncActWork (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2633:9)
+    at /home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2545:15
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
     </testcase>
-    <testcase classname="SignOutButton handles missing username gracefully" name="SignOutButton handles missing username gracefully" time="0.003">
+    <testcase classname="App Component handleTextEntered - Look Command new user sees welcome message after login" name="App Component handleTextEntered - Look Command new user sees welcome message after login" time="0.008">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:512:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="SignOutButton handles missing userProfileJSON gracefully" name="SignOutButton handles missing userProfileJSON gracefully" time="0.007">
+    <testcase classname="App Component handleTextEntered - Look Command existing user sees room data immediately after login" name="App Component handleTextEntered - Look Command existing user sees room data immediately after login" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:542:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-  </testsuite>
-  <testsuite name="App Component" errors="0" failures="0" skipped="0" timestamp="2025-04-12T01:46:27" time="0.796" tests="12">
-    <testcase classname="App Component renders the game title" name="App Component renders the game title" time="0.062">
+    <testcase classname="App Component handleTextEntered - Look Command look command displays room data for new user" name="App Component handleTextEntered - Look Command look command displays room data for new user" time="0.005">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:577:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Login Command successful login calls keychain.login and fetches player data" name="App Component handleTextEntered - Login Command successful login calls keychain.login and fetches player data" time="0.018">
+    <testcase classname="App Component handleTextEntered - Look Command look self displays player description" name="App Component handleTextEntered - Look Command look self displays player description" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at recursivelyFlushAsyncActWork (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2633:9)
+    at /home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2545:15
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Login Command login without username shows error" name="App Component handleTextEntered - Login Command login without username shows error" time="0.007">
+    <testcase classname="App Component handleTextEntered - Movement Commands successful movement updates location" name="App Component handleTextEntered - Movement Commands successful movement updates location" time="0.006">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at recursivelyFlushAsyncActWork (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2633:9)
+    at /home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2545:15
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Login Command failed login shows error message" name="App Component handleTextEntered - Login Command failed login shows error message" time="0.008">
+    <testcase classname="App Component handleTextEntered - Movement Commands invalid movement shows error" name="App Component handleTextEntered - Movement Commands invalid movement shows error" time="0.005">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at recursivelyFlushAsyncActWork (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2633:9)
+    at /home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2545:15
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Look Command new user sees welcome message after login" name="App Component handleTextEntered - Look Command new user sees welcome message after login" time="0.014">
+    <testcase classname="App Component handleTextEntered - Description Commands @describe updates player description" name="App Component handleTextEntered - Description Commands @describe updates player description" time="0.01">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:698:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Look Command existing user sees room data immediately after login" name="App Component handleTextEntered - Look Command existing user sees room data immediately after login" time="0.027">
+    <testcase classname="App Component handleTextEntered - Description Commands @describeshort updates player short description" name="App Component handleTextEntered - Description Commands @describeshort updates player short description" time="0.005">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:723:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Look Command look command displays room data for new user" name="App Component handleTextEntered - Look Command look command displays room data for new user" time="0.013">
+    <testcase classname="App Component Login Flow should handle successful login" name="App Component Login Flow should handle successful login" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:750:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Look Command look self displays player description" name="App Component handleTextEntered - Look Command look self displays player description" time="0.011">
+    <testcase classname="App Component Login Flow should handle failed login" name="App Component Login Flow should handle failed login" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:773:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Movement Commands successful movement updates location" name="App Component handleTextEntered - Movement Commands successful movement updates location" time="0.012">
+    <testcase classname="App Component Room State should handle look command" name="App Component Room State should handle look command" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:800:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Movement Commands invalid movement shows error" name="App Component handleTextEntered - Movement Commands invalid movement shows error" time="0.009">
+    <testcase classname="App Component Room State should handle movement commands" name="App Component Room State should handle movement commands" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:800:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Description Commands @describe updates player description" name="App Component handleTextEntered - Description Commands @describe updates player description" time="0.014">
+    <testcase classname="App Component Room State should handle invalid movement command" name="App Component Room State should handle invalid movement command" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:800:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
-    <testcase classname="App Component handleTextEntered - Description Commands @describeshort updates player short description" name="App Component handleTextEntered - Description Commands @describeshort updates player short description" time="0.015">
+    <testcase classname="App Component P2P Communication should handle chat messages" name="App Component P2P Communication should handle chat messages" time="0.008">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:878:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
+    </testcase>
+    <testcase classname="App Component P2P Communication should handle emotes" name="App Component P2P Communication should handle emotes" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:878:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
+    </testcase>
+    <testcase classname="App Component Room State Management should handle player joining room" name="App Component Room State Management should handle player joining room" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:950:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
+    </testcase>
+    <testcase classname="App Component Room State Management should handle room state updates with other players" name="App Component Room State Management should handle room state updates with other players" time="0.005">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:950:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
+    </testcase>
+    <testcase classname="App Component Room State Management should handle room state updates with no other players" name="App Component Room State Management should handle room state updates with no other players" time="0.004">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:950:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
+    </testcase>
+    <testcase classname="App Component Error Handling should handle blockchain errors" name="App Component Error Handling should handle blockchain errors" time="0.005">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:1074:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
+    </testcase>
+    <testcase classname="App Component Error Handling should handle socket connection errors" name="App Component Error Handling should handle socket connection errors" time="0.011">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:1097:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:212:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:149:3)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
+    </testcase>
+    <testcase classname="App Component Chat and Emotes should handle chat messages" name="App Component Chat and Emotes should handle chat messages" time="0.003">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:1125:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
+    </testcase>
+    <testcase classname="App Component Chat and Emotes should handle emotes" name="App Component Chat and Emotes should handle emotes" time="0.003">
+      <failure>TypeError: stream.on is not a function
+    at setupStream (/home/clotheavatar/Projects/leaf/src/App.tsx:1383:14)
+    at /home/clotheavatar/Projects/leaf/src/App.tsx:1393:5
+    at commitHookEffectListMount (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24930:9)
+    at commitPassiveMountEffects_begin (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24917:7)
+    at commitPassiveMountEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:24905:3)
+    at flushPassiveEffectsImpl (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27078:3)
+    at flushPassiveEffects (/home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:27023:14)
+    at /home/clotheavatar/Projects/leaf/node_modules/react-dom/cjs/react-dom.development.js:26808:9
+    at flushActQueue (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2667:24)
+    at act (/home/clotheavatar/Projects/leaf/node_modules/react/cjs/react.development.js:2582:11)
+    at /home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/act-compat.js:47:25
+    at renderRoot (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:190:26)
+    at render (/home/clotheavatar/Projects/leaf/node_modules/@testing-library/react/dist/pure.js:292:10)
+    at Object.&lt;anonymous&gt; (/home/clotheavatar/Projects/leaf/src/App.test.tsx:1125:13)
+    at Promise.then.completed (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:276:28)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/utils.js:216:10)
+    at _callCircusHook (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:175:40)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at _runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:142:5)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:63:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at _runTestsForDescribeBlock (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:57:9)
+    at run (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/run.js:25:3)
+    at runAndTransformResultsToJestFormat (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:176:21)
+    at jestAdapter (/home/clotheavatar/Projects/leaf/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:109:19)
+    at runTestInternal (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:380:16)
+    at runTest (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/runTest.js:472:34)
+    at Object.worker (/home/clotheavatar/Projects/leaf/node_modules/jest-runner/build/testWorker.js:133:12)</failure>
     </testcase>
   </testsuite>
 </testsuites>
