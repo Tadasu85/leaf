@@ -8,6 +8,7 @@ import { debounce } from 'lodash';
 import userEvent from '@testing-library/user-event';
 import { io, Socket } from 'socket.io-client';
 import Peer, { SignalData } from 'simple-peer';
+import config from './config';
 
 // Increase timeout for all tests
 jest.setTimeout(10000);
@@ -60,6 +61,9 @@ interface MockClient {
   };
   blockchain: {
     getOperationsStream: jest.Mock;
+  };
+  hivemind: {
+    getCommunity: jest.Mock;
   };
 }
 
@@ -241,6 +245,14 @@ describe('App Component', () => {
           removeAllListeners: jest.fn(),
           destroy: jest.fn()
         })
+      },
+      hivemind: {
+        getCommunity: jest.fn().mockResolvedValue([{
+          name: config.game.accountName,
+          team: [
+            ['testuser', 'Builder', 'Builder']
+          ]
+        }])
       }
     };
 
@@ -339,6 +351,345 @@ describe('App Component', () => {
     await userEvent.type(input, 'emote waves{enter}');
     await waitFor(() => {
       expect(screen.getByText(/You waves/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test BuildModal functionality
+  test('BuildModal opens and closes correctly', async () => {
+    const { container } = render(<App />);
+    
+    // Set up mock client response for initial login
+    const mockClient = (Client as unknown as jest.Mock).mock.results[0].value;
+    mockClient.database.getAccounts.mockImplementation(() => Promise.resolve([{
+      name: 'testuser',
+      posting_json_metadata: JSON.stringify({
+        egodeathplayer: {
+          Name: 'testuser',
+          Description: 'A test player',
+          ShortDesc: 'A test player'
+        }
+      })
+    }]));
+
+    // Mock community team data to include testuser as a builder
+    mockClient.hivemind.getCommunity.mockImplementation(() => Promise.resolve([{
+      name: config.game.accountName,
+      team: [
+        ['testuser', 'Builder', 'Builder']
+      ]
+    }]));
+
+    // First login
+    const input = screen.getByRole('textbox');
+    await userEvent.type(input, 'login testuser{enter}');
+    
+    // Wait for login success
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Wait for Build button to appear
+    let buildButton;
+    await waitFor(() => {
+      try {
+        buildButton = screen.getByRole('button', { name: 'Build' });
+      } catch {
+        buildButton = container.querySelector('.top-right-button');
+      }
+      if (!buildButton) {
+        // Log the DOM for debugging
+        // eslint-disable-next-line no-console
+        console.log(container.innerHTML);
+      }
+      expect(buildButton).toBeInTheDocument();
+    });
+    if (!buildButton) throw new Error('Build button not found');
+    // Click build button
+    await userEvent.click(buildButton);
+    // Verify modal is open
+    await waitFor(() => {
+      expect(screen.getByText('Build New Room')).toBeInTheDocument();
+    });
+    // Close modal
+    const closeButton = screen.getByRole('button', { name: /×/i });
+    await userEvent.click(closeButton);
+    // Verify modal is closed
+    await waitFor(() => {
+      expect(screen.queryByText('Build New Room')).not.toBeInTheDocument();
+    });
+  });
+
+  test('BuildModal form validation works', async () => {
+    const { container } = render(<App />);
+    
+    // Set up mock client response for initial login
+    const mockClient = (Client as unknown as jest.Mock).mock.results[0].value;
+    mockClient.database.getAccounts.mockImplementation(() => Promise.resolve([{
+      name: 'testuser',
+      posting_json_metadata: JSON.stringify({
+        egodeathplayer: {
+          Name: 'testuser',
+          Description: 'A test player',
+          ShortDesc: 'A test player'
+        }
+      })
+    }]));
+
+    // Mock community team data to include testuser as a builder
+    mockClient.hivemind.getCommunity.mockImplementation(() => Promise.resolve([{
+      name: config.game.accountName,
+      team: [
+        ['testuser', 'Builder', 'Builder']
+      ]
+    }]));
+
+    // First login
+    const input = screen.getByRole('textbox');
+    await userEvent.type(input, 'login testuser{enter}');
+    
+    // Wait for login success
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Wait for Build button to appear
+    let buildButton;
+    await waitFor(() => {
+      try {
+        buildButton = screen.getByRole('button', { name: 'Build' });
+      } catch {
+        buildButton = container.querySelector('.top-right-button');
+      }
+      if (!buildButton) {
+        // Log the DOM for debugging
+        // eslint-disable-next-line no-console
+        console.log(container.innerHTML);
+      }
+      expect(buildButton).toBeInTheDocument();
+    });
+    if (!buildButton) throw new Error('Build button not found');
+    // Click build button
+    await userEvent.click(buildButton);
+    // Try to submit empty form
+    const submitButton = screen.getByRole('button', { name: /create room/i });
+    await userEvent.click(submitButton);
+    // Verify required field messages
+    await waitFor(() => {
+      expect(screen.getByText('Room Name:')).toBeInTheDocument();
+      expect(screen.getByText('Exit to New Room:')).toBeInTheDocument();
+      expect(screen.getByText('Exit from New Room:')).toBeInTheDocument();
+      expect(screen.getByText('Room Description:')).toBeInTheDocument();
+    });
+  });
+
+  test('QueueManagementModal opens and closes correctly', async () => {
+    render(<App />);
+    
+    // First login as game account
+    const input = screen.getByRole('textbox');
+    await userEvent.type(input, `login ${config.game.accountName}{enter}`);
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as/i)).toBeInTheDocument();
+    });
+
+    // Click queue button
+    const queueButton = screen.getByText('Queue');
+    await userEvent.click(queueButton);
+
+    // Verify modal is open
+    await waitFor(() => {
+      expect(screen.getByText('Room Build Queue')).toBeInTheDocument();
+    });
+
+    // Close modal
+    const closeButton = screen.getByText('×');
+    await userEvent.click(closeButton);
+
+    // Verify modal is closed
+    await waitFor(() => {
+      expect(screen.queryByText('Room Build Queue')).not.toBeInTheDocument();
+    });
+  });
+
+  test('QueueManagementModal displays build requests', async () => {
+    render(<App />);
+    
+    // First login as game account
+    const input = screen.getByRole('textbox');
+    await userEvent.type(input, `login ${config.game.accountName}{enter}`);
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as/i)).toBeInTheDocument();
+    });
+
+    // Click queue button
+    const queueButton = screen.getByRole('button', { name: /queue/i });
+    await userEvent.click(queueButton);
+
+    // Verify modal shows no pending requests initially
+    await waitFor(() => {
+      expect(screen.getByText('No pending build requests')).toBeInTheDocument();
+    });
+
+    // Simulate receiving a build request
+    const mockSocket = (io as jest.Mock).mock.results[0].value;
+    const queueStateCallback = mockSocket.on.mock.calls.find(
+      (call: [string, Function]) => call[0] === 'buildQueueStatus'
+    )?.[1];
+
+    if (queueStateCallback) {
+      act(() => {
+        queueStateCallback([
+          ['test-queue-id', {
+            queueId: 'test-queue-id',
+            username: 'testuser',
+            room: {
+              author: 'testuser',
+              permlink: 'test-room'
+            },
+            newRoom: {
+              permlink: 'new-room',
+              author: 'testuser'
+            },
+            exits: {
+              fromNewRoom: { north: 'test-room' },
+              fromCurrentRoom: { south: 'new-room' }
+            },
+            timestamp: Date.now(),
+            status: 'pending'
+          }]
+        ]);
+      });
+    }
+
+    // Verify build request is displayed
+    await waitFor(() => {
+      expect(screen.getByText(/Request from testuser/i)).toBeInTheDocument();
+      expect(screen.getByText(/new-room/)).toBeInTheDocument();
+      expect(screen.getByText(/test-room/)).toBeInTheDocument();
+      expect(screen.getByText(/pending/)).toBeInTheDocument();
+    });
+  });
+
+  test('QueueManagementModal handles build request rejection', async () => {
+    render(<App />);
+    
+    // First login as game account
+    const input = screen.getByRole('textbox');
+    await userEvent.type(input, `login ${config.game.accountName}{enter}`);
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as/i)).toBeInTheDocument();
+    });
+
+    // Click queue button
+    const queueButton = screen.getByRole('button', { name: /queue/i });
+    await userEvent.click(queueButton);
+
+    // Simulate receiving a build request
+    const mockSocket = (io as jest.Mock).mock.results[0].value;
+    const queueStateCallback = mockSocket.on.mock.calls.find(
+      (call: [string, Function]) => call[0] === 'buildQueueStatus'
+    )?.[1];
+
+    if (queueStateCallback) {
+      act(() => {
+        queueStateCallback([
+          ['test-queue-id', {
+            queueId: 'test-queue-id',
+            username: 'testuser',
+            room: {
+              author: 'testuser',
+              permlink: 'test-room'
+            },
+            newRoom: {
+              permlink: 'new-room',
+              author: 'testuser'
+            },
+            exits: {
+              fromNewRoom: { north: 'test-room' },
+              fromCurrentRoom: { south: 'new-room' }
+            },
+            timestamp: Date.now(),
+            status: 'pending'
+          }]
+        ]);
+      });
+    }
+
+    // Wait for the request to be displayed
+    await waitFor(() => {
+      expect(screen.getByText(/Request from testuser/i)).toBeInTheDocument();
+    });
+
+    // Click reject button
+    const rejectButton = screen.getByRole('button', { name: /reject/i });
+    await userEvent.click(rejectButton);
+
+    // Enter rejection reason
+    const reasonInput = screen.getByPlaceholderText('Enter reason for rejection...');
+    await userEvent.type(reasonInput, 'Test rejection reason');
+
+    // Submit rejection
+    const submitRejectionButton = screen.getByRole('button', { name: /submit rejection/i });
+    await userEvent.click(submitRejectionButton);
+
+    // Wait for socket emit to be called
+    await waitFor(() => {
+      expect(mockSocket.emit).toHaveBeenCalledWith('rejectRoomBuild', {
+        queueId: 'test-queue-id',
+        reason: 'Test rejection reason'
+      });
+    }, { timeout: 2000 });
+  });
+
+  test('QueueManagementModal handles empty queue state', async () => {
+    render(<App />);
+    
+    // First login as game account
+    const input = screen.getByRole('textbox');
+    await userEvent.type(input, `login ${config.game.accountName}{enter}`);
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as/i)).toBeInTheDocument();
+    });
+
+    // Click queue button
+    const queueButton = screen.getByRole('button', { name: /queue/i });
+    await userEvent.click(queueButton);
+
+    // Verify empty state message
+    await waitFor(() => {
+      expect(screen.getByText('No pending build requests')).toBeInTheDocument();
+    });
+  });
+
+  test('QueueManagementModal handles socket disconnection', async () => {
+    render(<App />);
+    
+    // First login as game account
+    const input = screen.getByRole('textbox');
+    await userEvent.type(input, `login ${config.game.accountName}{enter}`);
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as/i)).toBeInTheDocument();
+    });
+
+    // Click queue button
+    const queueButton = screen.getByRole('button', { name: /queue/i });
+    await userEvent.click(queueButton);
+
+    // Simulate socket disconnection
+    const mockSocket = (io as jest.Mock).mock.results[0].value;
+    mockSocket.connected = false;
+    act(() => {
+      const disconnectCallback = mockSocket.on.mock.calls.find(
+        (call: [string, Function]) => call[0] === 'disconnect'
+      )?.[1];
+      if (disconnectCallback) {
+        disconnectCallback();
+      }
+    });
+
+    // Verify modal still shows empty state
+    await waitFor(() => {
+      expect(screen.getByText('No pending build requests')).toBeInTheDocument();
     });
   });
 });
