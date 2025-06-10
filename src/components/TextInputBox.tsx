@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 
 interface TextInputBoxProps {
   onEnterPressed: (text: string) => void;
+  isLoading?: boolean;
 }
 
-function TextInputBox({ onEnterPressed }: TextInputBoxProps) {
+function TextInputBox({ onEnterPressed, isLoading = false }: TextInputBoxProps) {
   const [inputText, setInputText] = useState('');
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && !isLoading) {
       onEnterPressed(inputText);
       setInputText('');
     }
@@ -25,9 +26,10 @@ function TextInputBox({ onEnterPressed }: TextInputBoxProps) {
         value={inputText}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        placeholder="Enter command"
+        placeholder={isLoading ? "Processing..." : "Enter command"}
         autoFocus={true}
         data-testid="command-input"
+        disabled={isLoading}
       />
     </div>
   );
