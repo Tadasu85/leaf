@@ -75,7 +75,7 @@ interface StreamOperation {
 
 // --- Helper type for P2P messages ---
 interface P2PMessage {
-  type: 'chat' | 'emote'; // Add other types as needed
+  type: 'chat' | 'emote' | 'test'; // Add other types as needed
   payload: any;
   sender: string;
 }
@@ -128,8 +128,10 @@ function App() {
   const [isBuilder, setIsBuilder] = useState<boolean>(false);
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [isQueueButtonActive, setIsQueueButtonActive] = useState(false);
+  const [queueStatus, setQueueStatus] = useState<[string, any][]>([]);
   const isFullyReady = useRef(false);
   const [isLoadingMove, setIsLoadingMove] = useState(false);
+  const pendingMessages = useRef<{ [username: string]: P2PMessage[] }>({});
 
   const outPut = useCallback((texttooutput: string, bold?: boolean) => {
     setGameOutputMessage((prevOutput) => [...prevOutput, { output: texttooutput, bold: bold }]);
@@ -160,6 +162,18 @@ function App() {
   const destroyPeer = useCallback((targetUser: string) => {
     const peerConn = peers.current[targetUser];
     if (peerConn) {
+      console.log(`[Peer Debug] Destroying peer connection to ${targetUser}`, {
+        connected: peerConn.connected,
+        currentPeers: Object.keys(peers.current)
+      });
+      
+      // Only destroy if we're not in the same room
+      const currentRoomdata = roomdataRef.current;
+      if (currentRoomdata?.players?.includes(targetUser)) {
+        console.log(`[Peer Debug] Skipping peer destruction for ${targetUser} - still in same room`);
+        return;
+      }
+      
       peerConn.peer.destroy();
       delete peers.current[targetUser];
     }
@@ -167,6 +181,10 @@ function App() {
 
   // --- P2P Helper: Destroy All Peers ---
   const destroyAllPeers = useCallback(() => {
+    console.log('[Peer Debug] Destroying all peer connections', {
+      currentPeers: Object.keys(peers.current)
+    });
+    
     Object.keys(peers.current).forEach(targetUser => {
       destroyPeer(targetUser);
     });
@@ -176,19 +194,24 @@ function App() {
   // --- P2P Helper: Create Peer ---
   const createPeer = useCallback((targetUsername: string, initiator: boolean = false) => {
     if (!username) {
-      console.error('Cannot create peer without username');
+      console.error('[Peer Debug] Cannot create peer without username');
       return;
     }
 
-    console.log(`Creating peer connection to ${targetUsername} (initiator: ${initiator})`);
+    console.log(`[Peer Debug] Creating peer connection to ${targetUsername}`, {
+      initiator,
+      currentPeers: Object.keys(peers.current),
+      isFullyReady: isFullyReady.current,
+      socketConnected: signalingSocket.current?.connected
+    });
     
     // Check if peer already exists
     if (peers.current[targetUsername]) {
-      console.log(`Peer connection to ${targetUsername} already exists`);
+      console.log(`[Peer Debug] Peer connection to ${targetUsername} already exists`);
       return;
     }
 
-    // Create new peer
+    // Create new peer with explicit data channel options
     const peer = new Peer({
       initiator,
       trickle: false,
@@ -197,7 +220,14 @@ function App() {
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' }
         ]
-      }
+      },
+      // Add explicit data channel configuration
+      channelConfig: {
+        ordered: true,
+        maxRetransmits: 3
+      },
+      // Force data channel creation
+      objectMode: false
     });
 
     // Store peer connection
@@ -209,51 +239,149 @@ function App() {
 
     // Handle peer events
     peer.on('signal', (signal) => {
-      console.log(`Sending signal to ${targetUsername}:`, signal.type);
+      console.log(`[Peer Debug] Sending signal to ${targetUsername}:`, {
+        signalType: signal.type,
+        isFullyReady: isFullyReady.current,
+        socketConnected: signalingSocket.current?.connected
+      });
+      
       if (signalingSocket.current?.connected) {
-        signalingSocket.current.emit('signal', {
-          from: username,
-          to: targetUsername,
-          signal
-        });
+        try {
+          signalingSocket.current.emit('signal', {
+            from: username,
+            to: targetUsername,
+            signal
+          });
+        } catch (error) {
+          console.error(`[Peer Debug] Error sending signal to ${targetUsername}:`, error);
+        }
       } else {
-        console.error('Cannot send signal: socket not connected');
+        console.error('[Peer Debug] Cannot send signal: socket not connected');
       }
     });
 
     peer.on('connect', () => {
-      console.log(`Peer connection established with ${targetUsername}`);
+      console.log(`[Peer Debug] Peer connection established with ${targetUsername}`, {
+        currentPeers: Object.keys(peers.current),
+        isInitiator: initiator,
+        isFullyReady: isFullyReady.current
+      });
+      
       if (peers.current[targetUsername]) {
         peers.current[targetUsername].connected = true;
         outPutRef.current(`[P2P] Connected to ${targetUsername}.`, false);
+        
+        // Try to send any pending messages
+        if (pendingMessages.current[targetUsername]) {
+          pendingMessages.current[targetUsername].forEach(message => {
+            try {
+              const messageStr = JSON.stringify(message);
+              console.log(`[Peer Debug] Sending pending message to ${targetUsername}:`, messageStr);
+              peer.send(messageStr);
+            } catch (error) {
+              console.error(`[Peer Debug] Failed to send pending message to ${targetUsername}:`, error);
+            }
+          });
+          delete pendingMessages.current[targetUsername];
+        }
       }
     });
 
+    // Add explicit data channel event handlers
     peer.on('data', (data) => {
+      console.log(`[Peer Debug] Raw data received from ${targetUsername}:`, data.toString());
       try {
         const message = JSON.parse(data.toString()) as P2PMessage;
-        console.log(`Received P2P message from ${targetUsername}:`, message);
+        console.log(`[Peer Debug] Parsed P2P message from ${targetUsername}:`, {
+          type: message.type,
+          sender: message.sender,
+          payload: message.payload,
+          rawData: data.toString()
+        });
         
         if (message.type === 'chat') {
+          console.log(`[Peer Debug] Processing chat message from ${message.sender}:`, message.payload);
           outPutRef.current(`[${message.sender}]: ${message.payload}`, false);
         } else if (message.type === 'emote') {
-          outPutRef.current(`[P2P] ${message.sender} ${message.payload}`, false);
+          console.log(`[Peer Debug] Processing emote from ${message.sender}:`, message.payload);
+          outPutRef.current(`${message.sender} ${message.payload}`, false);
+        } else if (message.type === 'test') {
+          console.log(`[Peer Debug] Received test message from ${targetUsername}:`, message.payload);
+          // Send a response to confirm the channel is working
+          try {
+            const responseMessage = {
+              type: 'test',
+              payload: 'channel test response',
+              sender: username
+            };
+            peer.send(JSON.stringify(responseMessage));
+            console.log(`[Peer Debug] Sent test response to ${targetUsername}`);
+          } catch (error) {
+            console.error(`[Peer Debug] Failed to send test response to ${targetUsername}:`, error);
+          }
+        } else {
+          console.warn(`[Peer Debug] Unknown message type from ${targetUsername}:`, message.type);
         }
       } catch (error) {
-        console.error('Error parsing P2P message:', error);
+        console.error(`[Peer Debug] Error processing message from ${targetUsername}:`, error);
+        console.error('[Peer Debug] Raw message data:', data.toString());
       }
     });
 
     peer.on('error', (error) => {
-      console.error(`Peer connection error with ${targetUsername}:`, error);
-      outPutRef.current(`[P2P Error] Connection error with ${targetUsername}: ${error.message}`, true);
-      destroyPeer(targetUsername);
+      console.error(`[Peer Debug] Peer connection error with ${targetUsername}:`, error);
+      // Only destroy on fatal errors
+      if (error.message.includes('fatal') || error.message.includes('closed')) {
+        outPutRef.current(`[P2P Error] Connection error with ${targetUsername}: ${error.message}`, true);
+        destroyPeer(targetUsername);
+      } else {
+        console.warn(`[Peer Debug] Non-fatal peer error with ${targetUsername}:`, error);
+      }
     });
 
     peer.on('close', () => {
-      console.log(`Peer connection closed with ${targetUsername}`);
-      outPutRef.current(`[P2P] Disconnected from ${targetUsername}.`, false);
-      destroyPeer(targetUsername);
+      console.log(`[Peer Debug] Peer connection closed with ${targetUsername}`, {
+        currentPeers: Object.keys(peers.current),
+        isInitiator: initiator,
+        isFullyReady: isFullyReady.current
+      });
+      
+      // Only destroy if we're not in the same room
+      const currentRoomdata = roomdataRef.current;
+      if (!currentRoomdata?.players?.includes(targetUsername)) {
+        outPutRef.current(`[P2P] Disconnected from ${targetUsername}.`, false);
+        destroyPeer(targetUsername);
+      } else {
+        console.log(`[Peer Debug] Peer ${targetUsername} closed but still in same room - attempting reconnect`);
+        // Try to reconnect
+        setTimeout(() => {
+          if (peers.current[targetUsername]) {
+            console.log(`[Peer Debug] Reconnecting to ${targetUsername}`);
+            createPeer(targetUsername, true);
+          }
+        }, 1000);
+      }
+    });
+
+    // Add explicit data channel event handlers
+    peer.on('channelOpen', () => {
+      console.log(`[Peer Debug] Data channel opened with ${targetUsername}`);
+      // Send a test message to verify the channel is working
+      try {
+        const testMessage = {
+          type: 'test',
+          payload: 'channel test',
+          sender: username
+        };
+        peer.send(JSON.stringify(testMessage));
+        console.log(`[Peer Debug] Sent test message to ${targetUsername}`);
+      } catch (error) {
+        console.error(`[Peer Debug] Failed to send test message to ${targetUsername}:`, error);
+      }
+    });
+
+    peer.on('channelClose', () => {
+      console.log(`[Peer Debug] Data channel closed with ${targetUsername}`);
     });
 
     return peer;
@@ -261,23 +389,39 @@ function App() {
 
   // --- P2P Signaling Handlers ---
   const handleIncomingSignal = useCallback(({ from, signal }: { from: string, signal: any }) => {
-    console.log(`Handling incoming signal from ${from}:`, signal.type);
+    console.log(`[Peer Debug] Handling incoming signal from ${from}:`, {
+      signalType: signal.type,
+      isFullyReady: isFullyReady.current,
+      socketConnected: signalingSocket.current?.connected,
+      currentPeers: Object.keys(peers.current)
+    });
     
     // Create peer if it doesn't exist
     if (!peers.current[from]) {
-      console.log(`Creating new peer for ${from}`);
+      console.log(`[Peer Debug] Creating new peer for ${from}`);
       createPeer(from, false);
     }
 
     // Forward signal to peer
     const peerConnection = peers.current[from];
     if (peerConnection) {
-      console.log(`Forwarding signal to peer ${from}`);
-      peerConnection.peer.signal(signal);
+      console.log(`[Peer Debug] Forwarding signal to peer ${from}:`, {
+        signalType: signal.type,
+        peerConnected: peerConnection.connected
+      });
+      try {
+        peerConnection.peer.signal(signal);
+      } catch (error) {
+        console.error(`[Peer Debug] Error forwarding signal to ${from}:`, error);
+        // If there's an error, try recreating the peer
+        destroyPeer(from);
+        createPeer(from, false);
+        peers.current[from]?.peer.signal(signal);
+      }
     } else {
-      console.error(`No peer connection found for ${from}`);
+      console.error(`[Peer Debug] No peer connection found for ${from}`);
     }
-  }, [createPeer]);
+  }, [createPeer, destroyPeer]);
 
   const handleIncomingSignalRef = useRef(handleIncomingSignal);
 
@@ -515,15 +659,12 @@ function App() {
               currentPeers: Object.keys(peers.current)
             });
 
-            // Filter out current user and ensure we only show connected players
-            const connectedPlayers = players.filter(p => 
-              p !== username && // Remove current user
-              peers.current[p]?.connected // Only include connected peers
-            );
+            // Only filter out current user, keep all other players
+            const otherPlayers = players.filter(p => p !== username);
 
             const updatedRoomData = {
               ...roomData,
-              players: connectedPlayers
+              players: otherPlayers
             };
             
             // Update state
@@ -545,10 +686,7 @@ function App() {
     outPutRef.current(roomData.body, false);
 
     // Display present players (excluding only the current user)
-    const presentPlayers = roomData.players.filter(p => 
-      p !== username && // Remove current user
-      peers.current[p]?.connected // Only show connected players
-    );
+    const presentPlayers = roomData.players.filter(p => p !== username);
 
     if (presentPlayers.length > 0) {
       outPutRef.current(`Found ${presentPlayers.length} other player(s) in the room:`, false);
@@ -704,9 +842,6 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       console.error("[Move Debug]", message, error);
       outPutRef.current(message, true);
       throw error;
-    } finally {
-      setLoading(false);
-      setIsLoadingMove(false);
     }
   }, [keychain, userProfileJSON, lastKnownLocation, client.database]);
 
@@ -782,6 +917,11 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
     }
   }, [client, gameJSON, traceUserActivity, parseDetailString, roomdata, displayRoom, isLoadingMove]);
 
+  const fetchPlayerDataRef = useRef(fetchPlayerData);
+
+  useEffect(() => {
+    fetchPlayerDataRef.current = fetchPlayerData;
+  }, [fetchPlayerData]);
 
   const debouncedFetchPlayerData = useMemo(
     () => {
@@ -855,25 +995,43 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
     }
   }, [keychain, userProfileJSON]);
 
-  // Add helper function to send messages through peer connections
+  // Update sendMessageToPeers
   const sendMessageToPeers = useCallback((message: P2PMessage) => {
+    console.log('[Peer Debug] Attempting to send message:', {
+      type: message.type,
+      payload: message.payload,
+      currentPeers: Object.entries(peers.current).map(([user, conn]) => ({
+        user,
+        connected: conn.connected
+      }))
+    });
+
     let sentToAny = false;
     Object.values(peers.current).forEach(({ peer, connected, targetUsername }) => {
-      if (connected) {
-        try {
-          peer.send(JSON.stringify(message));
+      try {
+        if (connected) {
+          const messageStr = JSON.stringify(message);
+          console.log(`[Peer Debug] Sending message to ${targetUsername}:`, messageStr);
+          peer.send(messageStr);
           sentToAny = true;
-          console.log(`Sent ${message.type} to ${targetUsername}:`, message.payload);
-        } catch (error) {
-          console.error(`Failed to send ${message.type} to ${targetUsername}:`, error);
+        } else {
+          console.log(`[Peer Debug] Peer ${targetUsername} not connected, storing message`);
+          if (!pendingMessages.current[targetUsername]) {
+            pendingMessages.current[targetUsername] = [];
+          }
+          pendingMessages.current[targetUsername].push(message);
         }
-      } else {
-        console.log(`Skipping ${targetUsername} - peer not connected`);
+      } catch (error) {
+        console.error(`[Peer Debug] Failed to send message to ${targetUsername}:`, error);
+        if (!pendingMessages.current[targetUsername]) {
+          pendingMessages.current[targetUsername] = [];
+        }
+        pendingMessages.current[targetUsername].push(message);
       }
     });
     
     if (!sentToAny) {
-      console.log('No connected peers to send message to');
+      console.log('[Peer Debug] No connected peers to send message to');
     }
   }, []);
 
@@ -1000,6 +1158,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
           payload: messageToSend,
           sender: username
         };
+        console.log('[Peer Debug] Sending chat message:', chatMessage);
         sendMessageToPeers(chatMessage);
         break;
 
@@ -1117,8 +1276,8 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
               console.error(message, error);
               setGeneralError(message);
               outPutRef.current(message, true);
-              setIsSignedIn(false);
-              setUsername(null);
+              //setIsSignedIn(false);
+              //setUsername(null);
             }
           } else {
             const message = 'Login failed, keychain returned false';
@@ -1155,7 +1314,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       setIsSignedIn(false);
       setUsername(null);
     }
-  }, [keychain, builders, fetchPlayerData, handleCommand, isSignedIn ]);
+  }, [keychain, builders, fetchPlayerData, handleCommand, isSignedIn]);
 
   useEffect(() => {
     if (generalError) {
@@ -1207,7 +1366,8 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       console.log('[Socket Debug] Connected to signaling server:', {
         socketId: socket.id,
         username,
-        currentPeers: Object.keys(peers.current)
+        currentPeers: Object.keys(peers.current),
+        isFullyReady: isFullyReady.current
       });
       retryCount.current = 0;
       isSettingUpSocket.current = false;
@@ -1227,7 +1387,8 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
             
             console.log('[Socket Debug] Re-establishing room connection:', {
               roomId,
-              currentPlayers: currentRoomdata.players
+              currentPlayers: currentRoomdata.players,
+              isFullyReady: isFullyReady.current
             });
 
             // First request current room state
@@ -1250,7 +1411,8 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
               if (targetUser !== username && !peers.current[targetUser]) {
                 console.log(`[Socket Debug] Re-establishing peer connection:`, {
                   targetUser,
-                  socketId: socket.id
+                  socketId: socket.id,
+                  isFullyReady: isFullyReady.current
                 });
                 createPeer(targetUser, true);
               }
@@ -1317,30 +1479,101 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       handleIncomingSignalRef.current({ from, signal });
     });
 
-    socket.on('roomState', ({ room, players }: { room: string, players: string[] }) => {
-      const currentRoomdata = roomdataRef.current;
-      if (room === `${currentRoomdata.author}/${currentRoomdata.permlink}`) {
-        console.log('[Socket Debug] Received room state update:', { room, players });
-        
-        // Update room data with players from signaling server
+    // Add roomJoined handler
+    socket.on('roomJoined', ({ room, players }) => {
+      console.log('[Socket Debug] Room joined:', { room, players });
+      if (room === currentRoomIdentifier.current) {
         setRoomData(prev => ({
           ...prev,
           players: players.filter((p: string) => p !== username)
         }));
+      }
+    });
+
+    // Add playerJoined handler
+    socket.on('playerJoined', ({ room, username: joinedUsername, players }) => {
+      console.log('[Socket Debug] Player joined:', { room, joinedUsername, players });
+      if (room === currentRoomIdentifier.current) {
+        outPutRef.current(`${joinedUsername} has entered the room.`, false);
+        setRoomData(prev => ({
+          ...prev,
+          players: players.filter((p: string) => p !== username)
+        }));
+        // Create peer connection for new player
+        if (joinedUsername !== username && !peers.current[joinedUsername]) {
+          createPeer(joinedUsername, true);
+        }
+      }
+    });
+
+    // Add roomUpdate handler
+    socket.on('roomUpdate', ({ room, players }) => {
+      console.log('[Socket Debug] Room update:', { room, players });
+      if (room === currentRoomIdentifier.current) {
+        setRoomData(prev => ({
+          ...prev,
+          players: players.filter((p: string) => p !== username)
+        }));
+      }
+    });
+
+    // Add build queue handlers
+    socket.on('roomBuildApproved', ({ queueId }) => {
+      console.log('[Socket Debug] Room build approved:', queueId);
+      outPutRef.current('Your room build request has been approved!', false);
+      // Refresh game data to show new room
+      fetchgameData();
+      if (username) {
+        fetchPlayerDataRef.current(username);
+      }
+    });
+
+    socket.on('roomBuildRejected', ({ queueId, reason }) => {
+      console.log('[Socket Debug] Room build rejected:', { queueId, reason });
+      outPutRef.current(`Your room build request was rejected: ${reason}`, true);
+    });
+
+    socket.on('buildQueueStatus', (queueStatus) => {
+      console.log('[Socket Debug] Build queue status:', queueStatus);
+      // This will be handled by the QueueManagementModal component
+      if (setQueueStatus) {
+        setQueueStatus(queueStatus);
+      }
+    });
+
+    socket.on('roomState', ({ room, players }: { room: string, players: string[] }) => {
+      const currentRoomdata = roomdataRef.current;
+      if (room === `${currentRoomdata.author}/${currentRoomdata.permlink}`) {
+        console.log('[Socket Debug] Received room state update:', { 
+          room, 
+          players,
+          isFullyReady: isFullyReady.current,
+          currentPeers: Object.keys(peers.current)
+        });
+        
+        // Update room data with players from signaling server, only filter out current user
+        setRoomData(prev => ({
+          ...prev,
+          players: players.filter(p => p !== username)
+        }));
 
         // Handle peer connections - ensure we connect to all players in the room
         const currentPeers = new Set(Object.keys(peers.current));
-        const newPeers = new Set(players.filter((p: string) => p !== username));
+        const newPeers = new Set(players.filter(p => p !== username));
 
         console.log('[Socket Debug] Peer connection status:', {
           currentPeers: Array.from(currentPeers),
-          newPeers: Array.from(newPeers)
+          newPeers: Array.from(newPeers),
+          isFullyReady: isFullyReady.current
         });
 
         // Create peer connections for any players we're not connected to
         newPeers.forEach((targetUser: string) => {
           if (!currentPeers.has(targetUser)) {
-            console.log(`[Socket Debug] Creating peer connection for ${targetUser} (reconnect)`);
+            console.log(`[Socket Debug] Creating peer connection for ${targetUser} (reconnect)`, {
+              isFullyReady: isFullyReady.current,
+              socketConnected: signalingSocket.current?.connected
+            });
             // Both users should try to initiate the connection
             createPeer(targetUser, true);
           }
@@ -1353,17 +1586,6 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
             destroyPeer(targetUser);
           }
         });
-
-        // If we're the first to join, we should try to connect to all other players
-        if (players.length > 1) {
-          console.log('[Socket Debug] Multiple players in room, ensuring peer connections');
-          players.forEach((targetUser: string) => {
-            if (targetUser !== username && !currentPeers.has(targetUser)) {
-              console.log(`[Socket Debug] Initiating peer connection to ${targetUser}`);
-              createPeer(targetUser, true);
-            }
-          });
-        }
       }
     });
 
@@ -1379,7 +1601,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       isSettingUpSocket.current = false;
       destroyAllPeersRef.current();
     };
-  }, [username, createPeer, destroyPeer]);
+  }, [username, createPeer, destroyPeer, fetchgameData]);
 
   // Use the memoized setup function
   useEffect(() => {
@@ -1450,7 +1672,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
                   const newRoomData: RoomData = {
                     "body": transactionData.body,
                     "title": transactionData.title,
-                    "players": [], // Start with empty players list, will be updated by room state
+                    "players": roomdata.players, // Keep existing players until room state is updated
                     "details": transformedDetails,
                     "exits": gameJSON[newLocation.Location.permlink]?.exits || {},
                     "author": newLocation.Location.author,
@@ -1631,6 +1853,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
         onClose={handleCloseQueueModal}
         username={username}
         socket={signalingSocket.current}
+        queueStatus={queueStatus}
       />
     </div>
   );
