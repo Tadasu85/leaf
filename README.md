@@ -2,6 +2,27 @@
 
 Leaf is a framework for building text-based adventure games on the Hive blockchain. It provides the infrastructure for creating interactive worlds where players can explore interconnected rooms, interact with the environment, and customize their characters.
 
+## Components
+
+### Leaf Server
+The Leaf Server component provides real-time communication and state management for the game. It handles:
+- WebSocket connections for real-time updates
+- Room state synchronization
+- Player presence tracking
+- Chat and emote broadcasting
+- Builder queue management
+- P2P signaling for direct player connections
+
+### Leaf Client
+The client-side application that players interact with, featuring:
+- Text-based adventure gameplay
+- Hive blockchain integration
+- Real-time player interactions
+- Character customization
+- Room exploration and movement
+- Real-time updates via blockchain operations
+- P2P communication between players
+
 ## Ego Death - The First Game Built on Leaf
 
 Ego Death is the first game built using the Leaf framework. In this text-based adventure, players explore a mysterious world, interact with their environment, and customize their character's appearance and description.
@@ -30,7 +51,7 @@ Ego Death is the first game built using the Leaf framework. In this text-based a
 
 ## Installation
 
-### Ubuntu
+### Server Setup
 1. Install Node.js and npm (recommended: use NVM)
    ```bash
    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
@@ -40,8 +61,8 @@ Ego Death is the first game built using the Leaf framework. In this text-based a
 
 2. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/leaf.git
-   cd leaf
+   git clone https://gitlab.com/Tadasu85/leaf_server.git
+   cd leaf_server
    ```
 
 3. Install dependencies
@@ -49,42 +70,35 @@ Ego Death is the first game built using the Leaf framework. In this text-based a
    npm install
    ```
 
-4. Start the development server
+4. Configure environment variables
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+5. Start the server
    ```bash
    npm start
    ```
 
-5. Open your browser and navigate to `http://localhost:3000`
-
-### Windows
-1. Install required software:
-   - [Git](https://git-scm.com/download/win)
-   - [NVM for Windows](https://github.com/coreybutler/nvm-windows/releases)
-
-2. Open PowerShell as Administrator and run:
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
-   ```
-
-3. Install and use Node.js:
-   ```powershell
-   nvm install 22
-   nvm use 22
-   ```
-
-4. Clone the repository and install dependencies:
-   ```powershell
-   git clone https://github.com/yourusername/leaf.git
+### Client Setup
+1. Clone the client repository
+   ```bash
+   git clone https://gitlab.com/Tadasu85/leaf.git
    cd leaf
+   ```
+
+2. Install dependencies
+   ```bash
    npm install
    ```
 
-5. Start the development server:
-   ```powershell
+3. Start the development server
+   ```bash
    npm start
    ```
 
-6. Open your browser and navigate to `http://localhost:3000`
+4. Open your browser and navigate to `http://localhost:3000`
 
 ## Game Commands
 
@@ -116,40 +130,63 @@ Ego Death is the first game built using the Leaf framework. In this text-based a
 
 ## Technical Features
 
-### P2P Communication
-- Real-time peer-to-peer connections between players
-- Automatic connection management
-- Reliable message delivery
-- Connection state synchronization
-
-### Room System
-- Dynamic room state updates
+### Server Features
+- WebSocket-based real-time communication
+- Room state management and synchronization
 - Player presence tracking
-- Automatic room joining/leaving
-- Room detail management
-- Exit system for navigation
+- Chat and emote broadcasting
+- Builder queue management
+- P2P signaling for direct player connections
+- Automatic room cleanup
+- Connection state management
 
-### Blockchain Integration
-- Hive blockchain operations for game state
-- Custom JSON operations for game actions
-- Account metadata management
-- Real-time blockchain stream processing
+### Client Features
+- P2P Communication
+  - Real-time peer-to-peer connections between players
+  - Automatic connection management
+  - Reliable message delivery
+  - Connection state synchronization
 
-### Security
-- Hive Keychain integration for secure operations
-- Permission-based access control
-- Builder role management
-- Queue system for content creation
+- Room System
+  - Dynamic room state updates
+  - Player presence tracking
+  - Automatic room joining/leaving
+  - Room detail management
+  - Exit system for navigation
+
+- Blockchain Integration
+  - Hive blockchain operations for game state
+  - Custom JSON operations for game actions
+  - Account metadata management
+  - Real-time blockchain stream processing
+
+- Security
+  - Hive Keychain integration for secure operations
+  - Permission-based access control
+  - Builder role management
+  - Queue system for content creation
 
 ## Development
 
 ### Running Tests
 ```bash
+# Server tests
+cd leaf_server
+npm test
+
+# Client tests
+cd leaf
 npm test
 ```
 
 ### Building for Production
 ```bash
+# Server build
+cd leaf_server
+npm run build
+
+# Client build
+cd leaf
 npm run build
 ```
 
