@@ -130,7 +130,6 @@ function App() {
   const [isQueueButtonActive, setIsQueueButtonActive] = useState(false);
   const [queueStatus, setQueueStatus] = useState<[string, any][]>([]);
   const isFullyReady = useRef(false);
-  const [isLoadingMove, setIsLoadingMove] = useState(false);
   const pendingMessages = useRef<{ [username: string]: P2PMessage[] }>({});
 
   const outPut = useCallback((texttooutput: string, bold?: boolean) => {
@@ -732,7 +731,6 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
   }) => {
     try {
       setLoading(true);
-      setIsLoadingMove(true);
       const newRoomId = options?.newlocation ? 
         `${options.newlocation.author}/${options.newlocation.permlink}` : 
         `${lastKnownLocation?.author}/${lastKnownLocation?.permlink}`;
@@ -855,7 +853,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
         const message = "Account does not exist on the Hive blockchain.";
         console.error(message);
         outPutRef.current(message, true);
-        setLoading(false);
+        setLoading(false); // Set loading false for initial load error
         return;
       }
 
@@ -906,16 +904,20 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       setRoomData(obtaineddata);
       
       // Only display room if this is not part of a move operation
-      if (!isLoadingMove) {
+      if (!loading) {
         displayRoom(obtaineddata);
+      }
+
+      // Set loading to false only if this is the initial load (not during a move operation)
+      if (!loading) {
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error fetching player data:', error);
       outPutRef.current(`Error fetching player data: ${error instanceof Error ? error.message : String(error)}`, true);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Set loading false for initial load error
     }
-  }, [client, gameJSON, traceUserActivity, parseDetailString, roomdata, displayRoom, isLoadingMove]);
+  }, [client, gameJSON, traceUserActivity, parseDetailString, roomdata, displayRoom, loading]);
 
   const fetchPlayerDataRef = useRef(fetchPlayerData);
 
@@ -976,21 +978,18 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       
       if (result && result.success && result.result && result.result.id) {
         setuserProfileJSON(currentMetadata);
-        setLoading(false); //stop loading
         return true;
       } else {
         const message = "Error: Failed to update player data. Please check your Keychain and try again.";
         console.error("Broadcast failed:", { result });
         console.error("Broadcast result details:", JSON.stringify(result));
         outPutRef.current(message, true);
-        setLoading(false); //stop loading
         return false;
       }
     } catch (error: unknown) {
       const message = `Error updating account metadata: ${error instanceof Error ? error.message : String(error)}`;
       console.error(message, error);
       outPutRef.current(message, true);
-      setLoading(false); //stop loading
       return false;
     }
   }, [keychain, userProfileJSON]);
@@ -1648,7 +1647,6 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
                   newLocation.Location.author !== lastKnownLocation.author)) {
                 console.log('Current user moved to new location:', newLocation);
                 try {
-                  setLoading(true);
                   // Update the location
                   setLastKnownLocation(newLocation.Location);
                   
@@ -1685,7 +1683,11 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
                   // Update room players and display
                   await updateRoomPlayers(newLocation.Location);
                   await displayRoom(newRoomData);
-                } finally {
+                  
+                  // Now that we've confirmed the move operation and updated everything, we can set loading to false
+                  setLoading(false);
+                } catch (error) {
+                  console.error('Error processing move operation:', error);
                   setLoading(false);
                 }
               }
@@ -1830,7 +1832,7 @@ const parseDetailString = useCallback((detailBody: string): { [key: string]: str
       </header>
       <GameOutputWindow output={gameOutputMessage} />
       <div className="TextInputBox">
-        <TextInputBox onEnterPressed={handleTextEntered} isLoading={isLoadingMove} />
+        <TextInputBox onEnterPressed={handleTextEntered} isLoading={loading} />
       </div>
       <BuildModal
         isOpen={isBuildModalOpen}
