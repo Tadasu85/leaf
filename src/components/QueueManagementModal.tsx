@@ -7,7 +7,7 @@ interface QueueManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
   username: string | null;
-  socket: any;
+  socket?: any;
   queueStatus: [string, any][];
 }
 
@@ -47,7 +47,9 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
   useEffect(() => {
     if (isOpen && username === config.game.accountName) {
       // Request current queue status
-      socket.emit('getBuildQueue');
+      if (socket) {
+        socket.emit('getBuildQueue');
+      }
     }
   }, [isOpen, username, socket]);
 
@@ -163,7 +165,9 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
       }
 
       // Notify the builder
-      socket.emit('approveRoomBuild', { queueId });
+      if (socket) {
+        socket.emit('approveRoomBuild', { queueId });
+      }
       
       // Update local state
       setBuildRequests(prev => prev.map(req => 
@@ -184,7 +188,9 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
       return;
     }
 
-    socket.emit('rejectRoomBuild', { queueId, reason: rejectionReason });
+    if (socket) {
+      socket.emit('rejectRoomBuild', { queueId, reason: rejectionReason });
+    }
     setRejectionReason('');
     setSelectedRequest(null);
   };

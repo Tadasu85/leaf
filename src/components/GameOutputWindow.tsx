@@ -12,7 +12,7 @@ interface GameOutputWindowProps {
   output: GameOutputMessage[]; // Array of messages with the defined type.
 }
 
-function GameOutputWindow({ output }: GameOutputWindowProps) {
+function GameOutputWindow({ output = [] }: GameOutputWindowProps) {
   const outputRef = useRef<HTMLDivElement>(null); // Correct type
 
   useLayoutEffect(() => {
@@ -32,6 +32,7 @@ function GameOutputWindow({ output }: GameOutputWindowProps) {
   return (
     <div className="GameOutputWindow" ref={outputRef} data-testid="game-output">
       {output.map((message: GameOutputMessage, index: number) => {
+        if (!message || !message.output) return null;
         const lines = message.output.split('\n');
         return lines.map((line, lineIndex) => (
           <p key={`${index}-${lineIndex}`}>

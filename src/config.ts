@@ -1,4 +1,4 @@
-interface Config {
+export interface Config {
   hive: {
     node: string;
     chainId: string;
@@ -21,6 +21,7 @@ interface Config {
     debugMode: boolean;
     testMode: boolean;
   };
+  signalingServer: string;
 }
 
 const config: Config = {
@@ -46,6 +47,7 @@ const config: Config = {
     debugMode: process.env.REACT_APP_DEBUG_MODE === 'false',
     testMode: process.env.REACT_APP_TEST_MODE === 'false',
   },
+  signalingServer: 'http://localhost:4001',
 };
 
 export default config; 

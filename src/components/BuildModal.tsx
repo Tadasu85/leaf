@@ -11,7 +11,7 @@ interface BuildModalProps {
     permlink: string;
   } | null;
   onRoomCreated?: () => void;
-  socket: any; // Add socket prop
+  socket?: any; // Make socket optional
 }
 
 interface RoomFormData {
@@ -167,7 +167,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
       console.log('Queueing build request:', queueData);
 
       // Emit the queue request and store the queue ID
-      socket.emit('queueRoomBuild', queueData, (response: { queueId: string }) => {
+      socket?.emit('queueRoomBuild', queueData, (response: { queueId: string }) => {
         if (response && response.queueId) {
           setQueueId(response.queueId);
           setBuildStatus('queued');
@@ -183,7 +183,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
 
   // Add debug logging for props changes
   useEffect(() => {
-    console.log('BuildModal props updated:', { username, currentRoom });
+    //console.log('BuildModal props updated:', { username, currentRoom });
   }, [username, currentRoom]);
 
   if (!isOpen) return null;

@@ -336,6 +336,117 @@ describe('App Component', () => {
     });
   });
 
+  // Test chat message validation
+  test('validates chat messages', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Test empty message
+    await userEvent.type(input, 'say {enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Cannot send empty message/i)).toBeInTheDocument();
+    });
+
+    // Test message with only whitespace
+    await userEvent.type(input, 'say    {enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Cannot send empty message/i)).toBeInTheDocument();
+    });
+
+    // Test message length limit (assuming 500 chars)
+    const longMessage = 'a'.repeat(501);
+    await userEvent.type(input, `say ${longMessage}{enter}`);
+    await waitFor(() => {
+      expect(screen.getByText(/Message too long/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test chat message formatting
+  test('formats chat messages correctly', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Test message with extra spaces
+    await userEvent.type(input, 'say   Hello,   world!   {enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/You say: Hello, world!/i)).toBeInTheDocument();
+    });
+
+    // Test message with special characters
+    await userEvent.type(input, 'say Hello, @#$%^&*() world!{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/You say: Hello, @#$%^&*() world!/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test receiving chat messages
+  test('handles received chat messages', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Simulate receiving a chat message
+    const mockSocket = (io as jest.Mock).mock.results[0].value;
+    const chatCallback = mockSocket.on.mock.calls.find(
+      (call: [string, Function]) => call[0] === 'chat'
+    )?.[1];
+
+    if (chatCallback) {
+      act(() => {
+        chatCallback({
+          username: 'otheruser',
+          message: 'Hello from other user!'
+        });
+      });
+    }
+
+    // Verify received message is displayed
+    await waitFor(() => {
+      expect(screen.getByText(/otheruser says: Hello from other user!/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test chat message persistence
+  test('persists chat messages', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Send multiple messages
+    await userEvent.type(input, 'say First message{enter}');
+    await userEvent.type(input, 'say Second message{enter}');
+    await userEvent.type(input, 'say Third message{enter}');
+
+    // Verify all messages are displayed
+    await waitFor(() => {
+      expect(screen.getByText(/You say: First message/i)).toBeInTheDocument();
+      expect(screen.getByText(/You say: Second message/i)).toBeInTheDocument();
+      expect(screen.getByText(/You say: Third message/i)).toBeInTheDocument();
+    });
+  });
+
   // Test emote functionality
   test('handles emote command', async () => {
     render(<App />);
@@ -352,6 +463,144 @@ describe('App Component', () => {
     await waitFor(() => {
       expect(screen.getByText(/You waves/i)).toBeInTheDocument();
     });
+  });
+
+  // Test emote validation
+  test('validates emotes', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Test empty emote
+    await userEvent.type(input, 'emote {enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Emote what?/i)).toBeInTheDocument();
+    });
+
+    // Test emote with only whitespace
+    await userEvent.type(input, 'emote    {enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/You    /i)).toBeInTheDocument();
+    });
+
+    // Test invalid emote
+    await userEvent.type(input, 'emote invalid_emote{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/You invalid_emote/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test emote formatting
+  test('formats emotes correctly', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Test emote with extra spaces
+    await userEvent.type(input, 'emote   waves   {enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/You   waves   /i)).toBeInTheDocument();
+    });
+
+    // Test emote with mixed case
+    await userEvent.type(input, 'emote WaVeS{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/You waves/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test receiving emotes
+  test('handles received emotes', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Simulate receiving an emote
+    const mockSocket = (io as jest.Mock).mock.results[0].value;
+    const emoteCallback = mockSocket.on.mock.calls.find(
+      (call: [string, Function]) => call[0] === 'emote'
+    )?.[1];
+
+    if (emoteCallback) {
+      act(() => {
+        emoteCallback({
+          username: 'otheruser',
+          emote: 'waves'
+        });
+      });
+    }
+
+    // Verify received emote is displayed
+    await waitFor(() => {
+      expect(screen.getByText(/otheruser waves/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test emote persistence
+  test('persists emotes', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Send multiple emotes
+    await userEvent.type(input, 'emote waves{enter}');
+    await userEvent.type(input, 'emote smiles{enter}');
+    await userEvent.type(input, 'emote nods{enter}');
+
+    // Verify all emotes are displayed
+    await waitFor(() => {
+      expect(screen.getByText(/You waves/i)).toBeInTheDocument();
+      expect(screen.getByText(/You smiles/i)).toBeInTheDocument();
+      expect(screen.getByText(/You nods/i)).toBeInTheDocument();
+    });
+  });
+
+  // Test emote command variations
+  test('handles emote command variations', async () => {
+    render(<App />);
+    const input = screen.getByRole('textbox');
+    
+    // First login
+    await userEvent.type(input, 'login testuser{enter}');
+    await waitFor(() => {
+      expect(screen.getByText(/Login successful as testuser/i)).toBeInTheDocument();
+    });
+
+    // Test different command variations
+    const variations = [
+      'emote waves',
+      'emote waves at otheruser',
+      'emote waves to otheruser',
+      'emote waves towards otheruser'
+    ];
+
+    for (const variation of variations) {
+      await userEvent.type(input, `${variation}{enter}`);
+      await waitFor(() => {
+        const elements = screen.getAllByText(/You waves/i);
+        expect(elements.length).toBeGreaterThan(0);
+      });
+    }
   });
 
   // Test BuildModal functionality
@@ -563,10 +812,11 @@ describe('App Component', () => {
 
     // Verify build request is displayed
     await waitFor(() => {
-      expect(screen.getByText(/Request from testuser/i)).toBeInTheDocument();
-      expect(screen.getByText(/new-room/)).toBeInTheDocument();
-      expect(screen.getByText(/test-room/)).toBeInTheDocument();
-      expect(screen.getByText(/pending/)).toBeInTheDocument();
+      const modalBody = screen.getByRole('dialog');
+      expect(modalBody).toHaveTextContent('testuser');
+      expect(modalBody).toHaveTextContent('new-room');
+      expect(modalBody).toHaveTextContent('test-room');
+      expect(modalBody).toHaveTextContent('pending');
     });
   });
 
@@ -617,7 +867,8 @@ describe('App Component', () => {
 
     // Wait for the request to be displayed
     await waitFor(() => {
-      expect(screen.getByText(/Request from testuser/i)).toBeInTheDocument();
+      const modalBody = screen.getByRole('dialog');
+      expect(modalBody).toHaveTextContent('testuser');
     });
 
     // Click reject button
