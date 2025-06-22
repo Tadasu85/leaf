@@ -11,6 +11,7 @@ interface BuildModalProps {
     permlink: string;
   } | null;
   onRoomCreated?: () => void;
+  onBuildQueued?: () => void;
   socket?: any; // Make socket optional
 }
 
@@ -21,7 +22,7 @@ interface RoomFormData {
   description: string;
 }
 
-const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, socket }) => {
+const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued, socket }) => {
   const [formData, setFormData] = useState<RoomFormData>({
     roomName: '',
     exitToNewRoom: '',
@@ -33,7 +34,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
   const [queueId, setQueueId] = useState<string | null>(null);
   const [buildStatus, setBuildStatus] = useState<string>('');
 
-  const keychain = new KeychainSDK(window, { rpc: config.hive.node });
+  const keychain = new KeychainSDK(window, { rpc: config.hive.nodes[0] });
 
   // Set up socket listeners for queue status
   useEffect(() => {
@@ -53,6 +54,13 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           }
         } else if (data.status === 'failed') {
           setIsSubmitting(false);
+        } else if (data.status === 'queued') {
+          // Close modal when successfully queued
+          setIsSubmitting(false);
+          onClose();
+          if (onBuildQueued) {
+            onBuildQueued();
+          }
         }
       }
     };
@@ -62,7 +70,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     return () => {
       socket.off('queueStatus', handleQueueStatus);
     };
-  }, [socket, queueId, onClose, onRoomCreated]);
+  }, [socket, queueId, onClose, onRoomCreated, onBuildQueued]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

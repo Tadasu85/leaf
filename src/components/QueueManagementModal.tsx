@@ -8,7 +8,6 @@ interface QueueManagementModalProps {
   onClose: () => void;
   username: string | null;
   socket?: any;
-  queueStatus: [string, any][];
 }
 
 interface BuildRequest {
@@ -35,14 +34,14 @@ interface BuildRequest {
   rejectionReason?: string;
 }
 
-const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onClose, username, socket, queueStatus }) => {
+const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onClose, username, socket }) => {
   const [buildRequests, setBuildRequests] = useState<BuildRequest[]>([]);
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const keychain = new KeychainSDK(window, { rpc: config.hive.node });
-  const client = new Client([config.hive.node]);
+  const keychain = new KeychainSDK(window, { rpc: config.hive.nodes[0] });
+  const client = new Client([config.hive.nodes[0]]);
 
   useEffect(() => {
     if (isOpen && username === config.game.accountName) {
@@ -56,10 +55,10 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
   useEffect(() => {
     if (!socket) return;
 
-    const handleQueueStatus = (queueData: [string, BuildRequest][]) => {
-      setBuildRequests(queueData.map(([queueId, request]) => ({
+    const handleQueueStatus = (queueData: any[]) => {
+      setBuildRequests(queueData.map((request) => ({
         ...request,
-        queueId
+        queueId: request.id
       })));
     };
 

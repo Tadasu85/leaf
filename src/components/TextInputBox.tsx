@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface TextInputBoxProps {
   onEnterPressed: (text: string) => void;
@@ -7,9 +7,18 @@ interface TextInputBoxProps {
 
 function TextInputBox({ onEnterPressed, isLoading = false }: TextInputBoxProps) {
   const [inputText, setInputText] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the input when loading state changes from true to false
+  useEffect(() => {
+    if (!isLoading && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isLoading]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && !isLoading) {
+      console.log('[TextInputBox Debug] Enter pressed, calling onEnterPressed with:', inputText);
       onEnterPressed(inputText);
       setInputText('');
     }
@@ -22,6 +31,7 @@ function TextInputBox({ onEnterPressed, isLoading = false }: TextInputBoxProps) 
   return (
     <div className="TextInputBox">
       <input
+        ref={inputRef}
         type="text"
         value={inputText}
         onChange={handleChange}

@@ -1,415 +1,532 @@
+body, html, #root, .App {
+  height: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background: #229488;
+  font-family: 'Inter', 'Roboto', 'Arial', sans-serif;
+}
+
 .App {
-  height: 100vh;
-  width: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #097969;
 }
 
 .App-header {
-  background-color: #690979;
-  min-height: 10vh;
-  display: flex; /* Use flexbox for easier absolute positioning context */
+  background: #880e8f;
+  color: white;
+  padding: 16px 32px;
+  display: flex;
   align-items: center;
-  padding: 1rem;
-  position: relative; /* Make this the positioning context for absolute children */
+  justify-content: center;
+  position: relative;
+  min-height: 80px;
+  overflow: hidden;
 }
 
 .Title {
-  justify-self: center; /* This will now center within the flex container */
-  font-family: "Lucida Console", "Courier New", monospace;
-  font-size: calc(30px + 2vmin);
-  color: #ffffff;
+  font-size: 2.5rem;
+  font-family: 'monospace', monospace;
+  letter-spacing: 2px;
+  margin: 0;
+  padding: 8px 0;
   text-align: center;
-  margin-bottom: 0; /* Adjust margin as needed */
-  flex-grow: 1; /* Allow title to take up remaining space */
-}
-
-.Loading {
-  background-color: rgba(255, 255, 255, 0.9);
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 1rem 2rem;
-  border-radius: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.75rem;
-  font-family: "Lucida Console", "Courier New", monospace;
-  color: #690979;
-  min-width: 200px;
-}
-
-.Loading::after {
-  content: "";
-  display: block;
-  width: 100%;
-  height: 4px;
-  background-color: #f0f0f0;
-  border-radius: 2px;
+  filter: contrast(2) brightness(1.2);
+  text-shadow: 2px 2px 0 #fff, 0 0 2px #000;
+  max-width: 100%;
+  white-space: nowrap;
   overflow: hidden;
-  position: relative;
-  background: linear-gradient(90deg, 
-    transparent 0%,
-    #690979 50%,
-    transparent 100%
-  );
-  animation: progress 1.5s ease-in-out infinite;
-  background-size: 200% 100%;
-}
-
-@keyframes progress {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-.GameOutputWindow {
-  flex: 1;
-  overflow: auto;
-  width: 90%;
-  max-width: 1200px;
-  margin: 2rem auto;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding: 1rem;
-}
-
-.game-output {
-  height: 100%;
-  overflow: auto;
-  font-size: calc(12px + 0.5vmin);
-  line-height: 1.5;
-  padding: 0 1rem;
-}
-
-.game-output b {
-  color: #690979;
-  font-weight: 700;
+  text-overflow: ellipsis;
+  line-height: 1;
 }
 
 .header-buttons {
   display: flex;
-  flex-direction: column; /* Stack buttons vertically */
-  align-items: flex-end; /* Align items to the end (right) */
-  gap: 10px; /* Space between items */
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  z-index: 10;
+  top: 16px;
+  right: 32px;
 }
 
-.header-buttons .user-signout-container {
-  display: flex; /* Use flexbox for user icon and sign-out button */
-  align-items: center; /* Center items vertically */
-}
-
-.header-buttons .user-icon {
-  margin-right: 5px; /* Space between icon and sign-out button */
-}
-
-.header-buttons .SignOutButton {
-  padding: 0.5rem 1rem;
-  background-color: #0066ff !important; /* Force background color */
-  border: none !important;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  color: white !important; /* Force text color */
-}
-
-.header-buttons .SignOutButton:hover {
-  background-color: white !important; /* Force background on hover */
-  color: #0066ff !important; /* Force text color on hover */
+.user-signout-container {
+  background: #fff;
+  color: #222;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 16px 24px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .user-icon {
-  width: 40px; /* Set a width for the icon */
-  height: 40px; /* Set a height for the icon */
-  border-radius: 50%; /* Make it circular */
-  margin-right: 10px; /* Space between the icon and the button */
-  object-fit: cover; /* Ensure the image covers the area without distortion */
-}
-
-.top-right-button {
-  background-color: #2c2c2c;
-  color: #ffffff;
-  border: 1px solid #444;
-  padding: 8px 16px;
-  margin: 5px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  position: relative;
-  z-index: 1000;
-}
-
-.top-right-button:hover {
-  background-color: #3c3c3c;
-  border-color: #666;
-}
-
-.top-right-button.active {
-  background-color: #4a4a4a;
-  border-color: #888;
-  box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
-}
-
-.top-right-button:active {
-  transform: scale(0.98);
-} 
-
-.TextInputBox {
-  width: 90%;
-  max-width: 1200px;
-  margin: 0 auto 2rem auto;
-}
-
-img[alt*="ProfileImage"] {
-  height: 2.5rem;
-  width: 2.5rem;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
+  border: 2px solid #880e8f;
 }
 
-p {
-  padding: 0.5rem 0;
-  margin: 0;
-}
-
-p b {
-  color: #690979;
-  font-weight: 700;
-}
-
-button {
-  font-family: "Lucida Console", "Courier New", monospace;
-  cursor: pointer;
-  border: none;
-  background: none;
-  padding: 0.5rem 1rem;
-}
-
-input {
-  width: 100%;
-  padding: 0.75rem;
-  font-family: "Lucida Console", "Courier New", monospace;
-  font-size: 1rem;
-  border: 2px solid #ddd;
-  border-radius: 4px;
-  background-color: white;
-  transition: border-color 0.2s;
-}
-
-input:focus {
-  outline: none;
-  border-color: #690979;
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  background-color: #097969;
-  color: #333;
-  font-family: "Lucida Console", "Courier New", monospace;
-}
-
-/* For WebKit browsers (Chrome, Safari) */
-.GameOutputWindow::-webkit-scrollbar {
-  width: 12px; /* Width of the scrollbar */
-}
-
-.GameOutputWindow::-webkit-scrollbar-track {
-  background: #f1f1f1; /* Background of the scrollbar track */
-  border-radius: 10px; /* Rounded corners for the track */
-}
-
-.GameOutputWindow::-webkit-scrollbar-thumb {
-  background: #690979; /* Color of the scrollbar thumb */
-  border-radius: 10px; /* Rounded corners for the thumb */
-}
-
-.GameOutputWindow::-webkit-scrollbar-thumb:hover {
-  background: #7FFF00; /* Color of the thumb on hover */
-}
-
-/* For Firefox */
 .GameOutputWindow {
-  scrollbar-width: thin; /* Make scrollbar thinner */
-  scrollbar-color: #690979 #f1f1f1; /* Thumb color and track color */
+  background: #fff;
+  border-radius: 14px;
+  margin: 0 auto;
+  padding: 32px 32px 18px 32px;
+  max-width: 900px;
+  min-height: 320px;
+  max-height: 60vh;
+  overflow-y: auto;
+  font-family: 'Fira Mono', 'Consolas', 'monospace';
+  font-size: 1.08rem;
+  box-shadow: 0 4px 24px rgba(34, 148, 136, 0.10), 0 1.5px 8px rgba(136, 14, 143, 0.08);
+  color: #222;
+  line-height: 1.7;
+  border: 1.5px solid #22948822;
+  scrollbar-width: thin;
+  scrollbar-color: #229488 #e0e0e0;
+  position: relative;
+  z-index: 1;
+}
+.GameOutputWindow::-webkit-scrollbar {
+  width: 10px;
+  background: #e0e0e0;
+  border-radius: 8px;
+}
+.GameOutputWindow::-webkit-scrollbar-thumb {
+  background: #229488;
+  border-radius: 8px;
 }
 
-.BuildButton {
-  padding: 0.5rem 1rem;
-  background-color: #28a745; /* Example color for the build button */
-  border: none;
+.output-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 2px;
+  padding: 2px 0 2px 0;
+  word-break: break-word;
+  transition: background 0.15s;
+}
+.output-message:hover {
+  background: #22948811;
+}
+.output-message__timestamp {
+  color: #7e8ba3;
+  font-size: 0.75em;
+  margin-right: 4px;
+  min-width: 48px;
+  opacity: 0.55;
+  font-weight: 400;
+}
+.output-message__type {
+  color: #880e8f;
+  font-size: 0.93em;
+  margin-right: 4px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.output-message__source {
+  color: #229488;
+  font-size: 0.97em;
+  margin-right: 4px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.output-message__content {
+  flex: 1;
+  white-space: pre-wrap;
+}
+
+/* Message type coloring */
+.output-message--system {
+  color: #880e8f;
+}
+.output-message--room {
+  color: #229488;
+}
+.output-message--player {
+  color: #222;
+}
+.output-message--error {
+  color: #d32f2f;
+  background: #d32f2f11;
   border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  color: white; /* Text color */
+}
+.output-message--success {
+  color: #388e3c;
+  background: #388e3c11;
+  border-radius: 4px;
+}
+.output-message--info {
+  color: #229488;
+  background: #22948811;
+  border-radius: 4px;
+}
+.output-message--bold {
+  font-weight: bold;
 }
 
-.BuildButton:hover {
-  background-color: #218838; /* Darker shade on hover */
-  color: white; /* Keep text color white on hover */
+.TextInputBox {
+  display: flex;
+  justify-content: center;
+  margin: 32px 0 0 0;
 }
 
+.TextInputBox input[type="text"] {
+  width: 600px;
+  padding: 12px 16px;
+  border: 2px solid #880e8f;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-family: 'Fira Mono', 'Consolas', 'monospace';
+  outline: none;
+  margin: 0 auto;
+  box-sizing: border-box;
+  background: #fff;
+  color: #222;
+  transition: border 0.2s;
+}
+
+.TextInputBox input[type="text"]:focus {
+  border: 2px solid #229488;
+}
+
+.Loading {
+  color: #fff;
+  font-size: 1.2rem;
+  margin: 0 0 0 32px;
+}
+
+/* Loading overlay for full-screen loading states */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(34, 148, 136, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.loading-overlay__content {
+  background: #fff;
+  padding: 32px 48px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  color: #229488;
+  font-size: 1.3rem;
+  font-weight: 600;
+  border: 2px solid #880e8f;
+}
+
+.loading-overlay__spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #229488;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Utility styles for output */
+.bold {
+  font-weight: bold;
+}
+.italic {
+  font-style: italic;
+}
+.underline {
+  text-decoration: underline;
+}
+
+/* Responsive tweaks */
+@media (max-width: 700px) {
+  .GameOutputWindow {
+    padding: 14px 2vw 8px 2vw;
+    max-width: 99vw;
+    font-size: 0.98rem;
+  }
+  .TextInputBox input[type="text"] {
+    width: 90vw;
+  }
+  .header-buttons {
+    right: 8px;
+    top: 8px;
+  }
+}
+
+.SignOutButton {}
+.SignOutButton:hover {}
+.top-right-button {}
+.top-right-button.active {}
+.top-right-button:active {}
+.queue-button {}
+.queue-button.active {}
+.output-message {}
+.output-message__timestamp {}
+.output-message__type {}
+.output-message__source {}
+.output-message__content {}
+.output-message--system {}
+.output-message--system.output-message--bold {}
+.output-message--room {}
+.output-message--room.output-message--bold {}
+.output-message--player {}
+.output-message--player.output-message--bold {}
+.output-message--error {}
+.output-message--error.output-message--bold {}
+.output-message--success {}
+.output-message--success.output-message--bold {}
+.output-message--info {}
+.output-message--info.output-message--bold {}
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  padding: 20px;
+  backdrop-filter: blur(2px);
 }
-
 .modal-content {
-  background-color: #1a1a1a;
-  padding: 24px;
-  border-radius: 8px;
-  width: 100%;
-  max-width: 500px;
-  max-height: calc(100vh - 40px);
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
   overflow-y: auto;
-  position: relative;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 2px solid #880e8f;
 }
-
 .modal-header {
+  background: #880e8f;
+  color: white;
+  padding: 20px 24px;
+  border-radius: 10px 10px 0 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #333;
-  margin-left: -24px;
-  margin-right: -24px;
-  padding-left: 24px;
-  padding-right: 24px;
+  font-size: 1.3rem;
+  font-weight: 600;
 }
-
-.modal-header h2 {
-  margin: 0;
-  color: #fff;
-  font-size: 1.5rem;
-}
-
 .close-button {
   background: none;
   border: none;
-  color: #fff;
-  font-size: 24px;
+  color: white;
+  font-size: 1.5rem;
   cursor: pointer;
   padding: 0;
-  line-height: 1;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
 }
-
 .close-button:hover {
-  color: #ccc;
+  background: rgba(255, 255, 255, 0.2);
 }
-
 .modal-body {
-  color: #fff;
+  padding: 24px;
 }
-
-/* Modal form specific styles with unique class names */
+.error-message {
+  background: #ffebee;
+  color: #d32f2f;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  border: 1px solid #ffcdd2;
+  font-weight: 500;
+}
+.build-status {
+  background: #e8f5e8;
+  color: #388e3c;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  border: 1px solid #c8e6c9;
+  font-weight: 500;
+}
 .modal-form-group {
-  margin-bottom: 1.25rem;
-  width: 100%;
-  box-sizing: border-box;
+  margin-bottom: 20px;
 }
-
 .modal-form-label {
   display: block;
-  margin-bottom: 0.5rem;
-  color: #fff;
-  font-size: 0.9rem;
-  font-weight: 500;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
 }
-
-.modal-content .modal-form-input,
-.modal-content .modal-form-textarea {
+.modal-form-input,
+.modal-form-textarea {
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #444;
-  border-radius: 4px;
-  background-color: #2a2a2a;
-  color: #fff;
-  font-size: 0.95rem;
-  transition: all 0.2s ease;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: 'Fira Mono', 'Consolas', 'monospace';
   box-sizing: border-box;
+  transition: border-color 0.2s;
 }
-
-.modal-content .modal-form-input:hover,
-.modal-content .modal-form-textarea:hover {
-  border-color: #555;
-}
-
-.modal-content .modal-form-input:focus,
-.modal-content .modal-form-textarea:focus {
+.modal-form-input:focus,
+.modal-form-textarea:focus {
   outline: none;
-  border-color: #690979;
-  box-shadow: 0 0 0 2px rgba(105, 9, 121, 0.2);
+  border-color: #229488;
 }
-
-.modal-content .modal-form-textarea {
+.modal-form-textarea {
+  min-height: 120px;
   resize: vertical;
-  min-height: 100px;
-  max-height: 200px;
 }
-
-/* Fix modal button styling */
-.modal-content .submit-button,
-.modal-content .cancel-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  min-width: 100px;
-  background-color: #690979;
-  color: white;
-}
-
-.modal-content .submit-button:hover {
-  background-color: #7a0a8a;
-  transform: translateY(-1px);
-}
-
-.modal-content .cancel-button {
-  background-color: #444;
-}
-
-.modal-content .cancel-button:hover {
-  background-color: #555;
-  transform: translateY(-1px);
-}
-
-.modal-content .form-actions {
+.form-actions {
   display: flex;
-  gap: 1rem;
+  gap: 12px;
   justify-content: flex-end;
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid #333;
-  margin-left: -24px;
-  margin-right: -24px;
-  padding-left: 24px;
-  padding-right: 24px;
+  margin-top: 24px;
+}
+.submit-button {
+  background: #229488;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.submit-button:hover {
+  background: #1a7a6f;
+}
+.submit-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+.cancel-button {
+  background: #f5f5f5;
+  color: #333;
+  border: 2px solid #e0e0e0;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cancel-button:hover {
+  background: #e0e0e0;
+  border-color: #ccc;
+}
+.queue-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.queue-item {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.queue-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.approve-button {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.approve-button:hover {
+  background: #45a049;
+}
+.reject-button {
+  background: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.reject-button:hover {
+  background: #da190b;
+}
+.rejection-form {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+}
+.submit-rejection-button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background-color 0.2s;
+}
+.submit-rejection-button:hover {
+  background: #c82333;
+}
+.PresentPlayers {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto 8px auto;
+  max-width: 900px;
+  padding: 8px 32px 0 32px;
+  font-family: 'Fira Mono', 'Consolas', 'monospace';
+  font-size: 0.98rem;
+  color: #229488;
+}
+.PresentPlayers__label {
+  font-weight: bold;
+  color: #880e8f;
+  margin-right: 8px;
+}
+.PresentPlayers__me {
+  color: #fff;
+  background: #229488;
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-left: 2px;
+  font-weight: bold;
+}
+.PresentPlayers span:not(.PresentPlayers__label):not(.PresentPlayers__me) {
+  background: #e0f7fa;
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-left: 2px;
+  color: #229488;
+  font-weight: 500;
 }
