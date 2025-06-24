@@ -25,6 +25,7 @@ export class SocketManager extends EventEmitter {
 
       const roomId = `${location.author}/${location.permlink}`;
       console.log('[SocketManager Debug] Initializing socket connection with username:', username, 'and location:', location);
+      console.log('[SocketManager Debug] Using signaling server URL:', config.signalingServer);
       
       const newSocket = io(config.signalingServer, {
         query: { 

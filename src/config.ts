@@ -55,7 +55,10 @@ const config: Config = {
       permlink: process.env.REACT_APP_GAME_STARTING_ROOM_PERMLINK || 'genesis-scaffold-precipice'
     },
   },
-  signalingServer: process.env.REACT_APP_SIGNALING_SERVER || 'http://localhost:4001',
+  signalingServer: process.env.REACT_APP_SIGNALING_SERVER || 
+    (process.env.NODE_ENV === 'production' 
+      ? (process.env.REACT_APP_PRODUCTION_SIGNALING_SERVER || 'https://leaf-server-5lrq.onrender.com')
+      : 'http://localhost:4001'),
   admins: ['hive-109456'],
   builders: ['raymonjohnstone'],
 };
