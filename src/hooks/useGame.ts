@@ -200,6 +200,111 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     );
   }, []);
 
+  // Build approval queue from blockchain data
+  const buildApprovalQueue = useCallback(async (): Promise<any[]> => {
+    try {
+      // Get current game data
+      const gameAccount = await client.database.getAccounts([config.game.account]);
+      if (!gameAccount || !gameAccount[0]) {
+        console.error('[Build Queue] Failed to fetch game account data');
+        return [];
+      }
+
+      const currentMetadata = JSON.parse(gameAccount[0].posting_json_metadata);
+      const existingRooms = currentMetadata.egodeathgamedata?.rooms_authors_exits || {};
+      
+      // Get builders list from community
+      const communityDetailsArray = await client.hivemind.getCommunity({ 
+        name: config.game.account, 
+        observer: ''
+      });
+      const communityDetails = Array.isArray(communityDetailsArray) ? communityDetailsArray[0] : communityDetailsArray;
+      
+      if (!communityDetails || !communityDetails.team) {
+        console.error('[Build Queue] Failed to fetch community team data');
+        return [];
+      }
+
+      const builders = communityDetails.team
+        .filter(member => member[2] === "Builder")
+        .map(member => member[0]);
+
+      console.log('[Build Queue] Found builders:', builders);
+
+      // Get recent posts from builders
+      const pendingRooms = [];
+      
+      for (const builder of builders) {
+        try {
+          // Get recent account history for this builder to find their posts
+          const accountHistory = await client.database.getAccountHistory(builder, -1, 50);
+          
+          // Filter for recent posts (not comments)
+          const recentPosts = accountHistory
+            .filter(([, op]) => op.op[0] === 'comment' && !op.op[1].parent_author)
+            .slice(0, 20); // Get the 20 most recent posts
+          
+          // Get full post content for each post
+          for (const [, op] of recentPosts) {
+            try {
+              const postData = op.op[1];
+              const content = await client.database.call('get_content', [
+                postData.author,
+                postData.permlink
+              ]);
+              
+              if (content && content.json_metadata) {
+                try {
+                  const metadata = JSON.parse(content.json_metadata);
+                  if (metadata.app === config.game.idName && 
+                      metadata.type === 'room' && 
+                      !existingRooms[content.permlink]) {
+                    
+                    // Extract connection information from metadata
+                    const connection = metadata.connection || {};
+                    
+                    pendingRooms.push({
+                      id: `${builder}-${content.permlink}-${content.created}`,
+                      username: builder,
+                      room: connection.fromRoom || {
+                        author: builder,
+                        permlink: content.permlink
+                      },
+                      newRoom: {
+                        author: builder,
+                        permlink: content.permlink
+                      },
+                      title: content.title,
+                      body: content.body,
+                      timestamp: new Date(content.created).getTime(),
+                      status: 'pending',
+                      exits: {
+                        fromNewRoom: connection.exitFromNewRoom ? { [connection.exitFromNewRoom]: connection.fromRoom?.permlink || '' } : {},
+                        fromCurrentRoom: connection.exitToNewRoom ? { [connection.exitToNewRoom]: content.permlink } : {}
+                      }
+                    });
+                  }
+                } catch (error) {
+                  console.error('[Build Queue] Error parsing post metadata:', error);
+                }
+              }
+            } catch (error) {
+              console.error('[Build Queue] Error fetching post content:', error);
+            }
+          }
+        } catch (error) {
+          console.error(`[Build Queue] Error fetching posts for builder ${builder}:`, error);
+        }
+      }
+
+      console.log('[Build Queue] Found pending rooms:', pendingRooms);
+      return pendingRooms;
+    } catch (error) {
+      console.error('[Build Queue] Error building approval queue:', error);
+      return [];
+    }
+  }, [client]);
+
   // Move player logic (blockchain move)
   const movePlayer = useCallback(async (options?: {
     newlocation?: {
@@ -332,6 +437,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     
     switch (command.type) {
       case 'move':
+        console.log('[Command Debug] Processing move command');
         const direction = command.args[0];
         
         console.log('[Movement Debug] Attempting to move:', {
@@ -374,18 +480,63 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         });
         break;
       case 'say':
+        console.log('[Command Debug] Processing say command');
         gameState.say(command.args[0]);
         break;
       case 'emote':
+        console.log('[Command Debug] Processing emote command');
         gameState.emote(command.args[0]);
         break;
       case 'look':
+        console.log('[Command Debug] Processing look command');
         await gameState.look();
         break;
+      case 'lookAt':
+        console.log('[Command Debug] Processing lookAt command');
+        const target = command.args[0];
+        console.log('[LookAt Debug] Target:', target);
+        const currentRoom = gameState.getCurrentRoom();
+        console.log('[LookAt Debug] Current room:', currentRoom);
+        if (!currentRoom) {
+          gameState.addOutputMessage('No current room found', true);
+          break;
+        }
+        
+        // Check if the detail exists in the room
+        const roomDetails = (currentRoom as any).details || {};
+        console.log('[LookAt Debug] Room details:', roomDetails);
+        console.log('[LookAt Debug] Available detail keys:', Object.keys(roomDetails));
+        
+        // Try exact match first
+        let detailKey = Object.keys(roomDetails).find(key => 
+          key.toLowerCase() === target.toLowerCase()
+        );
+        console.log('[LookAt Debug] Exact match result:', detailKey);
+        
+        // If no exact match, try partial match
+        if (!detailKey) {
+          detailKey = Object.keys(roomDetails).find(key => 
+            key.toLowerCase().includes(target.toLowerCase()) || 
+            target.toLowerCase().includes(key.toLowerCase())
+          );
+          console.log('[LookAt Debug] Partial match result:', detailKey);
+        }
+        
+        if (detailKey) {
+          console.log('[LookAt Debug] Found detail, displaying:', detailKey, roomDetails[detailKey]);
+          gameState.addOutputMessage(detailKey, true);
+          gameState.addOutputMessage(roomDetails[detailKey], false);
+        } else {
+          console.log('[LookAt Debug] No match found for:', target);
+          gameState.addOutputMessage(`You don't see "${target}" here.`, true);
+        }
+        break;
       case 'help':
+        console.log('[Command Debug] Processing help command');
         gameState.help();
         break;
       default:
+        console.log('[Command Debug] Processing default case, command type:', command.type);
         gameState.addOutputMessage('Unknown command. Type "help" for a list of commands.');
     }
   }, [gameState, player, commandParser, movePlayer, gameJSON]);
@@ -420,6 +571,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     // new additions
     handleCommand,
     movePlayer,
-    loading
+    loading,
+    buildApprovalQueue
   };
 } 

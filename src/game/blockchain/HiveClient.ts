@@ -46,4 +46,20 @@ export class HiveClient {
   public get database() {
     return this.client.database;
   }
+
+  public async getComments(author: string, permlink: string): Promise<any[]> {
+    try {
+      console.log(`[HiveClient Debug] Fetching comments for ${author}/${permlink}`);
+      const replies = await this.client.database.call('get_content_replies', [
+        author,
+        permlink
+      ]);
+      
+      console.log(`[HiveClient Debug] Found ${replies.length} comments`);
+      return replies || [];
+    } catch (error) {
+      console.error('[HiveClient Debug] Error fetching comments:', error);
+      return [];
+    }
+  }
 } 

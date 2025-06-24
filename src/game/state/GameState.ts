@@ -169,6 +169,69 @@ export class GameState extends EventEmitter {
       this.setCurrentRoom(room);
       console.log('[LoadRoom Debug] Current room set to:', this.currentRoom?.title);
       
+      // Fetch comments for room details
+      let comments: any[] = [];
+      let authorCommentDetails: any[] = [];
+      try {
+        comments = await this.hiveClient.getComments(author, permlink);
+        console.log('[LoadRoom Debug] Fetched comments:', comments.length);
+        
+        // Filter for comments by the room author only
+        const authorComments = comments.filter(comment => comment.author === author);
+        console.log('[LoadRoom Debug] Comments by room author:', authorComments.length);
+        
+        // Extract key names and body from author comments
+        authorCommentDetails = authorComments.map(comment => {
+          // Extract key from text before colon, fallback to permlink if no colon found
+          const colonIndex = comment.body.indexOf(':');
+          const key = colonIndex > 0 ? comment.body.substring(0, colonIndex).trim() : comment.permlink;
+          const body = colonIndex > 0 ? comment.body.substring(colonIndex + 1).trim() : comment.body;
+          
+          return { key, body };
+        });
+        
+        console.log('[LoadRoom Debug] Author comment details:', authorCommentDetails);
+      } catch (error) {
+        console.error('[LoadRoom Debug] Error fetching comments:', error);
+      }
+      
+      // Send room data to server if socket manager is available
+      if (this.socketManager) {
+        const roomId = `${room.author}/${room.permlink}`;
+        console.log('[LoadRoom Debug] Sending room data to server:', roomId);
+        console.log('[LoadRoom Debug] Socket manager available:', !!this.socketManager);
+        console.log('[LoadRoom Debug] Room title:', room.title);
+        console.log('[LoadRoom Debug] Room description:', room.description);
+        console.log('[LoadRoom Debug] Room ID:', roomId);
+        console.log('[LoadRoom Debug] Title !== roomId:', room.title !== roomId);
+        
+        // Only send if we have actual content (not placeholder data)
+        if (room.title && room.description && room.title !== roomId) {
+          // Convert author comments to details object
+          const details: { [key: string]: string } = {};
+          authorCommentDetails.forEach(comment => {
+            details[comment.key] = comment.body;
+          });
+          
+          // Add details to the local room object
+          room.details = details;
+          
+          this.socketManager.emitEvent('updateRoomData', {
+            room: roomId,
+            roomData: {
+              title: room.title,
+              body: room.description,
+              exits: room.exits,
+              author: room.author,
+              permlink: room.permlink,
+              details: details
+            }
+          });
+        } else {
+          console.log('[LoadRoom Debug] Skipping updateRoomData - room appears to have placeholder data');
+        }
+      }
+      
       // Only display room if not skipped
       if (!skipDisplay) {
         this.displayRoom();

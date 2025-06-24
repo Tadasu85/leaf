@@ -61,7 +61,6 @@ function App() {
     login,
     
     // Room State
-    roomData,
     isLoadedGame,
     
     // Game Data
@@ -76,7 +75,8 @@ function App() {
     updateUserProfile,
     // Command and move logic
     handleCommand,
-    loading
+    loading,
+    buildApprovalQueue
   } = useGame(client, keychain);
 
   // Use the new centralized output management
@@ -322,9 +322,9 @@ function App() {
         isOpen={isBuildModalOpen && !isAdmin}
         onClose={toggleBuildModal}
         username={username}
-        currentRoom={roomData.author && roomData.permlink ? {
-          author: roomData.author,
-          permlink: roomData.permlink
+        currentRoom={currentRoom ? {
+          author: currentRoom.author,
+          permlink: currentRoom.permlink
         } : null}
         onRoomCreated={() => {
           fetchGameData();
@@ -333,13 +333,14 @@ function App() {
           }
         }}
         onBuildQueued={() => {
-          addSuccessMessage('Build request queued successfully! Your room will be created shortly.');
+          addSuccessMessage('Room created successfully! It will be available for admin approval.');
         }}
       />
       <QueueManagementModal
         isOpen={isQueueModalOpen}
         onClose={toggleQueueModal}
         username={username}
+        buildApprovalQueue={buildApprovalQueue}
       />
     </div>
   );

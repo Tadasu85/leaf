@@ -36,6 +36,7 @@ export interface RoomData {
   items?: string[];
   npcs?: string[];
   players?: string[];
+  details?: Record<string, string>;
 }
 
 export type CommandType = 
@@ -44,6 +45,7 @@ export type CommandType =
   | 'say'
   | 'emote'
   | 'look'
+  | 'lookAt'
   | 'help';
 
 export interface Command {

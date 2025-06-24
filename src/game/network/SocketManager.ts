@@ -218,4 +218,13 @@ export class SocketManager extends EventEmitter {
   getCurrentRoomIdentifier(): string | null {
     return this.currentRoomIdentifier;
   }
+
+  emitEvent(eventName: string, data: any): void {
+    if (this.socket) {
+      console.log(`[SocketManager Debug] Emitting ${eventName} event:`, data);
+      this.socket.emit(eventName, data);
+    } else {
+      console.log(`[SocketManager Debug] Cannot emit ${eventName} - socket not available`);
+    }
+  }
 } 

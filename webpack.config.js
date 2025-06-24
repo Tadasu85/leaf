@@ -16,7 +16,8 @@ module.exports = {
       "stream": require.resolve("stream-browserify"),
       "util": require.resolve("util/"),
       "assert": require.resolve("assert/"),
-      "crypto": require.resolve("crypto-browserify")
+      "crypto": require.resolve("crypto-browserify"),
+      "punycode": require.resolve("punycode/")
     }
   },
   module: {

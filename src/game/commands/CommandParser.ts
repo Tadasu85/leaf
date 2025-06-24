@@ -32,11 +32,22 @@ export class CommandParser {
         };
 
       case 'look':
-        return {
-          type: 'look',
-          args: [],
-          timestamp: Date.now()
-        };
+        if (args.length === 0) {
+          // Just "look" - look at room
+          return {
+            type: 'look',
+            args: [],
+            timestamp: Date.now()
+          };
+        } else {
+          // "look [target]" - look at specific target
+          const target = args.join(' ');
+          return {
+            type: 'lookAt',
+            args: [target],
+            timestamp: Date.now()
+          };
+        }
 
       case 'help':
         return {

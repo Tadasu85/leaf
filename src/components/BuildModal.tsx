@@ -12,7 +12,6 @@ interface BuildModalProps {
   } | null;
   onRoomCreated?: () => void;
   onBuildQueued?: () => void;
-  socket?: any; // Make socket optional
 }
 
 interface RoomFormData {
@@ -22,7 +21,7 @@ interface RoomFormData {
   description: string;
 }
 
-const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued, socket }) => {
+const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued }) => {
   const [formData, setFormData] = useState<RoomFormData>({
     roomName: '',
     exitToNewRoom: '',
@@ -31,46 +30,9 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [queueId, setQueueId] = useState<string | null>(null);
   const [buildStatus, setBuildStatus] = useState<string>('');
 
   const keychain = new KeychainSDK(window, { rpc: config.hive.nodes[0] });
-
-  // Set up socket listeners for queue status
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleQueueStatus = (data: { queueId: string; status: string; message?: string }) => {
-      if (data.queueId === queueId) {
-        setBuildStatus(data.status);
-        if (data.message) {
-          setError(data.message);
-        }
-        if (data.status === 'completed') {
-          setIsSubmitting(false);
-          onClose();
-          if (onRoomCreated) {
-            onRoomCreated();
-          }
-        } else if (data.status === 'failed') {
-          setIsSubmitting(false);
-        } else if (data.status === 'queued') {
-          // Close modal when successfully queued
-          setIsSubmitting(false);
-          onClose();
-          if (onBuildQueued) {
-            onBuildQueued();
-          }
-        }
-      }
-    };
-
-    socket.on('queueStatus', handleQueueStatus);
-
-    return () => {
-      socket.off('queueStatus', handleQueueStatus);
-    };
-  }, [socket, queueId, onClose, onRoomCreated, onBuildQueued]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -131,7 +93,15 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           parent_perm: "blog",
           json_metadata: JSON.stringify({
             app: config.game.idName,
-            type: 'room'
+            type: 'room',
+            connection: {
+              fromRoom: {
+                author: currentRoom.author,
+                permlink: currentRoom.permlink
+              },
+              exitToNewRoom: formData.exitToNewRoom,
+              exitFromNewRoom: formData.exitFromNewRoom
+            }
           }),
           comment_options: JSON.stringify({
             author: username,
@@ -155,32 +125,17 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
         throw new Error('Failed to create room post');
       }
 
-      // Queue the room build request
-      const queueData = {
-        room: currentRoom,
-        newRoom: {
-          permlink,
-          author: username
-        },
-        exits: {
-          fromNewRoom: {
-            [formData.exitFromNewRoom]: currentRoom.permlink
-          },
-          fromCurrentRoom: {
-            [formData.exitToNewRoom]: permlink
-          }
-        }
-      };
-
-      console.log('Queueing build request:', queueData);
-
-      // Emit the queue request and store the queue ID
-      socket?.emit('queueRoomBuild', queueData, (response: { queueId: string }) => {
-        if (response && response.queueId) {
-          setQueueId(response.queueId);
-          setBuildStatus('queued');
-        }
-      });
+      // Room created successfully
+      setBuildStatus('completed');
+      
+      // Close modal and call callbacks
+      setIsSubmitting(false);
+      onClose();
+      
+      // Call the callback to refresh game data
+      if (onRoomCreated) {
+        onRoomCreated();
+      }
 
     } catch (error) {
       console.error('Error creating room:', error);
@@ -200,10 +155,14 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     <div className="modal-overlay">
       <div className="modal-content">
         <div className="modal-header">
-          <h2>Build New Room</h2>
+          <h2>Create New Room</h2>
           <button className="close-button" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body">
+          <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
+            <p><strong>Room Connection:</strong></p>
+            <p>Specify how this new room connects to your current location. The exits will be configured automatically when the room is approved.</p>
+          </div>
           {error && (
             <div className="error-message" style={{ color: '#ff4444', marginBottom: '1rem' }}>
               {error}
@@ -234,7 +193,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
             </div>
 
             <div className="modal-form-group">
-              <label className="modal-form-label" htmlFor="exitToNewRoom">Exit to New Room:</label>
+              <label className="modal-form-label" htmlFor="exitToNewRoom">Exit from Current Room:</label>
               <input
                 className="modal-form-input"
                 type="text"

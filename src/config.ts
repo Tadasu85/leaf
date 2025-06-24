@@ -1,67 +1,59 @@
+/**
+ * Configuration interface for Hive blockchain connection settings
+ */
 export interface HiveConfig {
+  /** Array of Hive node URLs for blockchain connection */
   nodes: string[];
-  chainId: string;
-  accountPrefix: string;
-  key: string;
 }
 
+/**
+ * Configuration interface for game-specific settings
+ */
 export interface GameConfig {
-  name: string;
+  /** Unique identifier for the game used in custom JSON operations */
   idName: string;
+  /** Main game account name used for admin checks and blockchain operations */
   account: string;
-  accountName: string;
+  /** Starting room configuration for new players */
   startRoom: {
+    /** Author of the starting room post */
     author: string;
+    /** Permlink of the starting room post */
     permlink: string;
   };
-  defaultCharacterDescription: string;
-  category: string;
 }
 
+/**
+ * Main configuration interface for the Leaf game application
+ */
 export interface Config {
+  /** Hive blockchain connection settings */
   hive: HiveConfig;
+  /** Game-specific configuration */
   game: GameConfig;
-  ui: {
-    theme: 'light' | 'dark';
-    fontFamily: string;
-    fontSize: string;
-  };
-  development: {
-    debugMode: boolean;
-    testMode: boolean;
-  };
+  /** WebSocket signaling server URL for real-time communication */
   signalingServer: string;
+  /** Array of admin usernames with full access */
   admins: string[];
+  /** Array of builder usernames with room creation permissions */
   builders: string[];
 }
 
+/**
+ * Application configuration with environment variable support
+ * All unused configuration properties have been removed for clarity
+ */
 const config: Config = {
   hive: {
     nodes: [process.env.REACT_APP_HIVE_NODE || 'https://api.hive.blog'],
-    chainId: process.env.REACT_APP_HIVE_CHAIN_ID || 'beeab0de00000000000000000000000000000000000000000000000000000000',
-    accountPrefix: process.env.REACT_APP_HIVE_ACCOUNT_PREFIX || 'STM',
-    key: process.env.REACT_APP_HIVE_KEY || ''
   },
   game: {
-    name: process.env.REACT_APP_GAME_NAME || 'Leaf Game',
-    idName: process.env.REACT_APP_GAME_ID_NAME || 'leaf_game',
+    idName: process.env.REACT_APP_GAME_ID_NAME || 'ego-death',
     account: process.env.REACT_APP_ACCOUNT_NAME || 'hive-109456',
-    accountName: process.env.REACT_APP_ACCOUNT_NAME || 'hive-109456',
     startRoom: {
       author: process.env.REACT_APP_GAME_STARTING_ROOM_AUTHOR || 'raymonjohnstone',
       permlink: process.env.REACT_APP_GAME_STARTING_ROOM_PERMLINK || 'genesis-scaffold-precipice'
     },
-    defaultCharacterDescription: process.env.REACT_APP_DEFAULT_CHARACTER_DESCRIPTION || 'A mysterious traveler',
-    category: process.env.REACT_APP_GAME_CATEGORY || 'leaf-game'
-  },
-  ui: {
-    theme: (process.env.REACT_APP_UI_THEME as 'light' | 'dark') || 'light',
-    fontFamily: process.env.REACT_APP_UI_FONT_FAMILY || 'monospace',
-    fontSize: process.env.REACT_APP_UI_FONT_SIZE || '16px',
-  },
-  development: {
-    debugMode: process.env.REACT_APP_DEBUG_MODE === 'false',
-    testMode: process.env.REACT_APP_TEST_MODE === 'false',
   },
   signalingServer: process.env.REACT_APP_SIGNALING_SERVER || 'http://localhost:4001',
   admins: ['hive-109456'],
