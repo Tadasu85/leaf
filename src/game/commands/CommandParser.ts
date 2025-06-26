@@ -56,6 +56,20 @@ export class CommandParser {
           timestamp: Date.now()
         };
 
+      case '@describe':
+        return {
+          type: 'describe',
+          args: [parts.slice(1).join(' ')],
+          timestamp: Date.now()
+        };
+
+      case '@describeshort':
+        return {
+          type: 'describeshort',
+          args: [parts.slice(1).join(' ')],
+          timestamp: Date.now()
+        };
+
       default:
         // Check if it's a valid directional command for the current room
         if (currentRoomExits && command in currentRoomExits) {

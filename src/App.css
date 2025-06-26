@@ -43,9 +43,9 @@ body, html, #root, .App {
 
 .header-buttons {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
   position: absolute;
   top: 16px;
   right: 32px;
@@ -69,6 +69,55 @@ body, html, #root, .App {
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid #880e8f;
+}
+
+.chat-status-indicator {
+  background: #fff;
+  color: #222;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 8px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.chat-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.chat-status-dot.connected {
+  background: #4caf50;
+  box-shadow: 0 0 4px rgba(76, 175, 80, 0.6);
+}
+
+.chat-status-dot.connecting {
+  background: #ff9800;
+  box-shadow: 0 0 4px rgba(255, 152, 0, 0.6);
+  animation: pulse 1.5s infinite;
+}
+
+.chat-status-dot.failed,
+.chat-status-dot.disconnected {
+  background: #f44336;
+  box-shadow: 0 0 4px rgba(244, 67, 54, 0.6);
+}
+
+.chat-status-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 
 .GameOutputWindow {
@@ -266,6 +315,8 @@ body, html, #root, .App {
   .header-buttons {
     right: 8px;
     top: 8px;
+    flex-direction: row;
+    gap: 8px;
   }
 }
 

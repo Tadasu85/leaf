@@ -19,6 +19,8 @@ export class GameState extends EventEmitter {
   private hiveClient: HiveClient;
   private socketManager: SocketManager | null = null;
   private lastDisplayedRoom: string | null = null;
+  private isLoggingIn: boolean = false;
+  private hasNotifiedChatOffline: boolean = false;
 
   constructor(hiveClient: HiveClient) {
     super();
@@ -31,85 +33,89 @@ export class GameState extends EventEmitter {
       throw new Error('Username is required');
     }
 
+    this.isLoggingIn = true;
+
     // Find player's last location from blockchain history
     let lastLocation: { author: string; permlink: string } | null = null;
+    let lastKnownTimestamp: string | null = null;
 
     try {
-      console.log('[Login Debug] Finding last location for player:', username);
       const accountHistory = await this.hiveClient.database.getAccountHistory(username, -1, 100);
       
-      console.log('[Login Debug] Processing', accountHistory.length, 'operations from blockchain history for account:', username);
-      
-      // Look for the most recent move_to operation (continue searching to find the latest one)
+      // Look for the most recent move_to operation
+      // Instead of relying on order, find the operation with the most recent timestamp
       for (let i = 0; i < accountHistory.length; i++) {
         const [, op] = accountHistory[i];
+        
         if (op.op[0] === 'custom_json' && op.op[1].id === config.game.idName) {
-          console.log('[Login Debug] Found custom_json operation at index', i, ':', {
-            id: op.op[1].id,
-            json: op.op[1].json,
-            required_auths: op.op[1].required_auths,
-            required_posting_auths: op.op[1].required_posting_auths
-          });
-          
           try {
             const jsonData = JSON.parse(op.op[1].json);
-            console.log('[Login Debug] Parsed JSON data:', jsonData);
-            
             if (jsonData.move_to?.Location) {
-              // Keep updating lastLocation to find the most recent one
-              lastLocation = jsonData.move_to.Location;
-              console.log('[Login Debug] Found move operation at index', i, ':', lastLocation);
-            } else {
-              console.log('[Login Debug] Operation has no move_to.Location:', jsonData);
+              // Check if this operation is more recent than what we've found so far
+              if (!lastKnownTimestamp || op.timestamp > lastKnownTimestamp) {
+                lastLocation = jsonData.move_to.Location;
+                lastKnownTimestamp = op.timestamp;
+              }
             }
           } catch (error) {
-            console.error('[GameState Debug] Error parsing move operation at index', i, ':', error);
-            console.error('[GameState Debug] Raw JSON that failed to parse:', op.op[1].json);
+            console.error('[Login Debug] Error parsing operation:', error);
           }
         }
       }
-      
-      if (lastLocation) {
-        console.log('[Login Debug] Most recent location from blockchain:', lastLocation);
-      }
-    } catch (error) {
-      console.error('[GameState Debug] Error finding last location:', error);
-    }
 
-    // Use default start room only if no previous location was found
-    if (!lastLocation) {
-      lastLocation = {
-        author: config.game.startRoom.author,
-        permlink: config.game.startRoom.permlink
+      // Create player with last known location or default starting room
+      this.player = {
+        username,
+        location: lastLocation || config.game.startRoom,
+        isAdmin: username === config.game.account,
+        isBuilder: false,
+        characterDescription: ''
       };
-      console.log('[Login Debug] No previous location found, using default:', lastLocation);
+
+      // Load player descriptions from blockchain
+      await this.loadPlayerDescriptions();
+
+      // Set up event listener for move operations BEFORE starting the listener
+      this.hiveClient.on('moveDetected', (data: { username: string; location: Location; transactionId: string; timestamp: string }) => {
+        // Only handle moves for the current player and not during login
+        if (this.player && data.username === this.player.username && !this.isLoggingIn) {
+          this.handleBlockchainMove(data.location);
+        }
+      });
+
+      // Load the player's current room
+      await this.loadRoom(this.player.location);
+      
+      // Emit player changed event
+      this.emit('playerChanged', this.player);
+      
+      // Now start the blockchain move listener from the current block
+      await this.hiveClient.startMoveListener(username);
+      
+      // Mark login as complete
+      this.isLoggingIn = false;
+      
+      console.log('[Login Debug] Login completed successfully');
+    } catch (error) {
+      this.isLoggingIn = false;
+      console.error('[Login Debug] Error during login:', error);
+      throw error;
     }
+  }
 
-    console.log('[Login Debug] Final location for player:', lastLocation);
-
-    // Create a new player instance with found location
-    const player: Player = {
-      username,
-      location: lastLocation,
-      isAdmin: username === config.game.account,
-      isBuilder: false,
-      characterDescription: ''
-    };
-
-    this.player = player;
-    this.emit('playerChanged', this.player);
-
-    // Load the player's room (skip display - let socket system handle it)
-    console.log('[Login Debug] Loading room for player:', lastLocation);
-    await this.loadRoom(lastLocation, true);
+  // Handle move operations detected from blockchain
+  private async handleBlockchainMove(location: Location): Promise<void> {
+    if (!this.player) {
+      console.error('[GameState Debug] Cannot handle blockchain move: no player logged in');
+      return;
+    }
     
-    // If socket system isn't ready yet, display room after a short delay
-    setTimeout(() => {
-      if (this.currentRoom && !this.lastDisplayedRoom) {
-        console.log('[Login Debug] Socket system not ready, displaying room manually:', this.currentRoom.title);
-        this.displayRoom();
-      }
-    }, 1000);
+    // Update player location
+    this.player.location = location;
+    this.emit('playerChanged', this.player);
+    
+    // Load the new room
+    await this.loadRoom(location);
   }
 
   async loadRoom(location: Location, skipDisplay: boolean = false): Promise<void> {
@@ -126,8 +132,6 @@ export class GameState extends EventEmitter {
           permlink = parts[1];
         }
       }
-
-      console.log('[LoadRoom Debug] Loading room from blockchain:', { author, permlink });
 
       const content = await this.hiveClient.database.call('get_content', [
         author,
@@ -148,12 +152,9 @@ export class GameState extends EventEmitter {
         exits: {}
       };
 
-      console.log('[LoadRoom Debug] Room loaded from blockchain:', room.title);
-
       // Use game map data for exits if available
       if (this.gameMap && this.gameMap[permlink]) {
         room.exits = this.gameMap[permlink].exits || {};
-        console.log('[LoadRoom Debug] Using game map exits:', room.exits);
       } else {
         // Fallback to parsing room details and exits from metadata
         try {
@@ -167,18 +168,15 @@ export class GameState extends EventEmitter {
       }
 
       this.setCurrentRoom(room);
-      console.log('[LoadRoom Debug] Current room set to:', this.currentRoom?.title);
       
       // Fetch comments for room details
       let comments: any[] = [];
       let authorCommentDetails: any[] = [];
       try {
         comments = await this.hiveClient.getComments(author, permlink);
-        console.log('[LoadRoom Debug] Fetched comments:', comments.length);
         
         // Filter for comments by the room author only
         const authorComments = comments.filter(comment => comment.author === author);
-        console.log('[LoadRoom Debug] Comments by room author:', authorComments.length);
         
         // Extract key names and body from author comments
         authorCommentDetails = authorComments.map(comment => {
@@ -190,46 +188,15 @@ export class GameState extends EventEmitter {
           return { key, body };
         });
         
-        console.log('[LoadRoom Debug] Author comment details:', authorCommentDetails);
+        // Add details to the local room object
+        const details: { [key: string]: string } = {};
+        authorCommentDetails.forEach(comment => {
+          details[comment.key] = comment.body;
+        });
+        room.details = details;
+        
       } catch (error) {
         console.error('[LoadRoom Debug] Error fetching comments:', error);
-      }
-      
-      // Send room data to server if socket manager is available
-      if (this.socketManager) {
-        const roomId = `${room.author}/${room.permlink}`;
-        console.log('[LoadRoom Debug] Sending room data to server:', roomId);
-        console.log('[LoadRoom Debug] Socket manager available:', !!this.socketManager);
-        console.log('[LoadRoom Debug] Room title:', room.title);
-        console.log('[LoadRoom Debug] Room description:', room.description);
-        console.log('[LoadRoom Debug] Room ID:', roomId);
-        console.log('[LoadRoom Debug] Title !== roomId:', room.title !== roomId);
-        
-        // Only send if we have actual content (not placeholder data)
-        if (room.title && room.description && room.title !== roomId) {
-          // Convert author comments to details object
-          const details: { [key: string]: string } = {};
-          authorCommentDetails.forEach(comment => {
-            details[comment.key] = comment.body;
-          });
-          
-          // Add details to the local room object
-          room.details = details;
-          
-          this.socketManager.emitEvent('updateRoomData', {
-            room: roomId,
-            roomData: {
-              title: room.title,
-              body: room.description,
-              exits: room.exits,
-              author: room.author,
-              permlink: room.permlink,
-              details: details
-            }
-          });
-        } else {
-          console.log('[LoadRoom Debug] Skipping updateRoomData - room appears to have placeholder data');
-        }
       }
       
       // Only display room if not skipped
@@ -322,6 +289,81 @@ export class GameState extends EventEmitter {
       Object.entries(this.currentRoom.exits).forEach(([direction, destination]) => {
         this.addOutputMessage(direction, false);
       });
+    }
+  }
+
+  public async lookAtSelf(): Promise<void> {
+    if (!this.player) {
+      this.addOutputMessage('You are not logged in.', true);
+      return;
+    }
+
+    // Load player descriptions from blockchain
+    await this.loadPlayerDescriptions();
+
+    if (this.player.characterDescription) {
+      this.addOutputMessage('Your character description:', true);
+      this.addOutputMessage(this.player.characterDescription, false);
+    } else {
+      this.addOutputMessage('You have not set a character description yet.', true);
+      this.addOutputMessage('Use @describe <description> to set your description.', false);
+    }
+  }
+
+  public async setDescription(description: string): Promise<void> {
+    if (!this.player) {
+      this.addOutputMessage('You must be logged in to set your description.', true);
+      return;
+    }
+
+    if (!description.trim()) {
+      this.addOutputMessage('Please provide a description.', true);
+      return;
+    }
+
+    try {
+      await this.hiveClient.setDescription(this.player.username, description);
+      this.addOutputMessage('Description set successfully. It will be updated on the blockchain shortly.', false);
+    } catch (error) {
+      console.error('Error setting description:', error);
+      this.addOutputMessage('Failed to set description. Please try again.', true);
+    }
+  }
+
+  public async setShortDescription(shortDescription: string): Promise<void> {
+    if (!this.player) {
+      this.addOutputMessage('You must be logged in to set your short description.', true);
+      return;
+    }
+
+    if (!shortDescription.trim()) {
+      this.addOutputMessage('Please provide a short description.', true);
+      return;
+    }
+
+    try {
+      await this.hiveClient.setShortDescription(this.player.username, shortDescription);
+      this.addOutputMessage('Short description set successfully. It will be updated on the blockchain shortly.', false);
+    } catch (error) {
+      console.error('Error setting short description:', error);
+      this.addOutputMessage('Failed to set short description. Please try again.', true);
+    }
+  }
+
+  private async loadPlayerDescriptions(): Promise<void> {
+    if (!this.player) return;
+
+    try {
+      const accounts = await this.hiveClient.database.call('get_accounts', [[this.player.username]]);
+      if (accounts && accounts[0] && accounts[0].json_metadata) {
+        const metadata = JSON.parse(accounts[0].json_metadata);
+        if (metadata.egodeathplayer?.Description) {
+          this.player.characterDescription = metadata.egodeathplayer.Description;
+          this.emit('playerChanged', this.player);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading player descriptions:', error);
     }
   }
 
@@ -438,6 +480,9 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('say <message> - Say something in the current room', false);
     this.addOutputMessage('emote <action> - Perform an action in the current room', false);
     this.addOutputMessage('look - Look around the current room', false);
+    this.addOutputMessage('look self - View your character description', false);
+    this.addOutputMessage('@describe <description> - Set your character description', false);
+    this.addOutputMessage('@describeshort <short description> - Set your character short description', false);
     this.addOutputMessage('help - Show this help message', false);
   }
 
@@ -452,6 +497,33 @@ export class GameState extends EventEmitter {
   // Method to set socket manager (called by useSocket hook)
   public setSocketManager(socketManager: SocketManager): void {
     this.socketManager = socketManager;
+    
+    // Set up event listeners for socket manager events
+    if (socketManager) {
+      socketManager.on('chatUnavailable', (data: { message: string }) => {
+        if (!this.hasNotifiedChatOffline) {
+          this.addOutputMessage(data.message, true);
+          this.hasNotifiedChatOffline = true;
+        }
+      });
+      
+      socketManager.on('connectionStatusChanged', (data: { status: string; error?: string }) => {
+        if (data.status === 'failed') {
+          if (!this.hasNotifiedChatOffline) {
+            this.addOutputMessage('Chat server is unavailable. You can still navigate and play the game.', true);
+            this.hasNotifiedChatOffline = true;
+          }
+        } else if (data.status === 'connected') {
+          this.addOutputMessage('Chat server connected. Chat is now available.', false);
+          this.hasNotifiedChatOffline = false; // Reset flag when chat comes back online
+        } else if (data.status === 'disconnected') {
+          if (!this.hasNotifiedChatOffline) {
+            this.addOutputMessage('Chat server disconnected. Chat is no longer available.', true);
+            this.hasNotifiedChatOffline = true;
+          }
+        }
+      });
+    }
   }
 
   // Method to reset room display tracking (called when changing rooms)

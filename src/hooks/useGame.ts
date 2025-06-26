@@ -80,8 +80,21 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       state.off('output', handleOutput);
       state.off('playerChanged', handlePlayerChanged);
       state.off('roomStateChanged', handleRoomChanged);
+      // Stop the blockchain listener when component unmounts
+      hiveClient.stopMoveListener();
     };
   }, [gameJSON]);
+
+  // Cleanup blockchain listener when player changes
+  useEffect(() => {
+    if (gameState && player) {
+      // The listener is started in GameState.login()
+      return () => {
+        // Stop the listener when player changes or component unmounts
+        gameState.getHiveClient().stopMoveListener();
+      };
+    }
+  }, [gameState, player]);
 
   // Update game map when it changes
   useEffect(() => {
@@ -175,7 +188,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
   }, []);
 
   // Update user profile
-  const updateUserProfile = useCallback((username: string | null) => {
+  const updateUserProfile = useCallback(async (username: string | null) => {
     if (!username) {
       setUserProfileJSON({});
       setIsBuilder(false);
@@ -183,9 +196,41 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       return;
     }
 
-    setIsBuilder(config.builders.includes(username));
+    // Use dynamic builder detection from community + static config as fallback
+    const isUserBuilder = buildersList.current.includes(username) || config.builders.includes(username);
+    setIsBuilder(isUserBuilder);
     setIsAdmin(config.admins.includes(username));
-  }, []);
+
+    // Fetch Hive profile data including player descriptions
+    try {
+      const hiveClient = new HiveClient();
+      const profileImage = await hiveClient.getProfileImage(username);
+      
+      // Get full account data to access json_metadata
+      const accounts = await client.database.call('get_accounts', [[username]]);
+      let playerData = {};
+      
+      if (accounts && accounts[0] && accounts[0].json_metadata) {
+        try {
+          const metadata = JSON.parse(accounts[0].json_metadata);
+          if (metadata.egodeathplayer) {
+            playerData = metadata.egodeathplayer;
+          }
+        } catch (error) {
+          console.error('[UpdateUserProfile Debug] Error parsing account metadata:', error);
+        }
+      }
+      
+      setUserProfileJSON((prev) => ({ 
+        ...prev, 
+        profile_image: profileImage || undefined,
+        egodeathplayer: playerData
+      }));
+    } catch (error) {
+      console.error('[UpdateUserProfile Debug] Error fetching profile data:', error);
+      setUserProfileJSON((prev) => ({ ...prev, profile_image: undefined }));
+    }
+  }, [client]);
 
   // Check if room data has changed
   const hasRoomDataChanged = useCallback((newData: LegacyRoomData, oldData: LegacyRoomData | null): boolean => {
@@ -359,60 +404,20 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         return;
       }
       
-      console.log('[MovePlayer Debug] Broadcast successful, waiting for confirmation...');
+      console.log('[MovePlayer Debug] Broadcast successful, waiting for blockchain listener to detect move...');
       
-      // Wait for blockchain confirmation
-      let confirmed = false;
-      let attempts = 0;
-      const maxAttempts = 30;
-      while (!confirmed && attempts < maxAttempts) {
-        try {
-          const accountHistory = await client.database.getAccountHistory(player.username, -1, 100);
-          for (const [, op] of accountHistory) {
-            if (op.op[0] === 'custom_json' && 
-                op.op[1].id === config.game.idName && 
-                op.trx_id === result.result.id) {
-              confirmed = true;
-              break;
-            }
-          }
-          if (!confirmed) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            attempts++;
-          }
-        } catch (error) {
-          attempts++;
-        }
-      }
-      
-      if (!confirmed) {
-        console.log('[MovePlayer Debug] Confirmation timeout after', attempts, 'attempts');
-        if (gameState) gameState.addOutputMessage('Move operation timed out. Please try again.', true);
+      // The blockchain listener will handle the move completion
+      // We just need to wait a reasonable time for it to be detected
+      setTimeout(() => {
         setLoading(false);
-        return;
-      }
+      }, 3000); // Give 3 seconds for the blockchain listener to detect the move
       
-      console.log('[MovePlayer Debug] Move confirmed, loading new room...');
-      
-      // Update room after confirmation
-      if (gameState && movedPlayer.Location) {
-        // Update player location in local state
-        if (player) {
-          player.location = movedPlayer.Location;
-          console.log('[MovePlayer Debug] Updated player location to:', player.location);
-        }
-        
-        // Load room without displaying - let socket system handle display
-        await gameState.loadRoom(movedPlayer.Location, true);
-        console.log('[MovePlayer Debug] Room loaded successfully');
-      }
-      setLoading(false);
     } catch (error) {
       console.error('[MovePlayer Debug] Move operation failed:', error);
       if (gameState) gameState.addOutputMessage('Move failed. Please check your Keychain and try again.', true);
       setLoading(false);
     }
-  }, [player, keychain, client, gameState]);
+  }, [player, keychain, gameState]);
 
   // Command handler logic
   const handleCommand = useCallback(async (text: string) => {
@@ -491,9 +496,28 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         console.log('[Command Debug] Processing look command');
         await gameState.look();
         break;
+      case 'help':
+        console.log('[Command Debug] Processing help command');
+        gameState.help();
+        break;
+      case 'describe':
+        console.log('[Command Debug] Processing describe command');
+        await gameState.setDescription(command.args[0]);
+        break;
+      case 'describeshort':
+        console.log('[Command Debug] Processing describeshort command');
+        await gameState.setShortDescription(command.args[0]);
+        break;
       case 'lookAt':
         console.log('[Command Debug] Processing lookAt command');
         const target = command.args[0];
+        
+        // Special case for "look self"
+        if (target.toLowerCase() === 'self') {
+          await gameState.lookAtSelf();
+          break;
+        }
+        
         console.log('[LookAt Debug] Target:', target);
         const currentRoom = gameState.getCurrentRoom();
         console.log('[LookAt Debug] Current room:', currentRoom);
@@ -530,10 +554,6 @@ export function useGame(client: Client, keychain: KeychainSDK) {
           console.log('[LookAt Debug] No match found for:', target);
           gameState.addOutputMessage(`You don't see "${target}" here.`, true);
         }
-        break;
-      case 'help':
-        console.log('[Command Debug] Processing help command');
-        gameState.help();
         break;
       default:
         console.log('[Command Debug] Processing default case, command type:', command.type);

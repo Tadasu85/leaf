@@ -46,7 +46,9 @@ export type CommandType =
   | 'emote'
   | 'look'
   | 'lookAt'
-  | 'help';
+  | 'help'
+  | 'describe'
+  | 'describeshort';
 
 export interface Command {
   type: CommandType;

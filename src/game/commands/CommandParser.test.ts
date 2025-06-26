@@ -117,6 +117,48 @@ describe('CommandParser', () => {
     });
   });
 
+  describe('description commands', () => {
+    it('should parse @describe command with description', () => {
+      const result = parser.parse('@describe A tall warrior with flowing hair');
+      
+      expect(result).toEqual({
+        type: 'describe',
+        args: ['A tall warrior with flowing hair'],
+        timestamp: expect.any(Number)
+      });
+    });
+
+    it('should parse @describeshort command with short description', () => {
+      const result = parser.parse('@describeshort A tall warrior');
+      
+      expect(result).toEqual({
+        type: 'describeshort',
+        args: ['A tall warrior'],
+        timestamp: expect.any(Number)
+      });
+    });
+
+    it('should parse @describe command with empty description', () => {
+      const result = parser.parse('@describe');
+      
+      expect(result).toEqual({
+        type: 'describe',
+        args: [''],
+        timestamp: expect.any(Number)
+      });
+    });
+
+    it('should parse @describeshort command with empty description', () => {
+      const result = parser.parse('@describeshort');
+      
+      expect(result).toEqual({
+        type: 'describeshort',
+        args: [''],
+        timestamp: expect.any(Number)
+      });
+    });
+  });
+
   describe('movement commands', () => {
     it('should parse directional commands when exits are available', () => {
       const exits = { north: 'northroom', south: 'southroom' };

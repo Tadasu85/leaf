@@ -89,10 +89,12 @@ function App() {
 
   const {
     connect,
-    joinRoom,
-    leaveRoom,
-    getCurrentRoomIdentifier,
-    resetRoomStateTracking
+    joinChatChannel,
+    leaveChatChannel,
+    getCurrentChannelId,
+    resetChannelStateTracking,
+    connectionStatus,
+    isConnected
   } = useSocket(gameState);
 
   // Debug logging for useSocket hook
@@ -141,30 +143,30 @@ function App() {
     }
   }, [player, connect]);
 
-  // Handle room changes
+  // Handle room changes - join corresponding chat channel
   useEffect(() => {
     if (player && currentRoom) {
-      const currentRoomId = getCurrentRoomIdentifier();
-      const newRoomId = `${currentRoom.author}/${currentRoom.permlink}`;
+      const currentChannelId = getCurrentChannelId();
+      const newChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
       
-      // Only join room if we're not already in the correct room
-      if (currentRoomId !== newRoomId) {
-        if (currentRoomId) {
-          leaveRoom(currentRoomId, player.username);
-          // Reset room state tracking when changing rooms
-          resetRoomStateTracking();
+      // Only join chat channel if we're not already in the correct channel and we're connected
+      if (currentChannelId !== newChannelId && isConnected()) {
+        if (currentChannelId) {
+          leaveChatChannel(currentChannelId, player.username);
+          // Reset channel state tracking when changing channels
+          resetChannelStateTracking();
           
-          // Add a longer delay to ensure leaveRoom is fully processed
+          // Add a longer delay to ensure leaveChatChannel is fully processed
           setTimeout(() => {
-            joinRoom(newRoomId);
+            joinChatChannel(newChannelId);
           }, 200);
         } else {
-          // No current room, join immediately
-          joinRoom(newRoomId);
+          // No current channel, join immediately
+          joinChatChannel(newChannelId);
         }
       }
     }
-  }, [currentRoom, player, joinRoom, leaveRoom, getCurrentRoomIdentifier, resetRoomStateTracking]);
+  }, [currentRoom, player, joinChatChannel, leaveChatChannel, getCurrentChannelId, resetChannelStateTracking, isConnected]);
 
   // Load game data on mount
   useEffect(() => {
@@ -173,23 +175,23 @@ function App() {
     }
   }, [fetchGameData, isLoadedGame]);
 
-  // Listen for roomUpdate and roomState events to update presentPlayers
+  // Listen for chat channel events to update present players
   useEffect(() => {
     if (!gameState) return;
-    const handleRoomUpdate = (data: any) => {
+    const handleChatChannelUpdate = (data: any) => {
       if (data && Array.isArray(data.players)) {
         setPresentPlayers(data.players);
       }
     };
-    gameState.on('roomUpdate', handleRoomUpdate);
-    gameState.on('roomState', handleRoomUpdate);
+    gameState.on('chatChannelUpdate', handleChatChannelUpdate);
+    gameState.on('chatChannelState', handleChatChannelUpdate);
     return () => {
-      gameState.off('roomUpdate', handleRoomUpdate);
-      gameState.off('roomState', handleRoomUpdate);
+      gameState.off('chatChannelUpdate', handleChatChannelUpdate);
+      gameState.off('chatChannelState', handleChatChannelUpdate);
     };
   }, [gameState]);
 
-  const handleTextEnteredWrapper = useCallback((text: string) => {
+  const handleTextEnteredWrapper = useCallback(async (text: string) => {
     console.log('[TextInput Debug] handleTextEnteredWrapper called with:', text);
     
     if (text.startsWith('login ')) {
@@ -202,7 +204,7 @@ function App() {
         username,
         method: KeychainKeyTypes.posting
       })
-        .then((result) => {
+        .then(async (result) => {
           if (result.success) {
             setUsername(username);
             setIsSignedIn(true);
@@ -211,8 +213,8 @@ function App() {
             const isUserAdmin = username === config.game.account;
             const isUserBuilder = checkIfUserIsBuilder(username);
             
-            // Update user profile
-            updateUserProfile(username);
+            // Update user profile and wait for builder state
+            await updateUserProfile(username);
             
             // Login to game state
             addInfoMessage('Logging into game state...');
@@ -225,7 +227,7 @@ function App() {
               if (isUserAdmin) {
                 addSuccessMessage(`Admin login successful as ${username}`);
                 addInfoMessage('Welcome to the admin panel. Use the Queue button to manage build requests.');
-              } else if (isUserBuilder) {
+              } else if (isBuilder) {
                 addSuccessMessage(`Builder login successful as ${username}`);
                 addInfoMessage('Welcome! You can use the Build button to create and modify rooms.');
               } else {
@@ -255,7 +257,7 @@ function App() {
       console.log('[TextInput Debug] Calling handleCommand with:', text);
       handleCommand(text);
     }
-  }, [keychain, addErrorMessage, addSuccessMessage, addInfoMessage, handleCommand, login, checkIfUserIsBuilder, updateUserProfile, gameState, isSignedIn]);
+  }, [keychain, addErrorMessage, addSuccessMessage, addInfoMessage, handleCommand, login, checkIfUserIsBuilder, updateUserProfile, gameState, isSignedIn, isBuilder]);
 
   const handleSignOut = useCallback(() => {
     setIsSignedIn(false);
@@ -288,6 +290,17 @@ function App() {
                 username={username || undefined}
                 onSignOut={handleSignOut}
               />
+            </div>
+          )}
+          {isSignedIn && (
+            <div className="chat-status-indicator">
+              <span className={`chat-status-dot ${connectionStatus}`}></span>
+              <span className="chat-status-text">
+                {connectionStatus === 'connected' && 'Chat Online'}
+                {connectionStatus === 'connecting' && 'Connecting...'}
+                {connectionStatus === 'failed' && 'Chat Offline'}
+                {connectionStatus === 'disconnected' && 'Chat Offline'}
+              </span>
             </div>
           )}
           {isSignedIn && isBuilder && (
