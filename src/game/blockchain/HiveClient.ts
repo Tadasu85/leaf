@@ -189,7 +189,7 @@ export class HiveClient extends EventEmitter {
         permlink
       ]);
       
-      console.log(`[HiveClient Debug] Found ${replies.length} comments`);
+      console.log(`[HiveClient Debug] Found ${replies?.length || 0} comments`);
       return replies || [];
     } catch (error) {
       console.error('[HiveClient Debug] Error fetching comments:', error);

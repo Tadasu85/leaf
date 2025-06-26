@@ -59,6 +59,7 @@ function App() {
     player,
     currentRoom,
     login,
+    isLoginComplete,
     
     // Room State
     isLoadedGame,
@@ -134,18 +135,18 @@ function App() {
 
   // Handle login success (prevent repeated connect calls)
   useEffect(() => {
-    if (player && player.location) {
+    if (player && player.location && isLoginComplete) {
       const last = lastConnectedRef.current;
       if (!last || last.username !== player.username || JSON.stringify(last.location) !== JSON.stringify(player.location)) {
         connect(player.username, player.location);
         lastConnectedRef.current = { username: player.username, location: player.location };
       }
     }
-  }, [player, connect]);
+  }, [player, connect, isLoginComplete]);
 
   // Handle room changes - join corresponding chat channel
   useEffect(() => {
-    if (player && currentRoom) {
+    if (player && currentRoom && isLoginComplete) {
       const currentChannelId = getCurrentChannelId();
       const newChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
       
@@ -166,7 +167,7 @@ function App() {
         }
       }
     }
-  }, [currentRoom, player, joinChatChannel, leaveChatChannel, getCurrentChannelId, resetChannelStateTracking, isConnected]);
+  }, [currentRoom, player, joinChatChannel, leaveChatChannel, getCurrentChannelId, resetChannelStateTracking, isConnected, isLoginComplete]);
 
   // Load game data on mount
   useEffect(() => {

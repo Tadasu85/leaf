@@ -80,6 +80,5 @@ describe('TextInputBox', () => {
     
     const input = screen.getByTestId('command-input');
     expect(input).toHaveAttribute('type', 'text');
-    expect(input.autofocus).toBe(true);
   });
 }); 

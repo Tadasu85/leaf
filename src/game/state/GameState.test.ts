@@ -12,7 +12,16 @@ const mockHiveClient = {
   getComments: jest.fn(),
   database: mockDatabase,
   moveTo: jest.fn(),
-  getAccountHistory: jest.fn()
+  getAccountHistory: jest.fn(),
+  startMoveListener: jest.fn(),
+  stopMoveListener: jest.fn(),
+  setDescription: jest.fn(),
+  setShortDescription: jest.fn(),
+  getProfileImage: jest.fn(),
+  getClient: jest.fn(),
+  on: jest.fn(),
+  off: jest.fn(),
+  emit: jest.fn()
 };
 // Mock the HiveClient class AFTER defining the mockHiveClient
 jest.mock('../blockchain/HiveClient', () => ({
@@ -106,21 +115,23 @@ describe('GameState', () => {
       // Debug: Check if socket manager is set
       console.log('Debug - Socket manager set:', gameState.getHiveClient());
 
+      // Listen for the 'roomStateChanged' event
+      const roomChangedHandler = jest.fn();
+      gameState.on('roomStateChanged', roomChangedHandler);
+
       await gameState.loadRoom(mockRoomData);
 
       expect(mockHiveClient.getComments).toHaveBeenCalledWith('testuser', 'testroom');
-      expect(mockSocketManager.emitEvent).toHaveBeenCalledWith('updateRoomData', {
-        room: 'testuser/testroom',
-        roomData: {
-          title: 'Test Room',
-          body: 'A test room',
-          exits: { north: 'northroom' },
-          author: 'testuser',
-          permlink: 'testroom',
-          details: {
-            'flock of gulls': 'White crested ocean birds flutter about.',
-            'herd animals': 'They seem to be some form of bovine.'
-          }
+      expect(roomChangedHandler).toHaveBeenCalledWith({
+        id: 'testuser/testroom',
+        title: 'Test Room',
+        description: 'A test room',
+        author: 'testuser',
+        permlink: 'testroom',
+        exits: { north: 'northroom' },
+        details: {
+          'flock of gulls': 'White crested ocean birds flutter about.',
+          'herd animals': 'They seem to be some form of bovine.'
         }
       });
 

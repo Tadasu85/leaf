@@ -21,6 +21,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
   const [error, setError] = useState<string | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
   const [currentRoom, setCurrentRoom] = useState<RoomData | null>(null);
+  const [isLoginComplete, setIsLoginComplete] = useState(false);
 
   // Room State
   const [roomData, setRoomData] = useState<LegacyRoomData>({
@@ -81,7 +82,9 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       state.off('playerChanged', handlePlayerChanged);
       state.off('roomStateChanged', handleRoomChanged);
       // Stop the blockchain listener when component unmounts
-      hiveClient.stopMoveListener();
+      if (hiveClient && typeof hiveClient.stopMoveListener === 'function') {
+        hiveClient.stopMoveListener();
+      }
     };
   }, [gameJSON]);
 
@@ -91,7 +94,10 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       // The listener is started in GameState.login()
       return () => {
         // Stop the listener when player changes or component unmounts
-        gameState.getHiveClient().stopMoveListener();
+        const hiveClient = gameState.getHiveClient();
+        if (hiveClient && typeof hiveClient.stopMoveListener === 'function') {
+          hiveClient.stopMoveListener();
+        }
       };
     }
   }, [gameState, player]);
@@ -154,8 +160,11 @@ export function useGame(client: Client, keychain: KeychainSDK) {
   const login = useCallback(async (username: string) => {
     if (!gameState) return;
     try {
+      setIsLoginComplete(false);
       await gameState.login(username);
+      setIsLoginComplete(true);
     } catch (error) {
+      setIsLoginComplete(false);
       setError(error instanceof Error ? error.message : 'Failed to login');
     }
   }, [gameState]);
@@ -569,6 +578,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     player,
     currentRoom,
     login,
+    isLoginComplete,
     
     // Room State
     roomData,

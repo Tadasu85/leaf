@@ -59,8 +59,11 @@ export function useSocket(gameState: GameState | null) {
             if (currentChannelId === data.channelId && data.players) {
               // Update the room's player list with online players
               currentRoom.players = data.players;
-              // Display the room with updated player list
-              gameState.displayRoom();
+              // Only display room if not currently processing movement or logging in
+              // Movement and login updates are handled by the blockchain listener
+              if (!gameState.getIsProcessingMovement() && !gameState.getIsLoggingIn()) {
+                gameState.displayRoom();
+              }
             }
           }
         }
@@ -77,7 +80,10 @@ export function useSocket(gameState: GameState | null) {
         const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
         if (currentChannelId === data.channelId && data.players) {
           currentRoom.players = data.players;
-          gameState.displayRoom();
+          // Only display room if not currently processing movement or logging in
+          if (!gameState.getIsProcessingMovement() && !gameState.getIsLoggingIn()) {
+            gameState.displayRoom();
+          }
         }
       }
     };
@@ -89,7 +95,10 @@ export function useSocket(gameState: GameState | null) {
         const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
         if (currentChannelId === data.channelId && data.players) {
           currentRoom.players = data.players;
-          gameState.displayRoom();
+          // Only display room if not currently processing movement or logging in
+          if (!gameState.getIsProcessingMovement() && !gameState.getIsLoggingIn()) {
+            gameState.displayRoom();
+          }
         }
       }
     };
@@ -165,8 +174,8 @@ export function useSocket(gameState: GameState | null) {
 
   const resetChannelStateTracking = useCallback(() => {
     lastProcessedChannelState.current = null;
-    // Also reset the game state's room display tracking
-    if (gameState) {
+    // Only reset the game state's room display tracking if not processing movement or logging in
+    if (gameState && !gameState.getIsProcessingMovement() && !gameState.getIsLoggingIn()) {
       gameState.resetRoomDisplayTracking();
     }
   }, [gameState]);

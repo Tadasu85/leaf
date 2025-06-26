@@ -19,8 +19,10 @@ export class GameState extends EventEmitter {
   private hiveClient: HiveClient;
   private socketManager: SocketManager | null = null;
   private lastDisplayedRoom: string | null = null;
+  private lastRoomDisplayTimestamp: number = 0;
   private isLoggingIn: boolean = false;
   private hasNotifiedChatOffline: boolean = false;
+  private isProcessingMovement: boolean = false;
 
   constructor(hiveClient: HiveClient) {
     super();
@@ -110,12 +112,21 @@ export class GameState extends EventEmitter {
       return;
     }
     
-    // Update player location
-    this.player.location = location;
-    this.emit('playerChanged', this.player);
+    this.isProcessingMovement = true;
     
-    // Load the new room
-    await this.loadRoom(location);
+    try {
+      // Update player location
+      this.player.location = location;
+      this.emit('playerChanged', this.player);
+      
+      // Load the new room
+      await this.loadRoom(location);
+    } finally {
+      // Reset the flag after a short delay to allow for any immediate socket events
+      setTimeout(() => {
+        this.isProcessingMovement = false;
+      }, 100);
+    }
   }
 
   async loadRoom(location: Location, skipDisplay: boolean = false): Promise<void> {
@@ -212,6 +223,13 @@ export class GameState extends EventEmitter {
   displayRoom(): void {
     const room = this.currentRoom;
     if (!room) return;
+
+    const now = Date.now();
+    // Only allow display if at least 500ms have passed since last display
+    if (now - this.lastRoomDisplayTimestamp < 500) {
+      return;
+    }
+    this.lastRoomDisplayTimestamp = now;
 
     const roomKey = `${room.author}/${room.permlink}-${JSON.stringify(room.players || [])}`;
     
@@ -529,5 +547,15 @@ export class GameState extends EventEmitter {
   // Method to reset room display tracking (called when changing rooms)
   public resetRoomDisplayTracking(): void {
     this.lastDisplayedRoom = null;
+  }
+
+  // Method to check if currently processing movement
+  public getIsProcessingMovement(): boolean {
+    return this.isProcessingMovement;
+  }
+
+  // Method to check if currently logging in
+  public getIsLoggingIn(): boolean {
+    return this.isLoggingIn;
   }
 } 

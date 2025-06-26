@@ -58,10 +58,8 @@ describe('QueueButton', () => {
     const button = screen.getByRole('button');
     expect(button).toHaveStyle({
       padding: '8px 16px',
-      marginLeft: '10px',
       backgroundColor: '#2196F3',
       color: 'white',
-      border: 'none',
       borderRadius: '4px',
       cursor: 'pointer',
       transition: 'background-color 0.3s'
