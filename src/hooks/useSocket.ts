@@ -9,33 +9,15 @@ interface PlayerEvent {
 }
 
 export function useSocket(gameState: GameState | null) {
-  const socketManagerRef = useRef<SocketManager | null>(null);
   const lastProcessedChannelState = useRef<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'failed'>('disconnected');
 
-  // Debug effect that runs on every render
-  // useEffect(() => {
-  //   console.log('[useSocket Debug] Render effect - gameState:', gameState);
-  //   console.log('[useSocket Debug] Render effect - socketManagerRef.current:', socketManagerRef.current);
-  // });
+  // Always point to the latest gameState
+  const gameStateRef = useRef(gameState);
+  gameStateRef.current = gameState;
 
-  // Create SocketManager only once when gameState becomes available
-  useEffect(() => {
-    if (gameState) {
-      if (!socketManagerRef.current) {
-        socketManagerRef.current = new SocketManager(gameState);
-      }
-      
-      // Always set the socket manager in the game state so it can send messages
-      gameState.setSocketManager(socketManagerRef.current);
-    } else if (socketManagerRef.current) {
-      // Clean up when gameState becomes null
-      socketManagerRef.current.disconnect();
-      socketManagerRef.current = null;
-    }
-  }, [gameState]);
-
-  const socketManager = socketManagerRef.current;
+  // Use the SocketManager from GameState
+  const socketManager = gameState ? gameState.getSocketManager() : null;
 
   useEffect(() => {
     if (!gameState || !socketManager) return;
@@ -104,9 +86,10 @@ export function useSocket(gameState: GameState | null) {
     };
 
     const handleChat = (data: { username: string; message: string; channelId: string }) => {
-      // Display chat message from other players
-      if (gameState && data.username !== gameState.getPlayer()?.username) {
-        gameState.addOutputMessage(`${data.username} says: "${data.message}"`, false);
+      console.log('[useSocket Debug] handleChat called with:', data);
+      const currentUser = gameStateRef.current?.getPlayer()?.username;
+      if (gameStateRef.current && data.username !== currentUser) {
+        gameStateRef.current.addOutputMessage(`${data.username} says: "${data.message}"`, false);
       }
     };
 
@@ -126,63 +109,60 @@ export function useSocket(gameState: GameState | null) {
     socketManager.on('emote', handleEmote);
 
     return () => {
-      if (socketManager) {
-        socketManager.off('connectionStatusChanged', handleConnectionStatusChanged);
-        socketManager.off('chatChannelState', handleChatChannelState);
-        socketManager.off('chatChannelUpdate', handleChatChannelUpdate);
-        socketManager.off('playerJoined', handlePlayerJoined);
-        socketManager.off('playerLeft', handlePlayerLeft);
-        socketManager.off('chat', handleChat);
-        socketManager.off('emote', handleEmote);
-      }
+      socketManager.off('connectionStatusChanged', handleConnectionStatusChanged);
+      socketManager.off('chatChannelState', handleChatChannelState);
+      socketManager.off('chatChannelUpdate', handleChatChannelUpdate);
+      socketManager.off('playerJoined', handlePlayerJoined);
+      socketManager.off('playerLeft', handlePlayerLeft);
+      socketManager.off('chat', handleChat);
+      socketManager.off('emote', handleEmote);
     };
   }, [gameState, socketManager]);
 
   const connect = useCallback((username: string, location: { author: string; permlink: string }) => {
-    if (!socketManagerRef.current) return;
-    socketManagerRef.current.connect(username, location);
-  }, []);
+    if (!gameState) return;
+    gameState.getSocketManager().connect(username, location);
+  }, [gameState]);
 
   const disconnect = useCallback(() => {
-    if (!socketManagerRef.current) return;
-    socketManagerRef.current.disconnect();
-  }, []);
+    if (!gameState) return;
+    gameState.getSocketManager().disconnect();
+  }, [gameState]);
 
   const joinChatChannel = useCallback((channelId: string) => {
-    if (!socketManagerRef.current) return;
-    socketManagerRef.current.joinChatChannel(channelId);
-  }, []);
+    if (!gameState) return;
+    gameState.getSocketManager().joinChatChannel(channelId);
+  }, [gameState]);
 
   const leaveChatChannel = useCallback((channelId: string, username: string) => {
-    if (!socketManagerRef.current) return;
-    socketManagerRef.current.leaveChatChannel(channelId, username);
-  }, []);
+    if (!gameState) return;
+    gameState.getSocketManager().leaveChatChannel(channelId, username);
+  }, [gameState]);
 
   const sendMessage = useCallback((message: string) => {
-    if (!socketManagerRef.current || !gameState?.getPlayer()) return;
-    socketManagerRef.current.sendChat(message, gameState.getPlayer()!.username);
+    if (!gameState?.getPlayer()) return;
+    gameState.getSocketManager().sendChat(message, gameState.getPlayer()!.username);
   }, [gameState]);
 
   const sendEmote = useCallback((emote: string) => {
-    if (!socketManagerRef.current || !gameState?.getPlayer()) return;
-    socketManagerRef.current.sendEmote(emote, gameState.getPlayer()!.username);
+    if (!gameState?.getPlayer()) return;
+    gameState.getSocketManager().sendEmote(emote, gameState.getPlayer()!.username);
   }, [gameState]);
 
   const getCurrentChannelId = useCallback(() => {
-    return socketManagerRef.current?.getCurrentChannelId() || null;
-  }, []);
+    return gameState ? gameState.getSocketManager().getCurrentChannelId() : null;
+  }, [gameState]);
 
   const resetChannelStateTracking = useCallback(() => {
     lastProcessedChannelState.current = null;
-    // Only reset the game state's room display tracking if not processing movement or logging in
     if (gameState && !gameState.getIsProcessingMovement() && !gameState.getIsLoggingIn()) {
       gameState.resetRoomDisplayTracking();
     }
   }, [gameState]);
 
   const isConnected = useCallback(() => {
-    return socketManagerRef.current?.isConnected() || false;
-  }, []);
+    return gameState ? gameState.getSocketManager().isConnected() : false;
+  }, [gameState]);
 
   return {
     connect,

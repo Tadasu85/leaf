@@ -22,6 +22,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
   const [player, setPlayer] = useState<Player | null>(null);
   const [currentRoom, setCurrentRoom] = useState<RoomData | null>(null);
   const [isLoginComplete, setIsLoginComplete] = useState(false);
+  const [isBulkDataLoaded, setIsBulkDataLoaded] = useState(false);
 
   // Room State
   const [roomData, setRoomData] = useState<LegacyRoomData>({
@@ -43,20 +44,14 @@ export function useGame(client: Client, keychain: KeychainSDK) {
 
   // Refs
   const buildersList = useRef<string[]>([]);
-  const [loading, setLoading] = useState(false);
 
   // Command handler logic
   const commandParser = useRef(new CommandParser()).current;
 
-  // Initialize GameState
+  // Initialize GameState with bulk data loading
   useEffect(() => {
     const hiveClient = new HiveClient();
     const state = new GameState(hiveClient);
-    
-    // Set game map if available
-    if (Object.keys(gameJSON).length > 0) {
-      state.setGameMap(gameJSON);
-    }
     
     setGameState(state);
     setIsLoading(false);
@@ -86,7 +81,29 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         hiveClient.stopMoveListener();
       }
     };
-  }, [gameJSON]);
+  }, []);
+
+  // Initialize bulk data loading
+  useEffect(() => {
+    if (gameState && !isBulkDataLoaded) {
+      const initializeBulkData = async () => {
+        try {
+          console.log('[useGame] Initializing bulk data loading...');
+          await gameState.initialize();
+          setIsBulkDataLoaded(true);
+          
+          // Get cache stats for monitoring
+          const stats = gameState.getHiveClient().getCacheStats();
+          console.log('[useGame] Bulk data loaded. Cache stats:', stats);
+        } catch (error) {
+          console.error('[useGame] Error initializing bulk data:', error);
+          setError('Failed to load game data. Please refresh the page.');
+        }
+      };
+
+      initializeBulkData();
+    }
+  }, [gameState, isBulkDataLoaded]);
 
   // Cleanup blockchain listener when player changes
   useEffect(() => {
@@ -102,14 +119,17 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     }
   }, [gameState, player]);
 
-  // Update game map when it changes
+  // Update game map when it changes (now handled by bulk loader)
   useEffect(() => {
-    if (gameState && Object.keys(gameJSON).length > 0) {
-      gameState.setGameMap(gameJSON);
+    if (gameState && isBulkDataLoaded) {
+      const hiveClient = gameState.getHiveClient();
+      const gameMap = hiveClient.getGameMap();
+      setGameJSON(gameMap);
+      setIsLoadedGame(true);
     }
-  }, [gameState, gameJSON]);
+  }, [gameState, isBulkDataLoaded]);
 
-  // Fetch game data
+  // Fetch game data (now simplified since bulk loader handles it)
   const fetchGameData = useCallback(async () => {
     try {
       setIsLoadedGame(false);
@@ -128,27 +148,17 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         buildersList.current = [];
       }
 
-      // Get game account's profile JSON from hive-109456 chain
-      const gameAccount = await client.database.call('get_accounts', [[config.game.account]]);
-      if (!gameAccount || !gameAccount[0]) {
-        console.error('[Game Debug] Failed to fetch game account data');
-        return;
+      // Game map is now loaded by bulk loader, so we just need to get it
+      if (gameState && isBulkDataLoaded) {
+        const hiveClient = gameState.getHiveClient();
+        const gameMap = hiveClient.getGameMap();
+        setGameJSON(gameMap);
+        setIsLoadedGame(true);
       }
-
-      const parsedGameInfo = JSON.parse(gameAccount[0].posting_json_metadata);
-      
-      if (!parsedGameInfo.egodeathgamedata?.rooms_authors_exits) {
-        console.error('[Game Debug] No game map data found in profile JSON. Full parsed data:', parsedGameInfo);
-        return;
-      }
-
-      const gameMap = parsedGameInfo.egodeathgamedata.rooms_authors_exits;
-      setGameJSON(gameMap);
-      setIsLoadedGame(true);
     } catch (error) {
       console.error('[Game Debug] Error fetching game data:', error);
     }
-  }, [client]);
+  }, [client, gameState, isBulkDataLoaded]);
 
   // Check if user is builder
   const checkIfUserIsBuilder = useCallback((username: string) => {
@@ -378,10 +388,31 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     });
     
     try {
-      setLoading(true);
       let movedPlayer = {
         "Location": options?.newlocation ?? { "permlink": "genesis-scaffold-precipice", "author": player.location.author }
       };
+      
+      // Optimistic UI update: update local player location and room immediately
+      if (gameState) {
+        const optimisticLocation = movedPlayer.Location;
+        // Update player location
+        if (gameState.getPlayer()) {
+          gameState.getPlayer()!.location = optimisticLocation;
+        }
+        // Get cached room data and update current room
+        const cachedRoom = await gameState.getHiveClient().getRoomData(optimisticLocation);
+        if (cachedRoom) {
+          // Set as current room and display immediately
+          (gameState as any).setCurrentRoom(cachedRoom); // setCurrentRoom is private, so we use a cast
+          // Set the lastOptimisticRoomKey to suppress the second display
+          (gameState as any).lastOptimisticRoomKey = `${cachedRoom.author}/${cachedRoom.permlink}-${JSON.stringify(cachedRoom.players || [])}`;
+          gameState.displayRoom();
+          // Immediately join the chat channel for the new room
+          if (typeof window !== 'undefined' && (window as any).joinChatChannel) {
+            (window as any).joinChatChannel(`${cachedRoom.author}/${cachedRoom.permlink}`);
+          }
+        }
+      }
       
       console.log('[MovePlayer Debug] Prepared move data:', movedPlayer);
       
@@ -409,22 +440,17 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       if (!result || !result.success || !result.result || !result.result.id) {
         console.log('[MovePlayer Debug] Broadcast failed:', result);
         if (gameState) gameState.addOutputMessage('Move failed. Please check your Keychain and try again.', true);
-        setLoading(false);
         return;
       }
       
-      console.log('[MovePlayer Debug] Broadcast successful, waiting for blockchain listener to detect move...');
+      console.log('[MovePlayer Debug] Broadcast successful, blockchain listener will handle the move completion');
       
-      // The blockchain listener will handle the move completion
-      // We just need to wait a reasonable time for it to be detected
-      setTimeout(() => {
-        setLoading(false);
-      }, 3000); // Give 3 seconds for the blockchain listener to detect the move
+      // The blockchain listener will handle the move completion automatically
+      // No need for loading state since data is already cached
       
     } catch (error) {
       console.error('[MovePlayer Debug] Move operation failed:', error);
       if (gameState) gameState.addOutputMessage('Move failed. Please check your Keychain and try again.', true);
-      setLoading(false);
     }
   }, [player, keychain, gameState]);
 
@@ -601,7 +627,6 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     // new additions
     handleCommand,
     movePlayer,
-    loading,
     buildApprovalQueue
   };
 } 

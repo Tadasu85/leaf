@@ -11,6 +11,10 @@ export class SocketManager extends EventEmitter {
 
   constructor(private gameState: GameState) {
     super();
+    // Always emit the initial status
+    setTimeout(() => {
+      this.emit('connectionStatusChanged', { status: this.connectionStatus });
+    }, 0);
   }
 
   connect(username: string, location: { author: string; permlink: string }): void {
@@ -20,6 +24,8 @@ export class SocketManager extends EventEmitter {
     }
     this.isConnecting = true;
     this.connectionStatus = 'connecting';
+    // Emit status immediately when connecting
+    this.emit('connectionStatusChanged', { status: 'connecting' });
 
     try {
       // Clean up any existing socket first

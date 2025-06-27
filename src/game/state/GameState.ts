@@ -17,16 +17,38 @@ export class GameState extends EventEmitter {
   private outputMessages: GameOutputMessage[] = [];
   private currentRoomIdentifier: string | null = null;
   private hiveClient: HiveClient;
-  private socketManager: SocketManager | null = null;
+  private socketManager: SocketManager;
   private lastDisplayedRoom: string | null = null;
   private lastRoomDisplayTimestamp: number = 0;
   private isLoggingIn: boolean = false;
   private hasNotifiedChatOffline: boolean = false;
   private isProcessingMovement: boolean = false;
+  private isBulkDataLoaded: boolean = false;
+  private lastOptimisticRoomKey: string | null = null;
 
   constructor(hiveClient: HiveClient) {
     super();
     this.hiveClient = hiveClient;
+    this.socketManager = new SocketManager(this);
+  }
+
+  /**
+   * Initialize game state with bulk data loading
+   */
+  public async initialize(): Promise<void> {
+    if (this.isBulkDataLoaded) {
+      return;
+    }
+
+    try {
+      console.log('[GameState] Initializing with bulk data load...');
+      this.gameMap = await this.hiveClient.loadAllGameData();
+      this.isBulkDataLoaded = true;
+      console.log('[GameState] Bulk data initialization complete');
+    } catch (error) {
+      console.error('[GameState] Error during bulk data initialization:', error);
+      throw error;
+    }
   }
 
   // Core game functionality
@@ -36,6 +58,11 @@ export class GameState extends EventEmitter {
     }
 
     this.isLoggingIn = true;
+
+    // Ensure bulk data is loaded before login
+    if (!this.isBulkDataLoaded) {
+      await this.initialize();
+    }
 
     // Find player's last location from blockchain history
     let lastLocation: { author: string; permlink: string } | null = null;
@@ -85,7 +112,7 @@ export class GameState extends EventEmitter {
         }
       });
 
-      // Load the player's current room
+      // Load the player's current room using bulk data
       await this.loadRoom(this.player.location);
       
       // Emit player changed event
@@ -122,93 +149,33 @@ export class GameState extends EventEmitter {
       // Load the new room
       await this.loadRoom(location);
     } finally {
-      // Reset the flag after a short delay to allow for any immediate socket events
-      setTimeout(() => {
-        this.isProcessingMovement = false;
-      }, 100);
+      // Reset the flag immediately since data is cached
+      this.isProcessingMovement = false;
     }
   }
 
   async loadRoom(location: Location, skipDisplay: boolean = false): Promise<void> {
     try {
-      // For blockchain calls, we need separate author and permlink
-      let author = location.author;
-      let permlink = location.permlink;
+      // Use bulk data loader for efficient room loading
+      const room = await this.hiveClient.getRoomData(location);
       
-      // If permlink contains a slash, it's the full room identifier from signaling server
-      if (permlink.includes('/')) {
-        const parts = permlink.split('/');
-        if (parts.length === 2) {
-          author = parts[0];
-          permlink = parts[1];
-        }
-      }
-
-      const content = await this.hiveClient.database.call('get_content', [
-        author,
-        permlink
-      ]);
-
-      if (!content || !content.id) {
+      if (!room) {
         this.addOutputMessage('Room not found', true);
         return;
       }
 
-      const room: RoomData = {
-        id: `${author}/${permlink}`,
-        title: content.title,
-        description: content.body,
-        author: author,
-        permlink: permlink,
-        exits: {}
-      };
-
-      // Use game map data for exits if available
-      if (this.gameMap && this.gameMap[permlink]) {
-        room.exits = this.gameMap[permlink].exits || {};
-      } else {
-        // Fallback to parsing room details and exits from metadata
+      // Load room details (comments) on-demand for memory efficiency
+      if (!room.details) {
         try {
-          const metadata = JSON.parse(content.json_metadata);
-          if (metadata.room) {
-            room.exits = metadata.room.exits || {};
-          }
+          const details = await this.hiveClient.getRoomDetails(location.author, location.permlink);
+          room.details = details;
         } catch (error) {
-          console.error('Error parsing room metadata:', error);
+          console.error('[LoadRoom Debug] Error loading room details:', error);
+          room.details = {};
         }
       }
 
       this.setCurrentRoom(room);
-      
-      // Fetch comments for room details
-      let comments: any[] = [];
-      let authorCommentDetails: any[] = [];
-      try {
-        comments = await this.hiveClient.getComments(author, permlink);
-        
-        // Filter for comments by the room author only
-        const authorComments = comments.filter(comment => comment.author === author);
-        
-        // Extract key names and body from author comments
-        authorCommentDetails = authorComments.map(comment => {
-          // Extract key from text before colon, fallback to permlink if no colon found
-          const colonIndex = comment.body.indexOf(':');
-          const key = colonIndex > 0 ? comment.body.substring(0, colonIndex).trim() : comment.permlink;
-          const body = colonIndex > 0 ? comment.body.substring(colonIndex + 1).trim() : comment.body;
-          
-          return { key, body };
-        });
-        
-        // Add details to the local room object
-        const details: { [key: string]: string } = {};
-        authorCommentDetails.forEach(comment => {
-          details[comment.key] = comment.body;
-        });
-        room.details = details;
-        
-      } catch (error) {
-        console.error('[LoadRoom Debug] Error fetching comments:', error);
-      }
       
       // Only display room if not skipped
       if (!skipDisplay) {
@@ -224,15 +191,13 @@ export class GameState extends EventEmitter {
     const room = this.currentRoom;
     if (!room) return;
 
-    const now = Date.now();
-    // Only allow display if at least 500ms have passed since last display
-    if (now - this.lastRoomDisplayTimestamp < 500) {
-      return;
-    }
-    this.lastRoomDisplayTimestamp = now;
-
     const roomKey = `${room.author}/${room.permlink}-${JSON.stringify(room.players || [])}`;
     
+    // Suppress second display if this was just optimistically displayed
+    if (this.lastOptimisticRoomKey === roomKey) {
+      this.lastOptimisticRoomKey = null;
+      return;
+    }
     // Prevent duplicate displays of the same room state
     if (this.lastDisplayedRoom === roomKey) {
       return;
@@ -418,6 +383,10 @@ export class GameState extends EventEmitter {
     return this.hiveClient;
   }
 
+  public getSocketManager(): SocketManager {
+    return this.socketManager;
+  }
+
   // Setters
   private setCurrentRoom(room: RoomData): void {
     this.currentRoom = room;
@@ -515,6 +484,7 @@ export class GameState extends EventEmitter {
   // Method to set socket manager (called by useSocket hook)
   public setSocketManager(socketManager: SocketManager): void {
     this.socketManager = socketManager;
+    let disconnectDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     
     // Set up event listeners for socket manager events
     if (socketManager) {
@@ -527,18 +497,31 @@ export class GameState extends EventEmitter {
       
       socketManager.on('connectionStatusChanged', (data: { status: string; error?: string }) => {
         if (data.status === 'failed') {
+          if (disconnectDebounceTimer) {
+            clearTimeout(disconnectDebounceTimer);
+            disconnectDebounceTimer = null;
+          }
           if (!this.hasNotifiedChatOffline) {
             this.addOutputMessage('Chat server is unavailable. You can still navigate and play the game.', true);
             this.hasNotifiedChatOffline = true;
           }
         } else if (data.status === 'connected') {
+          if (disconnectDebounceTimer) {
+            clearTimeout(disconnectDebounceTimer);
+            disconnectDebounceTimer = null;
+          }
           this.addOutputMessage('Chat server connected. Chat is now available.', false);
           this.hasNotifiedChatOffline = false; // Reset flag when chat comes back online
         } else if (data.status === 'disconnected') {
-          if (!this.hasNotifiedChatOffline) {
-            this.addOutputMessage('Chat server disconnected. Chat is no longer available.', true);
-            this.hasNotifiedChatOffline = true;
+          if (disconnectDebounceTimer) {
+            clearTimeout(disconnectDebounceTimer);
           }
+          disconnectDebounceTimer = setTimeout(() => {
+            if (!this.hasNotifiedChatOffline) {
+              this.addOutputMessage('Chat server disconnected. Chat is no longer available.', true);
+              this.hasNotifiedChatOffline = true;
+            }
+          }, 5000);
         }
       });
     }

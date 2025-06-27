@@ -10,6 +10,12 @@ const mockDatabase = {
 };
 const mockHiveClient = {
   getComments: jest.fn(),
+  getRoomData: jest.fn(),
+  getRoomDetails: jest.fn(),
+  loadAllGameData: jest.fn(),
+  getGameMap: jest.fn(),
+  getCacheStats: jest.fn(),
+  clearCache: jest.fn(),
   database: mockDatabase,
   moveTo: jest.fn(),
   getAccountHistory: jest.fn(),
@@ -61,43 +67,29 @@ describe('GameState', () => {
 
   describe('loadRoom', () => {
     it('should load room with details from blockchain', async () => {
+      const mockLocation = {
+        author: 'testuser',
+        permlink: 'testroom'
+      };
+
       const mockRoomData = {
-        id: 'testroom',
+        id: 'testuser/testroom',
         title: 'Test Room',
         description: 'A test room',
         author: 'testuser',
         permlink: 'testroom',
-        exits: { north: 'northroom' },
-        details: {}
+        exits: { north: 'northroom' }
+        // No details initially - this will trigger getRoomDetails call
       };
 
-      const mockContent = {
-        id: 123,
-        title: 'Test Room',
-        body: 'A test room',
-        json_metadata: '{}'
+      const mockDetails = {
+        'flock of gulls': 'White crested ocean birds flutter about.',
+        'herd animals': 'They seem to be some form of bovine.'
       };
 
-      const mockComments = [
-        {
-          author: 'testuser',
-          body: 'flock of gulls: White crested ocean birds flutter about.',
-          created: '2025-06-22T16:46:09.804Z'
-        },
-        {
-          author: 'testuser',
-          body: 'herd animals: They seem to be some form of bovine.',
-          created: '2025-06-22T16:46:10.804Z'
-        },
-        {
-          author: 'otheruser',
-          body: 'This is a comment by someone else',
-          created: '2025-06-22T16:46:11.804Z'
-        }
-      ];
-
-      mockDatabase.call.mockResolvedValue(mockContent);
-      mockHiveClient.getComments.mockResolvedValue(mockComments);
+      // Mock the new bulk loading methods
+      mockHiveClient.getRoomData.mockResolvedValue(mockRoomData);
+      mockHiveClient.getRoomDetails.mockResolvedValue(mockDetails);
 
       gameState.setSocketManager(mockSocketManager as any);
 
@@ -119,9 +111,10 @@ describe('GameState', () => {
       const roomChangedHandler = jest.fn();
       gameState.on('roomStateChanged', roomChangedHandler);
 
-      await gameState.loadRoom(mockRoomData);
+      await gameState.loadRoom(mockLocation);
 
-      expect(mockHiveClient.getComments).toHaveBeenCalledWith('testuser', 'testroom');
+      expect(mockHiveClient.getRoomData).toHaveBeenCalledWith(mockLocation);
+      expect(mockHiveClient.getRoomDetails).toHaveBeenCalledWith('testuser', 'testroom');
       expect(roomChangedHandler).toHaveBeenCalledWith({
         id: 'testuser/testroom',
         title: 'Test Room',
@@ -129,10 +122,7 @@ describe('GameState', () => {
         author: 'testuser',
         permlink: 'testroom',
         exits: { north: 'northroom' },
-        details: {
-          'flock of gulls': 'White crested ocean birds flutter about.',
-          'herd animals': 'They seem to be some form of bovine.'
-        }
+        details: mockDetails
       });
 
       const currentRoom = gameState.getCurrentRoom();
@@ -143,10 +133,7 @@ describe('GameState', () => {
         author: 'testuser',
         permlink: 'testroom',
         exits: { north: 'northroom' },
-        details: {
-          'flock of gulls': 'White crested ocean birds flutter about.',
-          'herd animals': 'They seem to be some form of bovine.'
-        }
+        details: mockDetails
       });
     });
   });

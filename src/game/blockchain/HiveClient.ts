@@ -1,8 +1,9 @@
 import { Client, Operation } from '@hiveio/dhive';
 import { KeychainSDK, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
-import { Location } from '../types/GameTypes';
+import { Location, GameMap, RoomData } from '../types/GameTypes';
 import config from '../../config';
 import { EventEmitter } from 'events';
+import { BulkDataLoader } from './BulkDataLoader';
 
 export class HiveClient extends EventEmitter {
   private client: Client;
@@ -10,11 +11,139 @@ export class HiveClient extends EventEmitter {
   private operationsStream: any = null;
   private streamReader: any = null;
   private isListening: boolean = false;
+  private bulkLoader: BulkDataLoader;
+  private isBulkDataLoaded: boolean = false;
 
   constructor() {
     super();
     this.client = new Client(config.hive.nodes);
     this.keychain = new KeychainSDK(window);
+    this.bulkLoader = new BulkDataLoader(this.client, {
+      maxCacheSize: 1000,
+      enableCompression: true,
+      loadRoomDetails: false, // Load details on-demand for memory efficiency
+      memoryLimitMB: 50
+    });
+  }
+
+  /**
+   * Load all game data upfront for better performance
+   */
+  public async loadAllGameData(): Promise<GameMap> {
+    if (this.isBulkDataLoaded) {
+      return this.bulkLoader.getGameMap();
+    }
+
+    try {
+      console.log('[HiveClient] Loading all game data upfront...');
+      const gameMap = await this.bulkLoader.loadAllGameData();
+      this.isBulkDataLoaded = true;
+      
+      // Log cache statistics
+      const stats = this.bulkLoader.getCacheStats();
+      console.log('[HiveClient] Bulk data load complete. Cache stats:', stats);
+      
+      return gameMap;
+    } catch (error) {
+      console.error('[HiveClient] Error loading bulk data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get room data efficiently from bulk loader cache
+   */
+  public async getRoomData(location: Location): Promise<RoomData | null> {
+    if (!this.isBulkDataLoaded) {
+      console.warn('[HiveClient] Bulk data not loaded, falling back to individual room load');
+      return this.loadRoomDataLegacy(location);
+    }
+
+    return this.bulkLoader.getRoomData(location);
+  }
+
+  /**
+   * Legacy method for loading individual room data (fallback)
+   */
+  private async loadRoomDataLegacy(location: Location): Promise<RoomData | null> {
+    try {
+      const content = await this.database.call('get_content', [
+        location.author,
+        location.permlink
+      ]);
+
+      if (!content || !content.id) {
+        return null;
+      }
+
+      const room: RoomData = {
+        id: `${location.author}/${location.permlink}`,
+        title: content.title,
+        description: content.body,
+        author: location.author,
+        permlink: location.permlink,
+        exits: {}
+      };
+
+      // Parse exits from metadata
+      try {
+        const metadata = JSON.parse(content.json_metadata);
+        if (metadata.room) {
+          room.exits = metadata.room.exits || {};
+        }
+      } catch (error) {
+        console.error('Error parsing room metadata:', error);
+      }
+
+      return room;
+    } catch (error) {
+      console.error('Error loading room data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get room details (comments) on-demand for memory efficiency
+   */
+  public async getRoomDetails(author: string, permlink: string): Promise<{ [key: string]: string }> {
+    try {
+      const comments = await this.getComments(author, permlink);
+      const authorComments = comments.filter(comment => comment.author === author);
+      
+      const details: { [key: string]: string } = {};
+      authorComments.forEach(comment => {
+        const colonIndex = comment.body.indexOf(':');
+        const key = colonIndex > 0 ? comment.body.substring(0, colonIndex).trim() : comment.permlink;
+        const body = colonIndex > 0 ? comment.body.substring(colonIndex + 1).trim() : comment.body;
+        details[key] = body;
+      });
+      
+      return details;
+    } catch (error) {
+      console.error('[HiveClient] Error loading room details:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Get cache statistics for monitoring
+   */
+  public getCacheStats() {
+    return this.bulkLoader.getCacheStats();
+  }
+
+  /**
+   * Clear cache if memory usage is high
+   */
+  public clearCache(): void {
+    this.bulkLoader.clearCache();
+  }
+
+  /**
+   * Get the game map from bulk loader
+   */
+  public getGameMap(): GameMap {
+    return this.bulkLoader.getGameMap();
   }
 
   public async moveTo(username: string, location: Location): Promise<void> {

@@ -14,6 +14,7 @@ import QueueButton from './components/QueueButton';
 import QueueManagementModal from './components/QueueManagementModal';
 import { KeychainKeyTypes } from 'keychain-sdk';
 import config from './config';
+import { MemoryMonitor } from './components/MemoryMonitor';
 
 // Add process polyfill for browser environment
 declare global {
@@ -76,7 +77,6 @@ function App() {
     updateUserProfile,
     // Command and move logic
     handleCommand,
-    loading,
     buildApprovalQueue
   } = useGame(client, keychain);
 
@@ -97,6 +97,12 @@ function App() {
     connectionStatus,
     isConnected
   } = useSocket(gameState);
+
+  // Debug: Log the connectionStatus value
+  // Dont bother if we are not logged in
+  if (isSignedIn) {
+    console.log('[App Debug] connectionStatus:', connectionStatus);
+    }
 
   // Debug logging for useSocket hook
   // console.log('[App Debug] useSocket hook called with gameState:', gameState);
@@ -157,10 +163,10 @@ function App() {
           // Reset channel state tracking when changing channels
           resetChannelStateTracking();
           
-          // Add a longer delay to ensure leaveChatChannel is fully processed
+          // Minimal delay to ensure leaveChatChannel is processed
           setTimeout(() => {
             joinChatChannel(newChannelId);
-          }, 200);
+          }, 50);
         } else {
           // No current channel, join immediately
           joinChatChannel(newChannelId);
@@ -270,14 +276,6 @@ function App() {
 
   return (
     <div className="App">
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-overlay__content">
-            <span className="loading-overlay__spinner"></span>
-            Processing...
-          </div>
-        </div>
-      )}
       <header className="App-header">
         <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḇ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
         <div className="header-buttons">
@@ -291,17 +289,6 @@ function App() {
                 username={username || undefined}
                 onSignOut={handleSignOut}
               />
-            </div>
-          )}
-          {isSignedIn && (
-            <div className="chat-status-indicator">
-              <span className={`chat-status-dot ${connectionStatus}`}></span>
-              <span className="chat-status-text">
-                {connectionStatus === 'connected' && 'Chat Online'}
-                {connectionStatus === 'connecting' && 'Connecting...'}
-                {connectionStatus === 'failed' && 'Chat Offline'}
-                {connectionStatus === 'disconnected' && 'Chat Offline'}
-              </span>
             </div>
           )}
           {isSignedIn && isBuilder && (
@@ -328,7 +315,7 @@ function App() {
             maxMessages={200}
           />
           <div className="TextInputBox">
-            <TextInputBox onEnterPressed={handleTextEnteredWrapper} isLoading={loading} />
+            <TextInputBox onEnterPressed={handleTextEnteredWrapper} />
           </div>
         </>
       )}
@@ -355,6 +342,10 @@ function App() {
         onClose={toggleQueueModal}
         username={username}
         buildApprovalQueue={buildApprovalQueue}
+      />
+      <MemoryMonitor 
+        hiveClient={gameState?.getHiveClient() || null}
+        isVisible={process.env.NODE_ENV === 'development'}
       />
     </div>
   );
