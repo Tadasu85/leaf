@@ -21,8 +21,8 @@ export class HiveClient extends EventEmitter {
     this.bulkLoader = new BulkDataLoader(this.client, {
       maxCacheSize: 1000,
       enableCompression: true,
-      loadRoomDetails: false, // Load details on-demand for memory efficiency
-      memoryLimitMB: 50
+      loadRoomDetails: true, // Enable loading room details (comments/objects)
+      memoryLimitMB: 200 // Increased from 50MB to 200MB for modern web apps
     });
   }
 

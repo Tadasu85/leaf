@@ -62,6 +62,17 @@ export class BulkDataLoader {
       this.isInitialized = true;
       console.log('[BulkDataLoader] Bulk data load completed successfully');
       
+      // Log summary of what was loaded
+      const stats = this.getCacheStats();
+      const totalDetails = Array.from(this.roomCache.values())
+        .reduce((sum, entry) => sum + Object.keys(entry.data.details || {}).length, 0);
+      
+      console.log('[BulkDataLoader] 📊 Loading Summary:');
+      console.log(`[BulkDataLoader]   - Total rooms loaded: ${stats.size}`);
+      console.log(`[BulkDataLoader]   - Total room details: ${totalDetails}`);
+      console.log(`[BulkDataLoader]   - Memory usage: ${stats.memoryUsageMB.toFixed(2)}MB`);
+      console.log(`[BulkDataLoader]   - Cache hit rate: ${(stats.hitRate * 100).toFixed(1)}%`);
+      
       return this.gameMap;
     } catch (error) {
       console.error('[BulkDataLoader] Error loading game data:', error);
@@ -132,6 +143,13 @@ export class BulkDataLoader {
         exits: roomInfo.exits || {}
       };
 
+      // Log basic room data
+      console.log(`[BulkDataLoader] Loading room: ${roomData.title}`);
+      console.log(`[BulkDataLoader]   - Author: ${roomData.author}`);
+      console.log(`[BulkDataLoader]   - Permlink: ${roomData.permlink}`);
+      console.log(`[BulkDataLoader]   - Exits:`, roomData.exits);
+      console.log(`[BulkDataLoader]   - Description length: ${roomData.description.length} chars`);
+
       // Load room details (comments) if enabled
       if (this.loadRoomDetails) {
         try {
@@ -147,9 +165,21 @@ export class BulkDataLoader {
           });
           
           roomData.details = details;
+          
+          // Log room details
+          if (Object.keys(details).length > 0) {
+            console.log(`[BulkDataLoader]   - Details found:`, Object.keys(details));
+            Object.entries(details).forEach(([key, value]) => {
+              console.log(`[BulkDataLoader]     * ${key}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+            });
+          } else {
+            console.log(`[BulkDataLoader]   - No details found`);
+          }
         } catch (error) {
           console.warn(`[BulkDataLoader] Failed to load details for ${cacheKey}:`, error);
         }
+      } else {
+        console.log(`[BulkDataLoader]   - Details loading disabled`);
       }
 
       // Compress data if enabled
@@ -157,6 +187,8 @@ export class BulkDataLoader {
 
       // Add to cache with memory management
       this.addToCache(cacheKey, processedData);
+      
+      console.log(`[BulkDataLoader] ✓ Room loaded and cached: ${roomData.title}`);
 
     } catch (error) {
       console.error(`[BulkDataLoader] Error loading room ${cacheKey}:`, error);

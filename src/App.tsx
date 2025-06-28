@@ -4,7 +4,10 @@ import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
 import BuildButton from './components/BuildButton';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useGame } from './hooks/useGame';
+import { useGameState } from './hooks/useGameState';
+import { useRoomState } from './hooks/useRoomState';
+import { useGameData } from './hooks/useGameData';
+import { useUserProfile } from './hooks/useUserProfile';
 import { useSocket } from './hooks/useSocket';
 import { useModalState } from './hooks/useModalState';
 import { useClients } from './hooks/useClients';
@@ -53,32 +56,31 @@ function App() {
 
   const { client, keychain } = useClients();
 
-  // Use the new consolidated game hook (now with command and location logic)
+  // Use the new separated hooks architecture
   const {
-    // Game State
     gameState,
     player,
     currentRoom,
     login,
-    isLoginComplete,
-    
-    // Room State
-    isLoadedGame,
-    
-    // Game Data
+    isLoginComplete
+  } = useGameState();
+
+  const {
+    updateGameJSON
+  } = useRoomState();
+
+  const {
+    isLoadedGame: isGameDataLoaded,
     fetchGameData,
-    checkIfUserIsBuilder,
-    
-    // User State
+    checkIfUserIsBuilder
+  } = useGameData(client, gameState);
+
+  const {
     userProfileJSON,
-    setUserProfileJSON,
     isBuilder,
     isAdmin,
-    updateUserProfile,
-    // Command and move logic
-    handleCommand,
-    buildApprovalQueue
-  } = useGame(client, keychain);
+    updateUserProfile
+  } = useUserProfile(gameState, player);
 
   // Use the new centralized output management
   const {
@@ -87,6 +89,155 @@ function App() {
     addSuccessMessage,
     addInfoMessage
   } = useGameOutput(gameState);
+
+  // Debug logging - only log when values actually change
+  useEffect(() => {
+    console.log('[App Debug] GameState:', gameState);
+  }, [gameState]);
+
+  useEffect(() => {
+    console.log('[App Debug] Player:', player);
+  }, [player]);
+
+  useEffect(() => {
+    console.log('[App Debug] CurrentRoom:', currentRoom);
+  }, [currentRoom]);
+
+  useEffect(() => {
+    console.log('[App Debug] IsLoginComplete:', isLoginComplete);
+  }, [isLoginComplete]);
+
+  // Command handler that processes actual commands
+  const handleCommand = useCallback((text: string) => {
+    if (!gameState) {
+      addErrorMessage('Game state not available');
+      return;
+    }
+
+    // Get current room exits for command validation
+    const currentRoomPermlink = player?.location.permlink;
+    const currentRoomExits = currentRoom?.exits;
+    
+    // Import CommandParser dynamically to avoid circular dependencies
+    const { CommandParser } = require('./game/commands/CommandParser');
+    const commandParser = new CommandParser();
+    
+    const command = commandParser.parse(text, currentRoomExits);
+    if (!command) {
+      addErrorMessage('Invalid command. Type "help" for a list of commands.');
+      return;
+    }
+    
+    console.log('[Command Debug] Parsed command:', command);
+    
+    switch (command.type) {
+      case 'move':
+        console.log('[Command Debug] Processing move command');
+        const direction = command.args[0];
+        
+        if (!currentRoomPermlink) {
+          addErrorMessage('Cannot determine current location.');
+          return;
+        }
+        
+        // Look up the exit in the current room
+        if (!currentRoomExits || !currentRoomExits[direction]) {
+          addErrorMessage(`You cannot go ${direction}.`);
+          return;
+        }
+        
+        const targetPermlink = currentRoomExits[direction];
+        console.log('[Movement Debug] Found exit, moving to:', {
+          direction,
+          targetPermlink,
+          currentAuthor: player?.location.author
+        });
+        
+        // Use the gameState's move method
+        gameState.move(direction);
+        break;
+      case 'say':
+        console.log('[Command Debug] Processing say command');
+        gameState.say(command.args[0]);
+        break;
+      case 'emote':
+        console.log('[Command Debug] Processing emote command');
+        gameState.emote(command.args[0]);
+        break;
+      case 'look':
+        console.log('[Command Debug] Processing look command');
+        gameState.look();
+        break;
+      case 'help':
+        console.log('[Command Debug] Processing help command');
+        gameState.help();
+        break;
+      case 'describe':
+        console.log('[Command Debug] Processing describe command');
+        gameState.setDescription(command.args[0]);
+        break;
+      case 'describeshort':
+        console.log('[Command Debug] Processing describeshort command');
+        gameState.setShortDescription(command.args[0]);
+        break;
+      case 'lookAt':
+        console.log('[Command Debug] Processing lookAt command');
+        const target = command.args[0];
+        
+        // Special case for "look self"
+        if (target.toLowerCase() === 'self') {
+          gameState.lookAtSelf();
+          break;
+        }
+        
+        console.log('[LookAt Debug] Target:', target);
+        const currentRoom = gameState.getCurrentRoom();
+        console.log('[LookAt Debug] Current room:', currentRoom);
+        if (!currentRoom) {
+          addErrorMessage('No current room found');
+          break;
+        }
+        
+        // Check if the detail exists in the room
+        const roomDetails = (currentRoom as any).details || {};
+        console.log('[LookAt Debug] Room details:', roomDetails);
+        console.log('[LookAt Debug] Available detail keys:', Object.keys(roomDetails));
+        
+        // Try exact match first
+        let detailKey = Object.keys(roomDetails).find(key => 
+          key.toLowerCase() === target.toLowerCase()
+        );
+        console.log('[LookAt Debug] Exact match result:', detailKey);
+        
+        // If no exact match, try partial match
+        if (!detailKey) {
+          detailKey = Object.keys(roomDetails).find(key => 
+            key.toLowerCase().includes(target.toLowerCase()) || 
+            target.toLowerCase().includes(key.toLowerCase())
+          );
+          console.log('[LookAt Debug] Partial match result:', detailKey);
+        }
+        
+        if (detailKey) {
+          console.log('[LookAt Debug] Found detail, displaying:', detailKey, roomDetails[detailKey]);
+          addInfoMessage(detailKey);
+          addInfoMessage(roomDetails[detailKey]);
+        } else {
+          console.log('[LookAt Debug] No match found for:', target);
+          addErrorMessage(`You don't see "${target}" here.`);
+        }
+        break;
+      default:
+        console.log('[Command Debug] Processing default case, command type:', command.type);
+        addErrorMessage('Unknown command. Type "help" for a list of commands.');
+    }
+  }, [gameState, player, currentRoom, addErrorMessage, addInfoMessage]);
+
+  // Simple build approval queue for now
+  const buildApprovalQueue = useCallback(async () => {
+    // For now, return empty array
+    return [];
+  }, []);
 
   const {
     connect,
@@ -98,11 +249,12 @@ function App() {
     isConnected
   } = useSocket(gameState);
 
-  // Debug: Log the connectionStatus value
-  // Dont bother if we are not logged in
-  if (isSignedIn) {
-    console.log('[App Debug] connectionStatus:', connectionStatus);
+  // Debug logging for connection status - only log when it changes
+  useEffect(() => {
+    if (isSignedIn) {
+      console.log('[App Debug] connectionStatus:', connectionStatus);
     }
+  }, [connectionStatus, isSignedIn]);
 
   // Debug logging for useSocket hook
   // console.log('[App Debug] useSocket hook called with gameState:', gameState);
@@ -163,10 +315,8 @@ function App() {
           // Reset channel state tracking when changing channels
           resetChannelStateTracking();
           
-          // Minimal delay to ensure leaveChatChannel is processed
-          setTimeout(() => {
-            joinChatChannel(newChannelId);
-          }, 50);
+          // Join new channel immediately - no delay needed since signaling server issues are fixed
+          joinChatChannel(newChannelId);
         } else {
           // No current channel, join immediately
           joinChatChannel(newChannelId);
@@ -177,10 +327,18 @@ function App() {
 
   // Load game data on mount
   useEffect(() => {
-    if (!isLoadedGame) {
+    if (!isGameDataLoaded) {
       fetchGameData();
     }
-  }, [fetchGameData, isLoadedGame]);
+  }, [fetchGameData, isGameDataLoaded]);
+
+  // Sync game JSON when it's loaded
+  useEffect(() => {
+    if (gameState && isGameDataLoaded) {
+      const gameMap = gameState.getHiveClient().getGameMap();
+      updateGameJSON(gameMap);
+    }
+  }, [gameState, isGameDataLoaded, updateGameJSON]);
 
   // Listen for chat channel events to update present players
   useEffect(() => {
@@ -221,7 +379,11 @@ function App() {
             const isUserBuilder = checkIfUserIsBuilder(username);
             
             // Update user profile and wait for builder state
-            await updateUserProfile(username);
+            await updateUserProfile({ 
+              egodeathplayer: { 
+                Name: username 
+              } 
+            });
             
             // Login to game state
             addInfoMessage('Logging into game state...');
@@ -232,14 +394,11 @@ function App() {
               }
 
               if (isUserAdmin) {
-                addSuccessMessage(`Admin login successful as ${username}`);
                 addInfoMessage('Welcome to the admin panel. Use the Queue button to manage build requests.');
               } else if (isBuilder) {
-                addSuccessMessage(`Builder login successful as ${username}`);
                 addInfoMessage('Welcome! You can use the Build button to create and modify rooms.');
-              } else {
-                addSuccessMessage(`Login successful as ${username}`);
               }
+              // Regular users don't need any additional messages - the game state speaks for itself
             }).catch((error) => {
               addErrorMessage(`Game login failed: ${error.message}`);
               // Reset login state if game login fails
@@ -247,32 +406,24 @@ function App() {
               setUsername(null);
             });
           } else {
-            addErrorMessage('Login failed. Please check your Keychain and try again.');
+            addErrorMessage('Keychain login failed. Please check your Keychain extension.');
           }
+        })
+        .catch((error) => {
+          addErrorMessage(`Login error: ${error.message}`);
         });
     } else {
-      // Only allow commands if user is signed in AND game state has a player
-      if (!isSignedIn) {
-        addErrorMessage('Please login first.');
-        return;
-      }
-      // Check if game state has a player (more reliable than hook state)
-      if (gameState && !gameState.getPlayer()) {
-        addErrorMessage('Please wait for login to complete.');
-        return;
-      }
-      console.log('[TextInput Debug] Calling handleCommand with:', text);
+      // Handle other commands
       handleCommand(text);
     }
-  }, [keychain, addErrorMessage, addSuccessMessage, addInfoMessage, handleCommand, login, checkIfUserIsBuilder, updateUserProfile, gameState, isSignedIn, isBuilder]);
+  }, [keychain, checkIfUserIsBuilder, updateUserProfile, login, gameState, isBuilder, addErrorMessage, addInfoMessage, handleCommand]);
 
   const handleSignOut = useCallback(() => {
-    setIsSignedIn(false);
     setUsername(null);
-    setUserProfileJSON({});
-    updateUserProfile(null);
+    setIsSignedIn(false);
+    updateUserProfile({});
     addInfoMessage('You have been signed out.');
-  }, [setUserProfileJSON, updateUserProfile, addInfoMessage]);
+  }, [updateUserProfile, addInfoMessage]);
 
   return (
     <div className="App">
@@ -330,7 +481,7 @@ function App() {
         onRoomCreated={() => {
           fetchGameData();
           if (username) {
-            updateUserProfile(username);
+            updateUserProfile({});
           }
         }}
         onBuildQueued={() => {

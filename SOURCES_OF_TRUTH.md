@@ -31,6 +31,12 @@ Each room is a Hive post with the following structure:
 - **Access**: Fetched via `client.hivemind.getCommunity()` call
 - **Structure**: Defined in community's team structure
 
+### Build Queue (App-Managed)
+- **Source**: Builder posts on blockchain with specific metadata
+- **Management**: App reads builder posts and compares against game map
+- **Approval**: Admin updates game account metadata to include approved rooms
+- **Structure**: Posts with `app: "egodeathgame"` and `type: "room"` metadata
+
 ## 2. Signaling Server (Real-time State)
 
 The **Node.js/Express server** (`server.js`) manages ephemeral real-time state.
@@ -38,22 +44,22 @@ The **Node.js/Express server** (`server.js`) manages ephemeral real-time state.
 ### In-Memory Data Structures
 
 ```javascript
-// Room state management
-const rooms = new Map(); // Room ID -> Room Data
+// Chat channel management
+const chatChannels = new Map(); // Channel ID -> Channel Data
 
 // Player presence tracking
 const connectedUsers = new Map(); // Username -> Socket ID
 const socketToUser = new Map(); // Socket ID -> Username
 
-// Room building queue
-const roomBuildQueue = new Map(); // Queue ID -> Build Request
+// Room state management
+const rooms = new Map(); // Room ID -> Room Data
 ```
 
 ### Real-time Features
 - **Player Presence**: Tracks who is currently in each room
 - **Chat System**: Manages real-time messaging between players
 - **Room Updates**: Broadcasts room state changes to all connected players
-- **Queue Management**: Handles room building requests
+- **User Sessions**: Tracks user connections and session data
 
 ## 3. Client-Side State Management
 
@@ -82,6 +88,7 @@ Core game logic and state management:
 - Fetches and caches blockchain game data
 - Manages game map loading
 - Handles builder permission checks
+- **Build Queue Management**: Reads builder posts and constructs approval queue
 
 #### `useSocket`
 - Manages WebSocket connections
@@ -114,6 +121,7 @@ game: {
   account: string;
   startRoom: { author: string; permlink: string };
   defaultCharacterDescription: string;
+  idName: string; // For identifying game operations
 }
 ```
 
@@ -141,6 +149,7 @@ Client UI Components
 2. **Real-time Overlay**: Server provides current player presence and chat
 3. **Client Caching**: Game map and room data cached locally for performance
 4. **Event-Driven Updates**: WebSocket events trigger UI updates when state changes
+5. **Build Queue**: App reads builder posts and constructs approval queue from blockchain
 
 ## 6. State Synchronization Strategy
 
@@ -155,6 +164,7 @@ Client UI Components
 2. **Real-time Updates**: WebSocket events for player presence and chat
 3. **State Reconciliation**: Merge blockchain data with real-time updates
 4. **Conflict Resolution**: Blockchain data takes precedence over local state
+5. **Build Queue**: Periodic refresh of builder posts to update approval queue
 
 ## 7. Key State Management Patterns
 
@@ -172,6 +182,7 @@ Client UI Components
 - **Room State**: Derived from blockchain data + real-time presence
 - **Player Permissions**: Derived from community roles + local cache
 - **Game Output**: Derived from game actions + real-time events
+- **Build Queue**: Derived from builder posts - game map rooms
 
 ## 8. Error Handling and Recovery
 
@@ -196,6 +207,7 @@ Client UI Components
 - **Game Map**: Cached locally after initial load
 - **Room Data**: Cached per room to reduce blockchain calls
 - **User Profiles**: Cached with periodic refresh
+- **Build Queue**: Cached with periodic refresh from builder posts
 
 ### Real-time Optimization
 - **Event Filtering**: Only process relevant WebSocket events

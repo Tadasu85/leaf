@@ -25,6 +25,7 @@ export class GameState extends EventEmitter {
   private isProcessingMovement: boolean = false;
   private isBulkDataLoaded: boolean = false;
   private lastOptimisticRoomKey: string | null = null;
+  private isInitialConnection: boolean = false;
 
   constructor(hiveClient: HiveClient) {
     super();
@@ -112,8 +113,8 @@ export class GameState extends EventEmitter {
         }
       });
 
-      // Load the player's current room using bulk data
-      await this.loadRoom(this.player.location);
+      // Load the player's current room using bulk data (skip display during login)
+      await this.loadRoom(this.player.location, true); // Skip display during login
       
       // Emit player changed event
       this.emit('playerChanged', this.player);
@@ -121,8 +122,17 @@ export class GameState extends EventEmitter {
       // Now start the blockchain move listener from the current block
       await this.hiveClient.startMoveListener(username);
       
-      // Mark login as complete
+      // Mark login as complete BEFORE displaying room
       this.isLoggingIn = false;
+      
+      // Now display the room once after login is complete
+      this.displayRoom();
+      
+      // Set initial connection flag AFTER displaying room
+      this.isInitialConnection = true;
+      
+      // Clear the initial connection flag immediately - no delay needed since signaling server issues are fixed
+      this.isInitialConnection = false;
       
       console.log('[Login Debug] Login completed successfully');
     } catch (error) {
@@ -137,6 +147,17 @@ export class GameState extends EventEmitter {
     if (!this.player) {
       console.error('[GameState Debug] Cannot handle blockchain move: no player logged in');
       return;
+    }
+    
+    // Check if this is the same room that was just optimistically displayed
+    const room = await this.hiveClient.getRoomData(location);
+    if (room) {
+      const roomKey = `${room.author}/${room.permlink}-${JSON.stringify(room.players || [])}`;
+      if (this.lastOptimisticRoomKey === roomKey) {
+        console.log('[GameState Debug] Suppressing blockchain move display - room was just optimistically displayed');
+        this.lastOptimisticRoomKey = null;
+        return;
+      }
     }
     
     this.isProcessingMovement = true;
@@ -195,11 +216,26 @@ export class GameState extends EventEmitter {
     
     // Suppress second display if this was just optimistically displayed
     if (this.lastOptimisticRoomKey === roomKey) {
+      console.log('[GameState Debug] Suppressing display - room was just optimistically displayed');
       this.lastOptimisticRoomKey = null;
       return;
     }
+    
     // Prevent duplicate displays of the same room state
     if (this.lastDisplayedRoom === roomKey) {
+      console.log('[GameState Debug] Suppressing display - room was already displayed');
+      return;
+    }
+
+    // During login, be more strict about suppressing displays
+    if (this.isLoggingIn) {
+      console.log('[GameState Debug] Suppressing display during login');
+      return;
+    }
+
+    // During initial connection after login, suppress socket-triggered displays
+    if (this.isInitialConnection) {
+      console.log('[GameState Debug] Suppressing display during initial connection');
       return;
     }
 
@@ -540,5 +576,10 @@ export class GameState extends EventEmitter {
   // Method to check if currently logging in
   public getIsLoggingIn(): boolean {
     return this.isLoggingIn;
+  }
+
+  // Method to check if in initial connection phase
+  public getIsInitialConnection(): boolean {
+    return this.isInitialConnection;
   }
 } 
