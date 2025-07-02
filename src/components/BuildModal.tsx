@@ -30,7 +30,6 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [buildStatus, setBuildStatus] = useState<string>('');
 
   const keychain = new KeychainSDK(window, { rpc: config.hive.nodes[0] });
 
@@ -42,104 +41,64 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     }));
   };
 
-  const createPermlink = (title: string): string => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Submit attempt with:', { 
-      username, 
-      currentRoom, 
-      formData 
-    });
-
-    if (!username) {
-      setError('You must be logged in to build.');
-      return;
-    }
-
-    if (!currentRoom) {
-      console.error('Current room is null or undefined');
-      setError('You must be in a room to build.');
-      return;
-    }
-
-    if (!currentRoom.author || !currentRoom.permlink) {
-      console.error('Current room is missing author or permlink:', currentRoom);
-      setError('Invalid room data. Please try moving to another room and try again.');
+    
+    if (!formData.roomName.trim() || !formData.description.trim()) {
+      setError('Please fill in all required fields');
       return;
     }
 
     setIsSubmitting(true);
-    setError(null);
-    setBuildStatus('');
+    setError('');
 
     try {
-      // Create permlink from room name
-      const permlink = createPermlink(formData.roomName);
-      console.log('Generated permlink:', permlink);
+      // Generate a unique permlink
+      const timestamp = Date.now();
+      const permlink = `room-${timestamp}`;
 
       // Create the post data
       const postData = {
-        data: {
-          username: username,
-          title: formData.roomName,
-          body: formData.description,
-          permlink: permlink,
-          parent_perm: "blog",
-          json_metadata: JSON.stringify({
-            app: config.game.idName,
-            type: 'room',
-            connection: {
-              fromRoom: {
-                author: currentRoom.author,
-                permlink: currentRoom.permlink
-              },
-              exitToNewRoom: formData.exitToNewRoom,
-              exitFromNewRoom: formData.exitFromNewRoom
-            }
-          }),
-          comment_options: JSON.stringify({
-            author: username,
-            permlink: permlink,
-            max_accepted_payout: "10000.000 HBD",
-            allow_votes: true,
-            allow_curation_rewards: true,
-            extensions: [],
-            percent_hbd: 10000
-          })
-        }
+        username: username!,
+        title: formData.roomName.trim(),
+        body: formData.description.trim(),
+        permlink,
+        parent_author: currentRoom?.author || config.game.account,
+        parent_perm: 'blog',
+        json_metadata: JSON.stringify({
+          app: 'leaf',
+          format: 'markdown',
+          tags: ['leaf-room']
+        }),
+        comment_options: JSON.stringify({
+          author: username!,
+          permlink,
+          max_accepted_payout: "10000.000 HBD",
+          allow_votes: true,
+          allow_curation_rewards: true,
+          extensions: [],
+          percent_hbd: 10000
+        })
       };
 
-      console.log('Post data:', postData);
-
-      const postResult = await keychain.post(postData.data);
+      // Submit the post
+      const postResult = await keychain.post(postData);
       
-      console.log('Post result:', postResult);
-      
-      if (!postResult.success) {
-        throw new Error('Failed to create room post');
+      if (postResult.success) {
+        onClose();
+        // Reset form
+        setFormData({
+          roomName: '',
+          exitToNewRoom: '',
+          exitFromNewRoom: '',
+          description: ''
+        });
+      } else {
+        setError('Failed to create room. Please try again.');
       }
-
-      // Room created successfully
-      setBuildStatus('completed');
-      
-      // Close modal and call callbacks
-      setIsSubmitting(false);
-      onClose();
-      
-      // Call the callback to refresh game data
-      if (onRoomCreated) {
-        onRoomCreated();
-      }
-
-    } catch (error) {
-      console.error('Error creating room:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred while creating the room');
+    } catch (err) {
+      setError('An error occurred while creating the room.');
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -166,14 +125,6 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           {error && (
             <div className="error-message" style={{ color: '#ff4444', marginBottom: '1rem' }}>
               {error}
-            </div>
-          )}
-          {buildStatus && (
-            <div className="build-status" style={{ 
-              color: buildStatus === 'failed' ? '#ff4444' : '#44aa44',
-              marginBottom: '1rem' 
-            }}>
-              Build Status: {buildStatus}
             </div>
           )}
           <form onSubmit={handleSubmit}>

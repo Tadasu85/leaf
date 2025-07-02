@@ -1,27 +1,119 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { UserProfileJSON } from '../game/types/GameTypes';
 import { GameState } from '../game/state/GameState';
+import { HiveClient } from '../game/blockchain/HiveClient';
+import { Client } from '@hiveio/dhive';
+import config from '../config';
 
-export function useUserProfile(gameState: GameState | null, player: any) {
+export function useUserProfile(gameState: GameState | null, player: any, client: Client | null) {
   const [userProfileJSON, setUserProfileJSON] = useState<UserProfileJSON>({});
   const [isBuilder, setIsBuilder] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Refs
+  const buildersList = useRef<string[]>([]);
+  const hasDeterminedBuilderStatus = useRef(false);
+
   // Update builder status when player changes
   useEffect(() => {
     if (player) {
-      setIsBuilder(player.isBuilder || false);
+      // Only update builder status from player if we haven't already determined it from community
+      // This prevents the player object from overriding community-based detection
+      if (!hasDeterminedBuilderStatus.current) {
+        setIsBuilder(player.isBuilder || false);
+      }
       setIsAdmin(player.isAdmin || false);
     } else {
       setIsBuilder(false);
       setIsAdmin(false);
+      hasDeterminedBuilderStatus.current = false;
     }
   }, [player]);
 
-  // Update user profile
-  const updateUserProfile = useCallback((profile: UserProfileJSON) => {
-    setUserProfileJSON(profile);
-  }, []);
+  // Fetch builders list from community
+  const fetchBuildersList = useCallback(async () => {
+    if (!client) {
+      console.log('[useUserProfile] No client available for community fetch');
+      return;
+    }
+    
+    try {
+      const communityDetailsArray = await client.hivemind.getCommunity({ 
+        name: config.game.account, 
+        observer: ''
+      });
+      const communityDetails = Array.isArray(communityDetailsArray) ? communityDetailsArray[0] : communityDetailsArray;
+      
+      if (communityDetails && communityDetails.team) {
+        const builders = communityDetails.team
+          .filter(member => member[2] === "Builder")
+          .map(member => member[0]);
+        buildersList.current = builders;
+      } else {
+        buildersList.current = [];
+      }
+    } catch (error) {
+      console.error('[useUserProfile] Error fetching builders list:', error);
+      buildersList.current = [];
+    }
+  }, [client]);
+
+  // Update user profile - now takes username and fetches profile data
+  const updateUserProfile = useCallback(async (username: string | null) => {
+    if (!username || !client) {
+      setUserProfileJSON({});
+      setIsBuilder(false);
+      setIsAdmin(false);
+      return;
+    }
+
+    // Fetch builders list if not already loaded
+    if (buildersList.current.length === 0) {
+      await fetchBuildersList();
+    }
+
+    // Use dynamic builder detection from community + static config as fallback
+    const isUserBuilder = buildersList.current.includes(username) || config.builders.includes(username);
+    
+    setIsBuilder(isUserBuilder);
+    setIsAdmin(config.admins.includes(username));
+    hasDeterminedBuilderStatus.current = true;
+
+    // Also update the game state if available
+    if (gameState) {
+      gameState.setBuilderStatus(isUserBuilder);
+    }
+
+    // Fetch Hive profile data including player descriptions
+    try {
+      const hiveClient = new HiveClient();
+      const profileImage = await hiveClient.getProfileImage(username);
+      
+      // Get full account data to access json_metadata
+      const accounts = await client.database.call('get_accounts', [[username]]);
+      let playerData = {};
+      
+      if (accounts && accounts[0] && accounts[0].json_metadata) {
+        try {
+          const metadata = JSON.parse(accounts[0].json_metadata);
+          if (metadata.egodeathplayer) {
+            playerData = metadata.egodeathplayer;
+          }
+        } catch (error) {
+          console.error('[UpdateUserProfile Debug] Error parsing account metadata:', error);
+        }
+      }
+      
+      setUserProfileJSON((prev) => ({ 
+        ...prev, 
+        profile_image: profileImage || undefined,
+        egodeathplayer: playerData
+      }));
+    } catch (error) {
+      console.error('[UpdateUserProfile Debug] Error fetching profile data:', error);
+      setUserProfileJSON((prev) => ({ ...prev, profile_image: undefined }));
+    }
+  }, [client, fetchBuildersList, gameState]);
 
   // Update builder status
   const updateBuilderStatus = useCallback((isBuilder: boolean) => {
@@ -48,6 +140,12 @@ export function useUserProfile(gameState: GameState | null, player: any) {
     return false;
   }, [isAdmin, isBuilder]);
 
+  // Check if user is builder
+  const checkIfUserIsBuilder = useCallback((username: string) => {
+    const isUserBuilder = buildersList.current.includes(username);
+    return isUserBuilder;
+  }, []);
+
   return {
     // State
     userProfileJSON,
@@ -59,6 +157,8 @@ export function useUserProfile(gameState: GameState | null, player: any) {
     updateBuilderStatus,
     updateAdminStatus,
     getUserProfile,
-    hasPermission
+    hasPermission,
+    checkIfUserIsBuilder,
+    fetchBuildersList
   };
 } 

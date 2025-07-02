@@ -7,7 +7,9 @@ export class SocketManager extends EventEmitter {
   private socket: Socket | null = null;
   private isConnecting: boolean = false;
   private currentChannelId: string | null = null;
-  private connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'failed' = 'disconnected';
+  private connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'failed' | 'error' = 'disconnected';
+  private username: string | null = null;
+  private location: { author: string; permlink: string } | null = null;
 
   constructor(private gameState: GameState) {
     super();
@@ -18,158 +20,126 @@ export class SocketManager extends EventEmitter {
   }
 
   connect(username: string, location: { author: string; permlink: string }): void {
-    if (this.isConnecting) {
-      console.log('[SocketManager Debug] Already connecting, skipping');
-      return;
+    console.log('[SocketManager] Attempting to connect:', { username, location });
+    
+    if (this.socket) {
+      console.log('[SocketManager] Disconnecting existing socket');
+      this.socket.disconnect();
     }
+
     this.isConnecting = true;
-    this.connectionStatus = 'connecting';
-    // Emit status immediately when connecting
-    this.emit('connectionStatusChanged', { status: 'connecting' });
+    this.username = username;
+    this.location = location;
 
     try {
-      // Clean up any existing socket first
-      this.disconnect();
-
-      const channelId = `${location.author}/${location.permlink}`;
-      console.log('[SocketManager Debug] Initializing socket connection with username:', username, 'and location:', location);
-      console.log('[SocketManager Debug] Using signaling server URL:', config.signalingServer);
-      
-      const newSocket = io(config.signalingServer, {
-        query: { 
-          username,
-          channel: channelId
-        },
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 2000,
-        timeout: 10000,
-        forceNew: true,
-        path: '/socket.io/'
+      console.log('[SocketManager] Creating new socket connection to:', config.signalingServer);
+      this.socket = io(config.signalingServer, {
+        query: { username },
+        transports: ['websocket'],
+        autoConnect: true,
       });
-
-      this.socket = newSocket;
-      this.currentChannelId = channelId;
-
-      // Set up event handlers
-      newSocket.on('connect', () => {
-        console.log('[SocketManager Debug] Connected to signaling server');
+      
+      this.socket.on('connect', () => {
+        console.log('[SocketManager] Socket connected successfully');
         this.isConnecting = false;
         this.connectionStatus = 'connected';
+        
+        // Emit connection status change
         this.emit('connectionStatusChanged', { status: 'connected' });
         
-        // Register username on connection
-        newSocket.emit('register', { username }, (response: { success: boolean }) => {
-          if (response.success) {
-            console.log('[SocketManager Debug] Successfully registered username:', username);
-            // Join the chat channel to get channel state and ensure we're in the chat
-            newSocket.emit('joinChatChannel', channelId);
-          } else {
-            console.error('[SocketManager Debug] Failed to register username:', username);
-            this.connectionStatus = 'failed';
-            this.emit('connectionStatusChanged', { status: 'failed', error: 'Registration failed' });
-          }
-        });
+        // Register the username with the server
+        this.socket?.emit('register', { username });
       });
 
-      newSocket.on('disconnect', (reason) => {
-        console.log('[SocketManager Debug] Disconnected from signaling server:', reason);
-        this.isConnecting = false;
-        this.connectionStatus = 'disconnected';
-        this.emit('connectionStatusChanged', { status: 'disconnected', reason });
-        
-        // Don't manually reconnect - let socket.io handle it
-        if (reason === 'io server disconnect') {
-          console.log('[SocketManager Debug] Server initiated disconnect, not attempting manual reconnect');
+      this.socket.on('registered', (data: { success: boolean; message?: string }) => {
+        if (!data.success) {
+          console.error('[SocketManager] Registration failed:', data.message);
+        } else {
+          console.log('[SocketManager] Registration successful');
         }
       });
 
-      newSocket.on('connect_error', (error) => {
-        console.error('[SocketManager Debug] Connection error:', error);
-        this.isConnecting = false;
-        this.connectionStatus = 'failed';
-        this.emit('connectionStatusChanged', { status: 'failed', error: error.message });
+      this.socket.on('disconnect', (reason: string) => {
+        console.log('[SocketManager] Socket disconnected:', reason);
+        this.connectionStatus = 'disconnected';
+        
+        // Emit connection status change
+        this.emit('connectionStatusChanged', { status: 'disconnected' });
+        
+        // Don't attempt manual reconnect if server initiated disconnect
+        if (reason === 'io server disconnect') {
+          console.log('[SocketManager] Server initiated disconnect, not reconnecting');
+          return;
+        }
+        
+        // Attempt to reconnect
+        console.log('[SocketManager] Attempting to reconnect...');
+        this.attemptReconnect();
       });
 
-      newSocket.on('reconnect', (attemptNumber) => {
-        console.log('[SocketManager Debug] Reconnected after', attemptNumber, 'attempts');
-        this.isConnecting = false;
+      this.socket.on('reconnect', (attemptNumber: number) => {
+        console.log('[SocketManager] Socket reconnected after', attemptNumber, 'attempts');
         this.connectionStatus = 'connected';
+        
+        // Emit connection status change
         this.emit('connectionStatusChanged', { status: 'connected' });
         
-        // Re-register username after reconnection
-        newSocket.emit('register', { username }, (response: { success: boolean }) => {
-          if (response.success) {
-            console.log('[SocketManager Debug] Successfully re-registered username after reconnect');
-            // Join the chat channel to get channel state and ensure we're in the chat
-            newSocket.emit('joinChatChannel', channelId);
-          }
-        });
+        // Re-register username after reconnect
+        this.socket?.emit('register', { username: this.username });
       });
 
-      newSocket.on('reconnect_error', (error) => {
-        console.error('[SocketManager Debug] Reconnection error:', error);
-        this.isConnecting = false;
-        this.connectionStatus = 'failed';
-        this.emit('connectionStatusChanged', { status: 'failed', error: error.message });
+      this.socket.on('reRegistered', (data: { success: boolean; message?: string }) => {
+        if (!data.success) {
+          console.error('[SocketManager] Re-registration failed:', data.message);
+        } else {
+          console.log('[SocketManager] Re-registration successful');
+        }
       });
 
-      newSocket.on('reconnect_failed', () => {
-        console.error('[SocketManager Debug] Failed to reconnect after all attempts');
-        this.isConnecting = false;
-        this.connectionStatus = 'failed';
-        this.emit('connectionStatusChanged', { status: 'failed', error: 'Reconnection failed after all attempts' });
-        // Don't try to connect again - this prevents the loop
-      });
-
-      // Chat channel state handlers
-      newSocket.on('chatChannelState', (data: any) => {
-        // console.log('[SocketManager Debug] Received chat channel state:', data);
+      // Chat events
+      this.socket.on('chatChannelState', (data: any) => {
         this.emit('chatChannelState', data);
       });
 
-      newSocket.on('chatChannelUpdate', (data: any) => {
-        // console.log('[SocketManager Debug] Received chat channel update:', data);
+      this.socket.on('chatChannelUpdate', (data: any) => {
         this.emit('chatChannelUpdate', data);
       });
 
-      // Player event handlers
-      newSocket.on('playerJoined', (data: { username: string; players: string[]; channelId: string }) => {
-        // console.log('[SocketManager Debug] Player joined event:', data);
+      this.socket.on('playerJoined', (data: any) => {
         this.emit('playerJoined', data);
       });
 
-      newSocket.on('playerLeft', (data: { username: string; players: string[]; channelId: string }) => {
-        // console.log('[SocketManager Debug] Player left event:', data);
+      this.socket.on('playerLeft', (data: any) => {
         this.emit('playerLeft', data);
       });
 
-      // Chat and emote handlers
-      newSocket.on('chat', (data: { username: string; message: string; channelId: string }) => {
-        console.log('[SocketManager Debug] Received chat message:', data);
+      this.socket.on('chatMessage', (data: any) => {
+        this.emit('chatMessage', data);
+      });
+
+      this.socket.on('chat', (data: any) => {
+        // Handle legacy chat events
         this.emit('chat', data);
       });
 
-      newSocket.on('emote', (data: { username: string; emote: string; channelId: string }) => {
-        console.log('[SocketManager Debug] Received emote:', data);
+      this.socket.on('emote', (data: any) => {
         this.emit('emote', data);
       });
 
-      // Connect after setting up all event handlers
-      newSocket.connect();
+      this.socket.on('error', (error) => {
+        console.error('[SocketManager] Socket error:', error);
+        this.connectionStatus = 'error';
+        this.emit('error', error);
+      });
 
     } catch (error) {
-      console.error('[SocketManager Debug] Error initializing socket:', error);
       this.isConnecting = false;
-      this.connectionStatus = 'failed';
-      this.emit('connectionStatusChanged', { status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' });
+      console.error('[SocketManager] Error connecting to signaling server:', error);
     }
   }
 
   disconnect(): void {
     if (this.socket) {
-      console.log('Cleaning up socket connection');
       this.socket.disconnect();
       this.socket = null;
     }
@@ -179,18 +149,25 @@ export class SocketManager extends EventEmitter {
   }
 
   joinChatChannel(channelId: string): void {
+    console.log('[SocketManager] joinChatChannel called with:', channelId);
+    console.log('[SocketManager] Socket status:', {
+      hasSocket: !!this.socket,
+      connectionStatus: this.connectionStatus,
+      isConnected: this.connectionStatus === 'connected'
+    });
+    
     if (this.socket && this.connectionStatus === 'connected') {
-      console.log('Joining chat channel:', channelId);
-      this.socket.emit('joinChatChannel', channelId);
+      console.log('[SocketManager] Emitting joinChatChannel event:', { channelId });
+      this.socket.emit('joinChatChannel', { channelId });
       this.currentChannelId = channelId;
+      console.log('[SocketManager] Current channel ID set to:', this.currentChannelId);
     } else {
-      console.log('[SocketManager Debug] Cannot join chat channel - not connected');
+      console.log('[SocketManager] Cannot join channel - socket not ready');
     }
   }
 
   leaveChatChannel(channelId: string, username: string): void {
     if (this.socket && this.connectionStatus === 'connected') {
-      console.log('Leaving chat channel:', channelId);
       this.socket.emit('leaveChatChannel', { 
         channelId,
         username 
@@ -198,45 +175,31 @@ export class SocketManager extends EventEmitter {
       // Clear the current channel identifier when leaving
       if (this.currentChannelId === channelId) {
         this.currentChannelId = null;
-        console.log('[SocketManager Debug] Cleared current channel identifier after leaving channel');
       }
-    } else {
-      console.log('[SocketManager Debug] Cannot leave chat channel - not connected');
     }
   }
 
   sendChat(message: string, username: string): void {
-    console.log('[SocketManager Debug] sendChat called with:', { message, username, currentChannelId: this.currentChannelId });
-    console.log('[SocketManager Debug] Socket connected:', this.socket?.connected);
-    
     if (this.socket && this.currentChannelId && this.connectionStatus === 'connected') {
-      console.log('[SocketManager Debug] Emitting chat event to server');
-      this.socket.emit('chat', {
+      this.socket.emit('chatMessage', {
         message,
         username,
         channelId: this.currentChannelId
       });
-      console.log('[SocketManager Debug] Chat event emitted successfully');
     } else {
-      console.log('[SocketManager Debug] Cannot send chat - socket not connected or channel identifier missing');
       // Emit an event to notify the game state that chat is not available
       this.emit('chatUnavailable', { message: 'Chat is not available. You can still navigate and play the game.' });
     }
   }
 
   sendEmote(emote: string, username: string): void {
-    console.log('[SocketManager Debug] sendEmote called with:', { emote, username, currentChannelId: this.currentChannelId });
-    
     if (this.socket && this.currentChannelId && this.connectionStatus === 'connected') {
-      console.log('[SocketManager Debug] Emitting emote event to server');
       this.socket.emit('emote', {
         emote,
         username,
         channelId: this.currentChannelId
       });
-      console.log('[SocketManager Debug] Emote event emitted successfully');
     } else {
-      console.log('[SocketManager Debug] Cannot send emote - socket not connected or channel identifier missing');
       // Emit an event to notify the game state that emotes are not available
       this.emit('chatUnavailable', { message: 'Emotes are not available. You can still navigate and play the game.' });
     }
@@ -246,7 +209,7 @@ export class SocketManager extends EventEmitter {
     return this.currentChannelId;
   }
 
-  getConnectionStatus(): 'disconnected' | 'connecting' | 'connected' | 'failed' {
+  getConnectionStatus(): 'disconnected' | 'connecting' | 'connected' | 'failed' | 'error' {
     return this.connectionStatus;
   }
 
@@ -257,8 +220,20 @@ export class SocketManager extends EventEmitter {
   emitEvent(eventName: string, data: any): void {
     if (this.socket && this.connectionStatus === 'connected') {
       this.socket.emit(eventName, data);
-    } else {
-      console.log(`[SocketManager Debug] Cannot emit ${eventName} - not connected`);
+    }
+  }
+
+  private getChannelId(): string {
+    if (this.location) {
+      return `${this.location.author}/${this.location.permlink}`;
+    }
+    throw new Error('Location is not set');
+  }
+
+  private attemptReconnect(): void {
+    if (this.username && this.location && !this.isConnecting) {
+      console.log('[SocketManager] Attempting to reconnect...');
+      this.connect(this.username, this.location);
     }
   }
 } 

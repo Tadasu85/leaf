@@ -28,18 +28,16 @@ export class BulkDataLoader {
 
   constructor(client: Client, options: BulkLoadOptions = {}) {
     this.client = client;
-    this.maxCacheSize = options.maxCacheSize || 1000; // Default 1000 rooms
+    this.maxCacheSize = options.maxCacheSize || 500; // Default 500 rooms for better memory management
     this.enableCompression = options.enableCompression ?? true;
     this.loadRoomDetails = options.loadRoomDetails ?? false;
-    this.memoryLimitMB = options.memoryLimitMB || 50; // Default 50MB limit
+    this.memoryLimitMB = options.memoryLimitMB || 100; // Default 100MB limit
   }
 
   /**
-   * Load all game data upfront from the blockchain
+   * Load game map data only (not individual room content) for lazy loading
    */
   async loadAllGameData(): Promise<GameMap> {
-    console.log('[BulkDataLoader] Starting bulk data load...');
-    
     try {
       // Get game account's profile JSON containing the room map
       const gameAccount = await this.client.database.call('get_accounts', [[config.game.account]]);
@@ -54,47 +52,55 @@ export class BulkDataLoader {
       }
 
       this.gameMap = parsedGameInfo.egodeathgamedata.rooms_authors_exits;
-      console.log(`[BulkDataLoader] Found ${Object.keys(this.gameMap).length} rooms in game map`);
 
-      // Load all room data in parallel with memory management
-      await this.loadAllRooms();
+      // Only load essential rooms (starting room and nearby) for immediate access
+      await this.loadEssentialRooms();
 
       this.isInitialized = true;
-      console.log('[BulkDataLoader] Bulk data load completed successfully');
-      
-      // Log summary of what was loaded
-      const stats = this.getCacheStats();
-      const totalDetails = Array.from(this.roomCache.values())
-        .reduce((sum, entry) => sum + Object.keys(entry.data.details || {}).length, 0);
-      
-      console.log('[BulkDataLoader] 📊 Loading Summary:');
-      console.log(`[BulkDataLoader]   - Total rooms loaded: ${stats.size}`);
-      console.log(`[BulkDataLoader]   - Total room details: ${totalDetails}`);
-      console.log(`[BulkDataLoader]   - Memory usage: ${stats.memoryUsageMB.toFixed(2)}MB`);
-      console.log(`[BulkDataLoader]   - Cache hit rate: ${(stats.hitRate * 100).toFixed(1)}%`);
       
       return this.gameMap;
     } catch (error) {
-      console.error('[BulkDataLoader] Error loading game data:', error);
       throw error;
     }
   }
 
   /**
-   * Load all rooms with memory management
+   * Load only essential rooms (starting room and immediate neighbors) for faster initial load
+   */
+  private async loadEssentialRooms(): Promise<void> {
+    const roomEntries = Object.entries(this.gameMap);
+    
+    // Load starting room first
+    const startingRoom = roomEntries.find(([permlink]) => 
+      permlink === config.game.startRoom.permlink
+    );
+    
+    if (startingRoom) {
+      await this.loadRoomData(startingRoom[1].author, startingRoom[0], startingRoom[1]);
+    }
+    
+    // Load a few nearby rooms (up to 10) for immediate navigation
+    const nearbyRooms = roomEntries.slice(0, 10);
+    
+    for (const [permlink, roomInfo] of nearbyRooms) {
+      if (permlink !== config.game.startRoom.permlink) {
+        await this.loadRoomData(roomInfo.author, permlink, roomInfo);
+      }
+    }
+  }
+
+  /**
+   * Load all rooms with memory management (kept for backward compatibility)
    */
   private async loadAllRooms(): Promise<void> {
     const roomEntries = Object.entries(this.gameMap);
     const batchSize = 10; // Process in batches to avoid overwhelming the API
     
-    console.log(`[BulkDataLoader] Loading ${roomEntries.length} rooms in batches of ${batchSize}`);
-
     for (let i = 0; i < roomEntries.length; i += batchSize) {
       const batch = roomEntries.slice(i, i + batchSize);
       
       // Check memory usage before processing batch
       if (this.getMemoryUsage() > this.memoryLimitMB) {
-        console.warn(`[BulkDataLoader] Memory limit reached (${this.getMemoryUsage()}MB), clearing cache`);
         this.clearOldestCacheEntries();
       }
 
@@ -130,7 +136,6 @@ export class BulkDataLoader {
       const content = await this.client.database.call('get_content', [author, permlink]);
       
       if (!content || !content.id) {
-        console.warn(`[BulkDataLoader] Room not found: ${cacheKey}`);
         return;
       }
 
@@ -142,13 +147,6 @@ export class BulkDataLoader {
         permlink: permlink,
         exits: roomInfo.exits || {}
       };
-
-      // Log basic room data
-      console.log(`[BulkDataLoader] Loading room: ${roomData.title}`);
-      console.log(`[BulkDataLoader]   - Author: ${roomData.author}`);
-      console.log(`[BulkDataLoader]   - Permlink: ${roomData.permlink}`);
-      console.log(`[BulkDataLoader]   - Exits:`, roomData.exits);
-      console.log(`[BulkDataLoader]   - Description length: ${roomData.description.length} chars`);
 
       // Load room details (comments) if enabled
       if (this.loadRoomDetails) {
@@ -165,21 +163,8 @@ export class BulkDataLoader {
           });
           
           roomData.details = details;
-          
-          // Log room details
-          if (Object.keys(details).length > 0) {
-            console.log(`[BulkDataLoader]   - Details found:`, Object.keys(details));
-            Object.entries(details).forEach(([key, value]) => {
-              console.log(`[BulkDataLoader]     * ${key}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
-            });
-          } else {
-            console.log(`[BulkDataLoader]   - No details found`);
-          }
         } catch (error) {
-          console.warn(`[BulkDataLoader] Failed to load details for ${cacheKey}:`, error);
         }
-      } else {
-        console.log(`[BulkDataLoader]   - Details loading disabled`);
       }
 
       // Compress data if enabled
@@ -188,10 +173,7 @@ export class BulkDataLoader {
       // Add to cache with memory management
       this.addToCache(cacheKey, processedData);
       
-      console.log(`[BulkDataLoader] ✓ Room loaded and cached: ${roomData.title}`);
-
     } catch (error) {
-      console.error(`[BulkDataLoader] Error loading room ${cacheKey}:`, error);
     }
   }
 
@@ -237,25 +219,28 @@ export class BulkDataLoader {
   }
 
   /**
-   * Clear oldest cache entries based on LRU
+   * Clear oldest cache entries based on improved LRU with memory pressure
    */
   private clearOldestCacheEntries(): void {
     const entries = Array.from(this.roomCache.entries());
     
-    // Sort by last accessed time and access count
+    // Sort by priority: starting room first, then by last accessed time and access count
     entries.sort((a, b) => {
+      // Starting room gets highest priority
+      if (a[0].includes(config.game.startRoom.permlink)) return -1;
+      if (b[0].includes(config.game.startRoom.permlink)) return 1;
+      
+      // Then sort by access pattern (last accessed + access count)
       const aScore = a[1].lastAccessed + (a[1].accessCount * 1000);
       const bScore = b[1].lastAccessed + (b[1].accessCount * 1000);
       return aScore - bScore;
     });
 
-    // Remove oldest 20% of entries
-    const toRemove = Math.ceil(entries.length * 0.2);
+    // Remove oldest 30% of entries for more aggressive cleanup
+    const toRemove = Math.ceil(entries.length * 0.3);
     for (let i = 0; i < toRemove; i++) {
       this.roomCache.delete(entries[i][0]);
     }
-
-    console.log(`[BulkDataLoader] Cleared ${toRemove} cache entries`);
   }
 
   /**
@@ -277,16 +262,23 @@ export class BulkDataLoader {
   }
 
   /**
-   * Get current memory usage estimate
+   * Get current memory usage estimate with improved accuracy
    */
   private getMemoryUsage(): number {
     if (typeof performance !== 'undefined' && performance.memory) {
       return performance.memory.usedJSHeapSize / (1024 * 1024);
     }
     
-    // Fallback estimation based on cache size
-    const estimatedBytesPerRoom = 2048; // Rough estimate
-    return (this.roomCache.size * estimatedBytesPerRoom) / (1024 * 1024);
+    // Improved fallback estimation based on actual data size
+    let totalBytes = 0;
+    for (const [, cachedData] of Array.from(this.roomCache.entries())) {
+      // Estimate based on actual content size
+      const roomData = cachedData.data;
+      totalBytes += JSON.stringify(roomData).length;
+      totalBytes += 100; // Overhead for cache metadata
+    }
+    
+    return totalBytes / (1024 * 1024);
   }
 
   /**
@@ -314,7 +306,6 @@ export class BulkDataLoader {
    */
   clearCache(): void {
     this.roomCache.clear();
-    console.log('[BulkDataLoader] Cache cleared');
   }
 
   /**
@@ -322,6 +313,21 @@ export class BulkDataLoader {
    */
   isDataLoaded(): boolean {
     return this.isInitialized;
+  }
+
+  /**
+   * Preload specific rooms for better performance
+   */
+  async preloadRooms(permlinks: string[]): Promise<void> {
+    const promises = permlinks.map(permlink => {
+      const roomInfo = this.gameMap[permlink];
+      if (roomInfo) {
+        return this.loadRoomData(roomInfo.author, permlink, roomInfo);
+      }
+      return Promise.resolve();
+    });
+    
+    await Promise.allSettled(promises);
   }
 
   /**

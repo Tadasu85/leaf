@@ -16,6 +16,7 @@ export function useSocket(gameState: GameState | null) {
   gameStateRef.current = gameState;
 
   useEffect(() => {
+    console.log('[useSocket] Setting up event listeners for gameState:', !!gameState);
     if (!gameState) return;
 
     const handleConnectionStatusChanged = (data: { status: string; error?: string }) => {
@@ -23,24 +24,30 @@ export function useSocket(gameState: GameState | null) {
     };
 
     const handleChatChannelState = async (data: any) => {
+      console.log('[useSocket] handleChatChannelState received:', data);
       if (data && data.channelId) {
         const stateKey = `${data.channelId}-${JSON.stringify(data.players || [])}`;
         
         // Only process if this is a new channel state or player list has changed
         if (lastProcessedChannelState.current !== stateKey) {
           lastProcessedChannelState.current = stateKey;
+          console.log('[useSocket] Processing new chatChannelState:', data);
           
           // Update player list in current room if it matches the channel
           const currentRoom = gameState.getCurrentRoom();
           if (currentRoom) {
             const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
+            console.log('[useSocket] Comparing channel IDs:', { currentChannelId, receivedChannelId: data.channelId });
             if (currentChannelId === data.channelId && data.players) {
+              console.log('[useSocket] Updating room players:', data.players);
               // Update the room's player list with online players
-              currentRoom.players = data.players;
+              gameState.updateRoomPlayers(data.players);
               // DO NOT display room - this should only come from blockchain movement
               // The signaling server is only for chat and player presence
             }
           }
+        } else {
+          console.log('[useSocket] Ignoring duplicate chatChannelState');
         }
       }
     };
@@ -49,12 +56,20 @@ export function useSocket(gameState: GameState | null) {
     const handleChatChannelUpdate = handleChatChannelState;
 
     const handlePlayerJoined = (data: PlayerEvent) => {
+      console.log('[useSocket] handlePlayerJoined received:', data);
       // Handle player joined event - update player list in current room
       const currentRoom = gameState.getCurrentRoom();
       if (currentRoom) {
         const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
+        console.log('[useSocket] Comparing channel IDs for playerJoined:', { currentChannelId, receivedChannelId: data.channelId });
         if (currentChannelId === data.channelId && data.players) {
-          currentRoom.players = data.players;
+          console.log('[useSocket] Processing playerJoined:', data);
+          // Update the room's player list with online players
+          gameState.updateRoomPlayers(data.players);
+          
+          // Display join notification
+          gameState.notifyPlayerJoined(data.username);
+          
           // DO NOT display room - this should only come from blockchain movement
           // The signaling server is only for chat and player presence
         }
@@ -67,7 +82,12 @@ export function useSocket(gameState: GameState | null) {
       if (currentRoom) {
         const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
         if (currentChannelId === data.channelId && data.players) {
-          currentRoom.players = data.players;
+          // Update the room's player list with online players
+          gameState.updateRoomPlayers(data.players);
+          
+          // Display leave notification
+          gameState.notifyPlayerLeft(data.username);
+          
           // DO NOT display room - this should only come from blockchain movement
           // The signaling server is only for chat and player presence
         }
@@ -82,6 +102,14 @@ export function useSocket(gameState: GameState | null) {
       }
     };
 
+    const handleChatMessage = (data: { username: string; message: string; channelId: string }) => {
+      // Handle new chat message format
+      const currentUser = gameStateRef.current?.getPlayer()?.username;
+      if (gameStateRef.current && data.username !== currentUser) {
+        gameStateRef.current.addOutputMessage(`${data.username} says: "${data.message}"`, false);
+      }
+    };
+
     const handleEmote = (data: { username: string; emote: string; channelId: string }) => {
       // Display emote from other players
       if (gameState && data.username !== gameState.getPlayer()?.username) {
@@ -89,13 +117,49 @@ export function useSocket(gameState: GameState | null) {
       }
     };
 
+    const handleRoomUpdate = (data: any) => {
+      // Handle room update from RoomService
+      const currentRoom = gameState.getCurrentRoom();
+      if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
+        // Update the room's player list with online players
+        gameState.updateRoomPlayers(data.players);
+      }
+    };
+
+    const handleRoomState = (data: any) => {
+      // Handle room state response from RoomService
+      const currentRoom = gameState.getCurrentRoom();
+      if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
+        // Update the room's player list with online players
+        gameState.updateRoomPlayers(data.players);
+      }
+    };
+
+    const handleRoomPlayerLeft = (data: any) => {
+      // Handle player left event from RoomService
+      const currentRoom = gameState.getCurrentRoom();
+      if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
+        // Update the room's player list with online players
+        gameState.updateRoomPlayers(data.players);
+        
+        // Display leave notification
+        gameState.notifyPlayerLeft(data.username);
+      }
+    };
+
+    console.log('[useSocket] Registering event listeners with socket manager');
     gameState.getSocketManager().on('connectionStatusChanged', handleConnectionStatusChanged);
     gameState.getSocketManager().on('chatChannelState', handleChatChannelState);
     gameState.getSocketManager().on('chatChannelUpdate', handleChatChannelUpdate);
     gameState.getSocketManager().on('playerJoined', handlePlayerJoined);
     gameState.getSocketManager().on('playerLeft', handlePlayerLeft);
     gameState.getSocketManager().on('chat', handleChat);
+    gameState.getSocketManager().on('chatMessage', handleChatMessage);
     gameState.getSocketManager().on('emote', handleEmote);
+    gameState.getSocketManager().on('roomUpdate', handleRoomUpdate);
+    gameState.getSocketManager().on('roomState', handleRoomState);
+    gameState.getSocketManager().on('roomPlayerLeft', handleRoomPlayerLeft);
+    console.log('[useSocket] Event listeners registered');
 
     return () => {
       gameState.getSocketManager().off('connectionStatusChanged', handleConnectionStatusChanged);
@@ -104,7 +168,11 @@ export function useSocket(gameState: GameState | null) {
       gameState.getSocketManager().off('playerJoined', handlePlayerJoined);
       gameState.getSocketManager().off('playerLeft', handlePlayerLeft);
       gameState.getSocketManager().off('chat', handleChat);
+      gameState.getSocketManager().off('chatMessage', handleChatMessage);
       gameState.getSocketManager().off('emote', handleEmote);
+      gameState.getSocketManager().off('roomUpdate', handleRoomUpdate);
+      gameState.getSocketManager().off('roomState', handleRoomState);
+      gameState.getSocketManager().off('roomPlayerLeft', handleRoomPlayerLeft);
     };
   }, [gameState]);
 
@@ -119,7 +187,12 @@ export function useSocket(gameState: GameState | null) {
   }, [gameState]);
 
   const joinChatChannel = useCallback((channelId: string) => {
-    if (!gameState) return;
+    console.log('[useSocket] joinChatChannel called with:', channelId);
+    if (!gameState) {
+      console.log('[useSocket] No gameState available, cannot join channel');
+      return;
+    }
+    console.log('[useSocket] Calling gameState.getSocketManager().joinChatChannel');
     gameState.getSocketManager().joinChatChannel(channelId);
   }, [gameState]);
 
@@ -127,6 +200,8 @@ export function useSocket(gameState: GameState | null) {
     if (!gameState) return;
     gameState.getSocketManager().leaveChatChannel(channelId, username);
   }, [gameState]);
+
+
 
   const sendMessage = useCallback((message: string) => {
     if (!gameState?.getPlayer()) return;

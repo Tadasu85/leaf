@@ -13,6 +13,7 @@ import {
   UserProfileJSON
 } from '../game/types/GameTypes';
 import config from '../config';
+import logger from '../utils/Logger';
 
 export function useGame(client: Client, keychain: KeychainSDK) {
   // Game State
@@ -88,15 +89,15 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     if (gameState && !isBulkDataLoaded) {
       const initializeBulkData = async () => {
         try {
-          console.log('[useGame] Initializing bulk data loading...');
+          logger.debug('Initializing bulk data loading...');
           await gameState.initialize();
           setIsBulkDataLoaded(true);
           
           // Get cache stats for monitoring
           const stats = gameState.getHiveClient().getCacheStats();
-          console.log('[useGame] Bulk data loaded. Cache stats:', stats);
+          logger.debug('Bulk data loaded. Cache stats:', stats);
         } catch (error) {
-          console.error('[useGame] Error initializing bulk data:', error);
+          logger.error('Error initializing bulk data:', error);
           setError('Failed to load game data. Please refresh the page.');
         }
       };
@@ -156,7 +157,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         setIsLoadedGame(true);
       }
     } catch (error) {
-      console.error('[Game Debug] Error fetching game data:', error);
+      logger.error('Error fetching game data:', error);
     }
   }, [client, gameState, isBulkDataLoaded]);
 
@@ -293,7 +294,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         .filter(member => member[2] === "Builder")
         .map(member => member[0]);
 
-      console.log('[Build Queue] Found builders:', builders);
+      logger.debug('Found builders:', builders);
 
       // Get recent posts from builders
       const pendingRooms = [];
@@ -349,22 +350,22 @@ export function useGame(client: Client, keychain: KeychainSDK) {
                     });
                   }
                 } catch (error) {
-                  console.error('[Build Queue] Error parsing post metadata:', error);
+                  logger.error('Error parsing post metadata:', error);
                 }
               }
             } catch (error) {
-              console.error('[Build Queue] Error fetching post content:', error);
+              logger.error('Error fetching post content:', error);
             }
           }
         } catch (error) {
-          console.error(`[Build Queue] Error fetching posts for builder ${builder}:`, error);
+          logger.error(`Error fetching posts for builder ${builder}:`, error);
         }
       }
 
-      console.log('[Build Queue] Found pending rooms:', pendingRooms);
+      logger.debug('Found pending rooms:', pendingRooms);
       return pendingRooms;
     } catch (error) {
-      console.error('[Build Queue] Error building approval queue:', error);
+      logger.error('Error building approval queue:', error);
       return [];
     }
   }, [client]);
@@ -381,7 +382,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       return;
     }
     
-    console.log('[MovePlayer Debug] Starting move operation:', {
+    logger.debug('Starting move operation:', {
       player: player.username,
       currentLocation: player.location,
       newLocation: options?.newlocation
@@ -414,7 +415,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         }
       }
       
-      console.log('[MovePlayer Debug] Prepared move data:', movedPlayer);
+      logger.debug('Prepared move data:', movedPlayer);
       
       const broadcastData = {
         "username": player.username,
@@ -434,29 +435,29 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         'method': KeychainKeyTypes.posting
       } as unknown as Broadcast;
       
-      console.log('[MovePlayer Debug] Broadcasting move operation...');
+      logger.debug('Broadcasting move operation...');
       const result = await keychain.broadcast(broadcastData);
       
       if (!result || !result.success || !result.result || !result.result.id) {
-        console.log('[MovePlayer Debug] Broadcast failed:', result);
+        logger.warn('Broadcast failed:', result);
         if (gameState) gameState.addOutputMessage('Move failed. Please check your Keychain and try again.', true);
         return;
       }
       
-      console.log('[MovePlayer Debug] Broadcast successful, blockchain listener will handle the move completion');
+      logger.debug('Broadcast successful, blockchain listener will handle the move completion');
       
       // The blockchain listener will handle the move completion automatically
       // No need for loading state since data is already cached
       
     } catch (error) {
-      console.error('[MovePlayer Debug] Move operation failed:', error);
+      logger.error('Move operation failed:', error);
       if (gameState) gameState.addOutputMessage('Move failed. Please check your Keychain and try again.', true);
     }
   }, [player, keychain, gameState]);
 
   // Command handler logic
   const handleCommand = useCallback(async (text: string) => {
-    console.log('[Command Debug] handleCommand called with:', text);
+    logger.debug('handleCommand called with:', text);
     
     if (!gameState) {
       setError('Cannot handle command: gameState is null');
@@ -473,14 +474,14 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       return;
     }
     
-    console.log('[Command Debug] Parsed command:', command);
+    logger.debug('Parsed command:', command);
     
     switch (command.type) {
       case 'move':
-        console.log('[Command Debug] Processing move command');
+        logger.debug('Processing move command');
         const direction = command.args[0];
         
-        console.log('[Movement Debug] Attempting to move:', {
+        logger.debug('Attempting to move:', {
           direction,
           currentRoomPermlink,
           playerLocation: player?.location,
@@ -495,7 +496,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         
         // Look up the exit in the gameJSON
         if (!currentRoomExits || !currentRoomExits[direction]) {
-          console.log('[Movement Debug] Exit not found:', {
+          logger.debug('Exit not found:', {
             currentRoomPermlink,
             direction,
             availableExits: currentRoomExits ? Object.keys(currentRoomExits) : 'none',
@@ -506,7 +507,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         }
         
         const targetPermlink = currentRoomExits[direction];
-        console.log('[Movement Debug] Found exit, moving to:', {
+        logger.debug('Found exit, moving to:', {
           direction,
           targetPermlink,
           currentAuthor: player?.location.author
@@ -520,31 +521,31 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         });
         break;
       case 'say':
-        console.log('[Command Debug] Processing say command');
+        logger.debug('Processing say command');
         gameState.say(command.args[0]);
         break;
       case 'emote':
-        console.log('[Command Debug] Processing emote command');
+        logger.debug('Processing emote command');
         gameState.emote(command.args[0]);
         break;
       case 'look':
-        console.log('[Command Debug] Processing look command');
+        logger.debug('Processing look command');
         await gameState.look();
         break;
       case 'help':
-        console.log('[Command Debug] Processing help command');
+        logger.debug('Processing help command');
         gameState.help();
         break;
       case 'describe':
-        console.log('[Command Debug] Processing describe command');
-        await gameState.setDescription(command.args[0]);
+        logger.debug('Processing describe command');
+        await gameState.setShortDescription(command.args[0]);
         break;
       case 'describeshort':
-        console.log('[Command Debug] Processing describeshort command');
+        logger.debug('Processing describeshort command');
         await gameState.setShortDescription(command.args[0]);
         break;
       case 'lookAt':
-        console.log('[Command Debug] Processing lookAt command');
+        logger.debug('Processing lookAt command');
         const target = command.args[0];
         
         // Special case for "look self"
@@ -553,9 +554,9 @@ export function useGame(client: Client, keychain: KeychainSDK) {
           break;
         }
         
-        console.log('[LookAt Debug] Target:', target);
+        logger.debug('Target:', target);
         const currentRoom = gameState.getCurrentRoom();
-        console.log('[LookAt Debug] Current room:', currentRoom);
+        logger.debug('Current room:', currentRoom);
         if (!currentRoom) {
           gameState.addOutputMessage('No current room found', true);
           break;
@@ -563,14 +564,14 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         
         // Check if the detail exists in the room
         const roomDetails = (currentRoom as any).details || {};
-        console.log('[LookAt Debug] Room details:', roomDetails);
-        console.log('[LookAt Debug] Available detail keys:', Object.keys(roomDetails));
+        logger.debug('Room details:', roomDetails);
+        logger.debug('Available detail keys:', Object.keys(roomDetails));
         
         // Try exact match first
         let detailKey = Object.keys(roomDetails).find(key => 
           key.toLowerCase() === target.toLowerCase()
         );
-        console.log('[LookAt Debug] Exact match result:', detailKey);
+        logger.debug('Exact match result:', detailKey);
         
         // If no exact match, try partial match
         if (!detailKey) {
@@ -578,20 +579,20 @@ export function useGame(client: Client, keychain: KeychainSDK) {
             key.toLowerCase().includes(target.toLowerCase()) || 
             target.toLowerCase().includes(key.toLowerCase())
           );
-          console.log('[LookAt Debug] Partial match result:', detailKey);
+          logger.debug('Partial match result:', detailKey);
         }
         
         if (detailKey) {
-          console.log('[LookAt Debug] Found detail, displaying:', detailKey, roomDetails[detailKey]);
+          logger.debug('Found detail, displaying:', detailKey, roomDetails[detailKey]);
           gameState.addOutputMessage(detailKey, true);
           gameState.addOutputMessage(roomDetails[detailKey], false);
         } else {
-          console.log('[LookAt Debug] No match found for:', target);
+          logger.debug('No match found for:', target);
           gameState.addOutputMessage(`You don't see "${target}" here.`, true);
         }
         break;
       default:
-        console.log('[Command Debug] Processing default case, command type:', command.type);
+        logger.debug('Processing default case, command type:', command.type);
         gameState.addOutputMessage('Unknown command. Type "help" for a list of commands.');
     }
   }, [gameState, player, commandParser, movePlayer, gameJSON]);

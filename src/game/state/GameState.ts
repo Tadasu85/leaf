@@ -26,28 +26,34 @@ export class GameState extends EventEmitter {
   private isBulkDataLoaded: boolean = false;
   private lastOptimisticRoomKey: string | null = null;
   private isInitialConnection: boolean = false;
+  private hasReceivedInitialPlayerList: boolean = false;
+  
+  // NEW: Track pending movements to prevent double processing
+  private pendingMovements: Set<string> = new Set();
+  private lastMoveTimestamp: number = 0;
 
-  constructor(hiveClient: HiveClient) {
+  constructor(hiveClient: HiveClient, socketManager?: SocketManager) {
     super();
     this.hiveClient = hiveClient;
-    this.socketManager = new SocketManager(this);
+    this.socketManager = socketManager || new SocketManager(this);
+    
+    // Set up periodic cleanup of old pending movements
+    setInterval(() => {
+      this.cleanupOldPendingMovements();
+    }, 30000); // Clean up every 30 seconds
   }
 
   /**
    * Initialize game state with bulk data loading
    */
   public async initialize(): Promise<void> {
-    if (this.isBulkDataLoaded) {
-      return;
-    }
-
+    if (this.isBulkDataLoaded) return;
+    
     try {
-      console.log('[GameState] Initializing with bulk data load...');
-      this.gameMap = await this.hiveClient.loadAllGameData();
+      await this.hiveClient.loadAllGameData();
       this.isBulkDataLoaded = true;
-      console.log('[GameState] Bulk data initialization complete');
     } catch (error) {
-      console.error('[GameState] Error during bulk data initialization:', error);
+      console.error('[GameState] Error during initialization:', error);
       throw error;
     }
   }
@@ -122,19 +128,17 @@ export class GameState extends EventEmitter {
       // Now start the blockchain move listener from the current block
       await this.hiveClient.startMoveListener(username);
       
-      // Mark login as complete BEFORE displaying room
+      // Mark login as complete
       this.isLoggingIn = false;
       
-      // Now display the room once after login is complete
-      this.displayRoom();
-      
-      // Set initial connection flag AFTER displaying room
+      // Set initial connection flag
       this.isInitialConnection = true;
       
       // Clear the initial connection flag immediately - no delay needed since signaling server issues are fixed
       this.isInitialConnection = false;
       
-      console.log('[Login Debug] Login completed successfully');
+      // Room will be displayed when we receive the initial player list from the signaling server
+      
     } catch (error) {
       this.isLoggingIn = false;
       console.error('[Login Debug] Error during login:', error);
@@ -149,12 +153,35 @@ export class GameState extends EventEmitter {
       return;
     }
     
+    // Check if this movement is already pending (optimistic update)
+    const pendingMovementKey = `${this.player.username}-${location.author}-${location.permlink}`;
+    const hasPendingMovement = Array.from(this.pendingMovements).some(movementId => 
+      movementId.startsWith(pendingMovementKey)
+    );
+    
+    if (hasPendingMovement) {
+      console.log('[GameState Debug] Ignoring blockchain move - already processed optimistically');
+      // Remove the pending movement since blockchain confirmed it
+      this.pendingMovements.forEach(movementId => {
+        if (movementId.startsWith(pendingMovementKey)) {
+          this.pendingMovements.delete(movementId);
+        }
+      });
+      return;
+    }
+    
+    // Check if player is already at this location (prevent unnecessary updates)
+    if (this.player.location.author === location.author && 
+        this.player.location.permlink === location.permlink) {
+      console.log('[GameState Debug] Ignoring blockchain move - player already at location');
+      return;
+    }
+    
     // Check if this is the same room that was just optimistically displayed
     const room = await this.hiveClient.getRoomData(location);
     if (room) {
       const roomKey = `${room.author}/${room.permlink}-${JSON.stringify(room.players || [])}`;
       if (this.lastOptimisticRoomKey === roomKey) {
-        console.log('[GameState Debug] Suppressing blockchain move display - room was just optimistically displayed');
         this.lastOptimisticRoomKey = null;
         return;
       }
@@ -216,26 +243,29 @@ export class GameState extends EventEmitter {
     
     // Suppress second display if this was just optimistically displayed
     if (this.lastOptimisticRoomKey === roomKey) {
-      console.log('[GameState Debug] Suppressing display - room was just optimistically displayed');
       this.lastOptimisticRoomKey = null;
       return;
     }
     
     // Prevent duplicate displays of the same room state
     if (this.lastDisplayedRoom === roomKey) {
-      console.log('[GameState Debug] Suppressing display - room was already displayed');
       return;
     }
 
     // During login, be more strict about suppressing displays
     if (this.isLoggingIn) {
-      console.log('[GameState Debug] Suppressing display during login');
       return;
     }
 
     // During initial connection after login, suppress socket-triggered displays
     if (this.isInitialConnection) {
-      console.log('[GameState Debug] Suppressing display during initial connection');
+      return;
+    }
+
+    // If we haven't received the initial player list yet, wait for it
+    // This prevents displaying the room twice (once without players, once with)
+    if (!this.hasReceivedInitialPlayerList && this.socketManager && this.socketManager.isConnected()) {
+      console.log('[GameState] Waiting for initial player list before displaying room');
       return;
     }
 
@@ -279,18 +309,38 @@ export class GameState extends EventEmitter {
         permlink: destination 
       };
 
-      // Update player location on blockchain
-      await this.hiveClient.moveTo(this.player.username, location);
+      // Create a unique movement identifier
+      const movementId = `${this.player.username}-${location.author}-${location.permlink}-${Date.now()}`;
       
-      // Update local state
+      // Mark this movement as pending
+      this.pendingMovements.add(movementId);
+      
+      // OPTIMISTIC UPDATE: Update local state immediately for instant feedback
       this.player.location = location;
       this.emit('playerChanged', this.player);
       
-      // Load new room
+      // Load new room optimistically (using cached data)
       await this.loadRoom(location);
+      
+      // Update player location on blockchain (this will trigger the listener)
+      await this.hiveClient.moveTo(this.player.username, location);
+      
+      // Remove from pending movements after successful blockchain update
+      this.pendingMovements.delete(movementId);
+      
     } catch (error) {
       console.error('Error moving:', error);
       this.addOutputMessage('Failed to move.', true);
+      
+      // Revert optimistic update on error
+      if (this.currentRoom) {
+        this.player!.location = { 
+          author: this.currentRoom.author, 
+          permlink: this.currentRoom.permlink 
+        };
+        this.emit('playerChanged', this.player);
+        await this.loadRoom(this.player!.location);
+      }
     }
   }
 
@@ -566,6 +616,7 @@ export class GameState extends EventEmitter {
   // Method to reset room display tracking (called when changing rooms)
   public resetRoomDisplayTracking(): void {
     this.lastDisplayedRoom = null;
+    this.hasReceivedInitialPlayerList = false;
   }
 
   // Method to check if currently processing movement
@@ -581,5 +632,77 @@ export class GameState extends EventEmitter {
   // Method to check if in initial connection phase
   public getIsInitialConnection(): boolean {
     return this.isInitialConnection;
+  }
+
+  // Method to update room players (called by socket events)
+  public updateRoomPlayers(players: string[]): void {
+    if (this.currentRoom) {
+      const oldPlayers = this.currentRoom.players || [];
+      this.currentRoom.players = players;
+      
+      // Emit event to notify UI of player list update
+      this.emit('roomPlayersUpdated', { players });
+      
+      // Mark that we've received the initial player list
+      if (!this.hasReceivedInitialPlayerList) {
+        this.hasReceivedInitialPlayerList = true;
+        console.log('[GameState] Initial player list received, now displaying room');
+        // Display the room now that we have the player list
+        this.displayRoom();
+      } else if (oldPlayers.length === 0 && players.length > 0 && !this.isLoggingIn) {
+        // For subsequent updates, refresh the room display to show existing players
+        console.log('[GameState] Player list updated, refreshing room display');
+        this.refreshRoomDisplay();
+      }
+    }
+  }
+
+  // Method to get current room players
+  public getCurrentRoomPlayers(): string[] {
+    return this.currentRoom?.players || [];
+  }
+
+  // Method to notify when a player joins the room
+  public notifyPlayerJoined(username: string): void {
+    if (username !== this.player?.username) {
+      this.addOutputMessage(`${username} has entered the room.`, false);
+    }
+  }
+
+  // Method to notify when a player leaves the room
+  public notifyPlayerLeft(username: string): void {
+    if (username !== this.player?.username) {
+      this.addOutputMessage(`${username} has left the room.`, false);
+    }
+  }
+
+  // Method to refresh room display with current player list
+  public refreshRoomDisplay(): void {
+    if (this.currentRoom) {
+      // Create a new room key to force display refresh
+      this.lastDisplayedRoom = null;
+      this.displayRoom();
+    }
+  }
+
+  public clearPendingMovements(): void {
+    this.pendingMovements.clear();
+  }
+
+  public getPendingMovements(): string[] {
+    return Array.from(this.pendingMovements);
+  }
+
+  // Clean up old pending movements (older than 30 seconds)
+  private cleanupOldPendingMovements(): void {
+    const now = Date.now();
+    const thirtySecondsAgo = now - 30000;
+    
+    this.pendingMovements.forEach(movementId => {
+      const timestamp = parseInt(movementId.split('-').pop() || '0');
+      if (timestamp < thirtySecondsAgo) {
+        this.pendingMovements.delete(movementId);
+      }
+    });
   }
 } 

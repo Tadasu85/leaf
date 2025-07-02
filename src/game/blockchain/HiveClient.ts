@@ -4,6 +4,7 @@ import { Location, GameMap, RoomData } from '../types/GameTypes';
 import config from '../../config';
 import { EventEmitter } from 'events';
 import { BulkDataLoader } from './BulkDataLoader';
+import logger from '../../utils/Logger';
 
 export class HiveClient extends EventEmitter {
   private client: Client;
@@ -19,10 +20,10 @@ export class HiveClient extends EventEmitter {
     this.client = new Client(config.hive.nodes);
     this.keychain = new KeychainSDK(window);
     this.bulkLoader = new BulkDataLoader(this.client, {
-      maxCacheSize: 1000,
+      maxCacheSize: 500, // Reduced from 1000 to 500 for better memory management
       enableCompression: true,
-      loadRoomDetails: true, // Enable loading room details (comments/objects)
-      memoryLimitMB: 200 // Increased from 50MB to 200MB for modern web apps
+      loadRoomDetails: false, // Disabled to reduce memory usage - load on demand instead
+      memoryLimitMB: 100 // Set to 100MB as requested
     });
   }
 
@@ -35,17 +36,11 @@ export class HiveClient extends EventEmitter {
     }
 
     try {
-      console.log('[HiveClient] Loading all game data upfront...');
-      const gameMap = await this.bulkLoader.loadAllGameData();
+      await this.bulkLoader.loadAllGameData();
       this.isBulkDataLoaded = true;
-      
-      // Log cache statistics
-      const stats = this.bulkLoader.getCacheStats();
-      console.log('[HiveClient] Bulk data load complete. Cache stats:', stats);
-      
-      return gameMap;
+      return this.bulkLoader.getGameMap();
     } catch (error) {
-      console.error('[HiveClient] Error loading bulk data:', error);
+      logger.error('Error loading game data:', error);
       throw error;
     }
   }
@@ -55,7 +50,7 @@ export class HiveClient extends EventEmitter {
    */
   public async getRoomData(location: Location): Promise<RoomData | null> {
     if (!this.isBulkDataLoaded) {
-      console.warn('[HiveClient] Bulk data not loaded, falling back to individual room load');
+      logger.warn('Bulk data not loaded, falling back to individual room load');
       return this.loadRoomDataLegacy(location);
     }
 
@@ -92,12 +87,12 @@ export class HiveClient extends EventEmitter {
           room.exits = metadata.room.exits || {};
         }
       } catch (error) {
-        console.error('Error parsing room metadata:', error);
+        logger.error('Error parsing room metadata:', error);
       }
 
       return room;
     } catch (error) {
-      console.error('Error loading room data:', error);
+      logger.error('Error loading room data:', error);
       return null;
     }
   }
@@ -120,7 +115,7 @@ export class HiveClient extends EventEmitter {
       
       return details;
     } catch (error) {
-      console.error('[HiveClient] Error loading room details:', error);
+      logger.error('Error loading room details:', error);
       return {};
     }
   }
@@ -272,14 +267,18 @@ export class HiveClient extends EventEmitter {
           try {
             const jsonData = JSON.parse(operation.op[1].json);
             if (jsonData.move_to?.Location) {
-              console.log('[HiveClient Debug] New move_to operation detected:', jsonData.move_to.Location, 'operation ID:', operation.trx_id);
-              // Emit event for the new move operation
-              this.emit('moveDetected', {
-                username,
-                location: jsonData.move_to.Location,
-                transactionId: operation.trx_id,
-                timestamp: operation.timestamp
-              });
+              // CRITICAL FIX: Only process operations for the specific user
+              // Check if the operation's required_posting_auths contains our username
+              const requiredPostingAuths = operation.op[1].required_posting_auths || [];
+              if (requiredPostingAuths.includes(username)) {
+                // Emit event for the new move operation
+                this.emit('moveDetected', {
+                  username,
+                  location: jsonData.move_to.Location,
+                  transactionId: operation.trx_id,
+                  timestamp: operation.timestamp
+                });
+              }
             }
           } catch (error) {
             console.error('[HiveClient Debug] Error parsing move operation:', error);
@@ -291,7 +290,6 @@ export class HiveClient extends EventEmitter {
       // Restart the stream after a delay
       setTimeout(() => {
         if (this.isListening) {
-          console.log('[HiveClient Debug] Restarting operations async iterator after error');
           this.startMoveListener(username);
         }
       }, 5000);
@@ -312,16 +310,15 @@ export class HiveClient extends EventEmitter {
 
   public async getComments(author: string, permlink: string): Promise<any[]> {
     try {
-      console.log(`[HiveClient Debug] Fetching comments for ${author}/${permlink}`);
-      const replies = await this.client.database.call('get_content_replies', [
-        author,
-        permlink
-      ]);
+      const replies = await this.client.database.getDiscussions('comments', {
+        start_author: author,
+        start_permlink: permlink,
+        limit: 20
+      });
       
-      console.log(`[HiveClient Debug] Found ${replies?.length || 0} comments`);
       return replies || [];
     } catch (error) {
-      console.error('[HiveClient Debug] Error fetching comments:', error);
+      console.error(`[HiveClient] Error fetching comments for ${author}/${permlink}:`, error);
       return [];
     }
   }
