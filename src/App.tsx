@@ -269,13 +269,13 @@ function App() {
         hasPlayer: !!player,
         hasCurrentRoom: !!currentRoom,
         isLoginComplete,
-        isConnected: isConnected()
+        isConnected: isConnected
       });
       return;
     }
 
     // Skip if socket is not connected yet - let the connection effect handle it
-    if (!isConnected()) {
+    if (!isConnected) {
       console.log('[App] Socket not connected yet, waiting for connection');
       return;
     }
@@ -287,7 +287,7 @@ function App() {
       player: player.username, 
       currentRoom: newChannelId,
       isLoginComplete,
-      isConnected: isConnected(),
+      isConnected: isConnected,
       currentChannelId
     });
     
