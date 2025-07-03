@@ -152,35 +152,36 @@ function App() {
         break;
       case 'lookAt':
         const target = command.args[0];
-        
-        // Special case for "look self"
-        if (target.toLowerCase() === 'self') {
+
+        // 1. Special case for "look self" or "look me"
+        if (["self", "me"].includes(target.toLowerCase())) {
           gameState.lookAtSelf();
           break;
         }
-        
+
         const currentRoom = gameState.getCurrentRoom();
         if (!currentRoom) {
           addErrorMessage('No current room found');
           break;
         }
-        
-        // Check if the detail exists in the room
+
+        // 2. Check if the target is a player in the room
+        const roomPlayers = currentRoom.players || [];
+        const isPlayerInRoom = roomPlayers.some(player => player.toLowerCase() === target.toLowerCase());
+        if (isPlayerInRoom) {
+          gameState.lookAtPlayer(target);
+          break;
+        }
+
+        // 3. Check if the detail exists in the room
         const roomDetails = (currentRoom as any).details || {};
-        
-        // Try exact match first
-        let detailKey = Object.keys(roomDetails).find(key => 
-          key.toLowerCase() === target.toLowerCase()
-        );
-        
-        // If no exact match, try partial match
+        let detailKey = Object.keys(roomDetails).find(key => key.toLowerCase() === target.toLowerCase());
         if (!detailKey) {
-          detailKey = Object.keys(roomDetails).find(key => 
-            key.toLowerCase().includes(target.toLowerCase()) || 
+          detailKey = Object.keys(roomDetails).find(key =>
+            key.toLowerCase().includes(target.toLowerCase()) ||
             target.toLowerCase().includes(key.toLowerCase())
           );
         }
-        
         if (detailKey) {
           addInfoMessage(detailKey);
           addInfoMessage(roomDetails[detailKey]);
@@ -343,6 +344,7 @@ function App() {
     if (!gameState) return;
     const handleChatChannelUpdate = (data: any) => {
       if (data && Array.isArray(data.players)) {
+        console.log('[App] Updating present players:', data.players);
         setPresentPlayers(data.players);
       }
     };

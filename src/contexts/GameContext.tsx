@@ -278,8 +278,6 @@ export function GameProvider({ children }: GameProviderProps) {
       if (typeof hiveClient.stopMoveListener === 'function') {
         hiveClient.stopMoveListener();
       }
-      // Clear any pending movements
-      state.gameState.clearPendingMovements();
       // Disconnect socket for chat
       state.gameState.getSocketManager().disconnect();
     }

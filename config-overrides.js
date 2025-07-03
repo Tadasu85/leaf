@@ -14,5 +14,12 @@ module.exports = function override(config, env) {
     }),
   ];
 
+  // Override vulnerable dependencies with newer versions (except webpack-dev-server)
+  config.resolve.alias = {
+    ...config.resolve.alias,
+    'nth-check': require.resolve('nth-check'),
+    'postcss': require.resolve('postcss'),
+  };
+
   return config;
 }; 

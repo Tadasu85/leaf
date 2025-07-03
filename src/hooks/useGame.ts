@@ -547,47 +547,40 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       case 'lookAt':
         logger.debug('Processing lookAt command');
         const target = command.args[0];
-        
-        // Special case for "look self"
-        if (target.toLowerCase() === 'self') {
+
+        // 1. Special case for "look self" or "look me"
+        if (['self', 'me'].includes(target.toLowerCase())) {
           await gameState.lookAtSelf();
           break;
         }
-        
-        logger.debug('Target:', target);
+
         const currentRoom = gameState.getCurrentRoom();
-        logger.debug('Current room:', currentRoom);
         if (!currentRoom) {
           gameState.addOutputMessage('No current room found', true);
           break;
         }
-        
-        // Check if the detail exists in the room
+
+        // 2. Check if the target is a player in the room
+        const roomPlayers = currentRoom.players || [];
+        const isPlayerInRoom = roomPlayers.some(player => player.toLowerCase() === target.toLowerCase());
+        if (isPlayerInRoom) {
+          await gameState.lookAtPlayer(target);
+          break;
+        }
+
+        // 3. Check if the detail exists in the room
         const roomDetails = (currentRoom as any).details || {};
-        logger.debug('Room details:', roomDetails);
-        logger.debug('Available detail keys:', Object.keys(roomDetails));
-        
-        // Try exact match first
-        let detailKey = Object.keys(roomDetails).find(key => 
-          key.toLowerCase() === target.toLowerCase()
-        );
-        logger.debug('Exact match result:', detailKey);
-        
-        // If no exact match, try partial match
+        let detailKey = Object.keys(roomDetails).find(key => key.toLowerCase() === target.toLowerCase());
         if (!detailKey) {
-          detailKey = Object.keys(roomDetails).find(key => 
-            key.toLowerCase().includes(target.toLowerCase()) || 
+          detailKey = Object.keys(roomDetails).find(key =>
+            key.toLowerCase().includes(target.toLowerCase()) ||
             target.toLowerCase().includes(key.toLowerCase())
           );
-          logger.debug('Partial match result:', detailKey);
         }
-        
         if (detailKey) {
-          logger.debug('Found detail, displaying:', detailKey, roomDetails[detailKey]);
           gameState.addOutputMessage(detailKey, true);
           gameState.addOutputMessage(roomDetails[detailKey], false);
         } else {
-          logger.debug('No match found for:', target);
           gameState.addOutputMessage(`You don't see "${target}" here.`, true);
         }
         break;

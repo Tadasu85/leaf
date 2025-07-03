@@ -27,20 +27,11 @@ export class GameState extends EventEmitter {
   private lastOptimisticRoomKey: string | null = null;
   private isInitialConnection: boolean = false;
   private hasReceivedInitialPlayerList: boolean = false;
-  
-  // NEW: Track pending movements to prevent double processing
-  private pendingMovements: Set<string> = new Set();
-  private lastMoveTimestamp: number = 0;
 
   constructor(hiveClient: HiveClient, socketManager?: SocketManager) {
     super();
     this.hiveClient = hiveClient;
     this.socketManager = socketManager || new SocketManager(this);
-    
-    // Set up periodic cleanup of old pending movements
-    setInterval(() => {
-      this.cleanupOldPendingMovements();
-    }, 30000); // Clean up every 30 seconds
   }
 
   /**
@@ -111,22 +102,11 @@ export class GameState extends EventEmitter {
       // Load player descriptions from blockchain
       await this.loadPlayerDescriptions();
 
-      // Set up event listener for move operations BEFORE starting the listener
-      this.hiveClient.on('moveDetected', (data: { username: string; location: Location; transactionId: string; timestamp: string }) => {
-        // Only handle moves for the current player and not during login
-        if (this.player && data.username === this.player.username && !this.isLoggingIn) {
-          this.handleBlockchainMove(data.location);
-        }
-      });
-
       // Load the player's current room using bulk data (skip display during login)
       await this.loadRoom(this.player.location, true); // Skip display during login
       
       // Emit player changed event
       this.emit('playerChanged', this.player);
-      
-      // Now start the blockchain move listener from the current block
-      await this.hiveClient.startMoveListener(username);
       
       // Mark login as complete
       this.isLoggingIn = false;
@@ -146,61 +126,7 @@ export class GameState extends EventEmitter {
     }
   }
 
-  // Handle move operations detected from blockchain
-  private async handleBlockchainMove(location: Location): Promise<void> {
-    if (!this.player) {
-      console.error('[GameState Debug] Cannot handle blockchain move: no player logged in');
-      return;
-    }
-    
-    // Check if this movement is already pending (optimistic update)
-    const pendingMovementKey = `${this.player.username}-${location.author}-${location.permlink}`;
-    const hasPendingMovement = Array.from(this.pendingMovements).some(movementId => 
-      movementId.startsWith(pendingMovementKey)
-    );
-    
-    if (hasPendingMovement) {
-      console.log('[GameState Debug] Ignoring blockchain move - already processed optimistically');
-      // Remove the pending movement since blockchain confirmed it
-      this.pendingMovements.forEach(movementId => {
-        if (movementId.startsWith(pendingMovementKey)) {
-          this.pendingMovements.delete(movementId);
-        }
-      });
-      return;
-    }
-    
-    // Check if player is already at this location (prevent unnecessary updates)
-    if (this.player.location.author === location.author && 
-        this.player.location.permlink === location.permlink) {
-      console.log('[GameState Debug] Ignoring blockchain move - player already at location');
-      return;
-    }
-    
-    // Check if this is the same room that was just optimistically displayed
-    const room = await this.hiveClient.getRoomData(location);
-    if (room) {
-      const roomKey = `${room.author}/${room.permlink}-${JSON.stringify(room.players || [])}`;
-      if (this.lastOptimisticRoomKey === roomKey) {
-        this.lastOptimisticRoomKey = null;
-        return;
-      }
-    }
-    
-    this.isProcessingMovement = true;
-    
-    try {
-      // Update player location
-      this.player.location = location;
-      this.emit('playerChanged', this.player);
-      
-      // Load the new room
-      await this.loadRoom(location);
-    } finally {
-      // Reset the flag immediately since data is cached
-      this.isProcessingMovement = false;
-    }
-  }
+
 
   async loadRoom(location: Location, skipDisplay: boolean = false): Promise<void> {
     try {
@@ -212,18 +138,24 @@ export class GameState extends EventEmitter {
         return;
       }
 
+      // Create a copy of the room data to avoid mutating the cache
+      const roomCopy: RoomData = {
+        ...room,
+        players: [] // Initialize with empty player list
+      };
+
       // Load room details (comments) on-demand for memory efficiency
-      if (!room.details) {
+      if (!roomCopy.details) {
         try {
           const details = await this.hiveClient.getRoomDetails(location.author, location.permlink);
-          room.details = details;
+          roomCopy.details = details;
         } catch (error) {
           console.error('[LoadRoom Debug] Error loading room details:', error);
-          room.details = {};
+          roomCopy.details = {};
         }
       }
-
-      this.setCurrentRoom(room);
+      
+      this.setCurrentRoom(roomCopy);
       
       // Only display room if not skipped
       if (!skipDisplay) {
@@ -309,12 +241,6 @@ export class GameState extends EventEmitter {
         permlink: destination 
       };
 
-      // Create a unique movement identifier
-      const movementId = `${this.player.username}-${location.author}-${location.permlink}-${Date.now()}`;
-      
-      // Mark this movement as pending
-      this.pendingMovements.add(movementId);
-      
       // OPTIMISTIC UPDATE: Update local state immediately for instant feedback
       this.player.location = location;
       this.emit('playerChanged', this.player);
@@ -322,11 +248,8 @@ export class GameState extends EventEmitter {
       // Load new room optimistically (using cached data)
       await this.loadRoom(location);
       
-      // Update player location on blockchain (this will trigger the listener)
+      // Update player location on blockchain
       await this.hiveClient.moveTo(this.player.username, location);
-      
-      // Remove from pending movements after successful blockchain update
-      this.pendingMovements.delete(movementId);
       
     } catch (error) {
       console.error('Error moving:', error);
@@ -353,6 +276,14 @@ export class GameState extends EventEmitter {
     this.addOutputMessage(this.currentRoom.title, true);
     this.addOutputMessage(this.currentRoom.description, false);
 
+    // Show present players before exits (excluding current player)
+    if (this.currentRoom.players && this.currentRoom.players.length > 0) {
+      const otherPlayers = this.currentRoom.players.filter(player => player !== this.player?.username);
+      if (otherPlayers.length > 0) {
+        this.addOutputMessage(`Players present: ${otherPlayers.join(', ')}`, false);
+      }
+    }
+
     if (Object.keys(this.currentRoom.exits).length > 0) {
       this.addOutputMessage('\nExits:', true);
       Object.entries(this.currentRoom.exits).forEach(([direction, destination]) => {
@@ -376,6 +307,54 @@ export class GameState extends EventEmitter {
     } else {
       this.addOutputMessage('You have not set a character description yet.', true);
       this.addOutputMessage('Use @describe <description> to set your description.', false);
+    }
+  }
+
+  public async lookAtPlayer(targetUsername: string): Promise<void> {
+    if (!this.player) {
+      this.addOutputMessage('You are not logged in.', true);
+      return;
+    }
+
+    if (!this.currentRoom) {
+      this.addOutputMessage('You are not in a room.', true);
+      return;
+    }
+
+    // Check if the target player is in the current room
+    const roomPlayers = this.currentRoom.players || [];
+    const isPlayerInRoom = roomPlayers.some(player => 
+      player.toLowerCase() === targetUsername.toLowerCase()
+    );
+
+    if (!isPlayerInRoom) {
+      this.addOutputMessage(`You don't see "${targetUsername}" here.`, true);
+      return;
+    }
+
+    // Don't allow looking at yourself (use look self instead)
+    if (targetUsername.toLowerCase() === this.player.username.toLowerCase()) {
+      this.addOutputMessage('Use "look self" to view your own description.', true);
+      return;
+    }
+
+    try {
+      // Load the target player's description from blockchain
+      const accounts = await this.hiveClient.database.call('get_accounts', [[targetUsername]]);
+      if (accounts && accounts[0] && accounts[0].posting_json_metadata) {
+        const metadata = JSON.parse(accounts[0].posting_json_metadata);
+        if (metadata.egodeathplayer?.Description) {
+          this.addOutputMessage(`${targetUsername}'s description:`, true);
+          this.addOutputMessage(metadata.egodeathplayer.Description, false);
+        } else {
+          this.addOutputMessage(`${targetUsername} has not set a description yet.`, true);
+        }
+      } else {
+        this.addOutputMessage(`${targetUsername} has not set a description yet.`, true);
+      }
+    } catch (error) {
+      console.error('Error loading player description:', error);
+      this.addOutputMessage(`Unable to load ${targetUsername}'s description.`, true);
     }
   }
 
@@ -424,8 +403,8 @@ export class GameState extends EventEmitter {
 
     try {
       const accounts = await this.hiveClient.database.call('get_accounts', [[this.player.username]]);
-      if (accounts && accounts[0] && accounts[0].json_metadata) {
-        const metadata = JSON.parse(accounts[0].json_metadata);
+      if (accounts && accounts[0] && accounts[0].posting_json_metadata) {
+        const metadata = JSON.parse(accounts[0].posting_json_metadata);
         if (metadata.egodeathplayer?.Description) {
           this.player.characterDescription = metadata.egodeathplayer.Description;
           this.emit('playerChanged', this.player);
@@ -477,8 +456,15 @@ export class GameState extends EventEmitter {
   private setCurrentRoom(room: RoomData): void {
     this.currentRoom = room;
     this.currentRoomIdentifier = `${room.author}/${room.permlink}`;
+    
+    // Reset room display tracking when changing rooms
+    this.resetRoomDisplayTracking();
+    
     // Emit room state changed event to notify React components
     this.emit('roomStateChanged', room);
+    
+    // Clear present players when changing rooms - they will be updated by socket server
+    this.emit('chatChannelUpdate', { players: [] });
   }
 
   public setGameMap(gameMap: GameMap): void {
@@ -554,6 +540,7 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('emote <action> - Perform an action in the current room', false);
     this.addOutputMessage('look - Look around the current room', false);
     this.addOutputMessage('look self - View your character description', false);
+    this.addOutputMessage('look <player> - View another player\'s description', false);
     this.addOutputMessage('@describe <description> - Set your character description', false);
     this.addOutputMessage('@describeshort <short description> - Set your character short description', false);
     this.addOutputMessage('help - Show this help message', false);
@@ -638,6 +625,7 @@ export class GameState extends EventEmitter {
   public updateRoomPlayers(players: string[]): void {
     if (this.currentRoom) {
       const oldPlayers = this.currentRoom.players || [];
+      console.log('[GameState] updateRoomPlayers called:', { oldPlayers, newPlayers: players });
       this.currentRoom.players = players;
       
       // Emit event to notify UI of player list update
@@ -685,24 +673,5 @@ export class GameState extends EventEmitter {
     }
   }
 
-  public clearPendingMovements(): void {
-    this.pendingMovements.clear();
-  }
 
-  public getPendingMovements(): string[] {
-    return Array.from(this.pendingMovements);
-  }
-
-  // Clean up old pending movements (older than 30 seconds)
-  private cleanupOldPendingMovements(): void {
-    const now = Date.now();
-    const thirtySecondsAgo = now - 30000;
-    
-    this.pendingMovements.forEach(movementId => {
-      const timestamp = parseInt(movementId.split('-').pop() || '0');
-      if (timestamp < thirtySecondsAgo) {
-        this.pendingMovements.delete(movementId);
-      }
-    });
-  }
 } 
