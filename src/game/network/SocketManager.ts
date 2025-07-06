@@ -10,6 +10,13 @@ export class SocketManager extends EventEmitter {
   private connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'failed' | 'error' = 'disconnected';
   private username: string | null = null;
   private location: { author: string; permlink: string } | null = null;
+  
+  // Memory leak prevention
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private isDestroyed: boolean = false;
+  private eventListeners: Map<string, (...args: any[]) => void> = new Map();
 
   constructor(private gameState: GameState) {
     super();
@@ -20,11 +27,16 @@ export class SocketManager extends EventEmitter {
   }
 
   connect(username: string, location: { author: string; permlink: string }): void {
+    if (this.isDestroyed) {
+      console.warn('[SocketManager] Cannot connect - SocketManager is destroyed');
+      return;
+    }
+
     console.log('[SocketManager] Attempting to connect:', { username, location });
     
     if (this.socket) {
       console.log('[SocketManager] Disconnecting existing socket');
-      this.socket.disconnect();
+      this.cleanupSocket();
     }
 
     this.isConnecting = true;
@@ -37,47 +49,74 @@ export class SocketManager extends EventEmitter {
         query: { username },
         transports: ['websocket'],
         autoConnect: true,
+        timeout: 10000, // 10 second timeout
+        reconnection: false, // We'll handle reconnection manually
       });
       
-      this.socket.on('connect', () => {
+      this.setupSocketEventListeners();
+      
+    } catch (error) {
+      this.isConnecting = false;
+      console.error('[SocketManager] Error connecting to signaling server:', error);
+      this.connectionStatus = 'failed';
+      this.emit('connectionStatusChanged', { 
+        status: 'failed', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  }
+
+  private setupSocketEventListeners(): void {
+    if (!this.socket) return;
+
+    // Store event listeners for cleanup
+    const listeners = {
+      connect: () => {
         console.log('[SocketManager] Socket connected successfully');
         this.isConnecting = false;
         this.connectionStatus = 'connected';
+        this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
         
         // Emit connection status change
         this.emit('connectionStatusChanged', { status: 'connected' });
         
         // Register the username with the server
-        this.socket?.emit('register', { username });
-      });
+        this.socket?.emit('register', { username: this.username });
+      },
 
-      this.socket.on('registered', (data: { success: boolean; message?: string }) => {
+      registered: (data: { success: boolean; message?: string }) => {
         if (!data.success) {
           console.error('[SocketManager] Registration failed:', data.message);
         } else {
           console.log('[SocketManager] Registration successful');
         }
-      });
+      },
 
-      this.socket.on('disconnect', (reason: string) => {
+      disconnect: (reason: string) => {
         console.log('[SocketManager] Socket disconnected:', reason);
         this.connectionStatus = 'disconnected';
         
         // Emit connection status change
         this.emit('connectionStatusChanged', { status: 'disconnected' });
         
-        // Don't attempt manual reconnect if server initiated disconnect
-        if (reason === 'io server disconnect') {
-          console.log('[SocketManager] Server initiated disconnect, not reconnecting');
+        // Don't attempt manual reconnect if server initiated disconnect or manager is destroyed
+        if (reason === 'io server disconnect' || this.isDestroyed) {
+          console.log('[SocketManager] Server initiated disconnect or manager destroyed, not reconnecting');
           return;
         }
         
-        // Attempt to reconnect
-        console.log('[SocketManager] Attempting to reconnect...');
-        this.attemptReconnect();
-      });
+        // Attempt to reconnect with limits
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          console.log('[SocketManager] Attempting to reconnect...');
+          this.attemptReconnect();
+        } else {
+          console.log('[SocketManager] Max reconnection attempts reached');
+          this.connectionStatus = 'failed';
+          this.emit('connectionStatusChanged', { status: 'failed', error: 'Max reconnection attempts reached' });
+        }
+      },
 
-      this.socket.on('reconnect', (attemptNumber: number) => {
+      reconnect: (attemptNumber: number) => {
         console.log('[SocketManager] Socket reconnected after', attemptNumber, 'attempts');
         this.connectionStatus = 'connected';
         
@@ -86,69 +125,111 @@ export class SocketManager extends EventEmitter {
         
         // Re-register username after reconnect
         this.socket?.emit('register', { username: this.username });
-      });
+      },
 
-      this.socket.on('reRegistered', (data: { success: boolean; message?: string }) => {
+      reRegistered: (data: { success: boolean; message?: string }) => {
         if (!data.success) {
           console.error('[SocketManager] Re-registration failed:', data.message);
         } else {
           console.log('[SocketManager] Re-registration successful');
         }
-      });
+      },
 
       // Chat events
-      this.socket.on('chatChannelState', (data: any) => {
+      chatChannelState: (data: any) => {
         this.emit('chatChannelState', data);
-      });
+      },
 
-      this.socket.on('chatChannelUpdate', (data: any) => {
+      chatChannelUpdate: (data: any) => {
         this.emit('chatChannelUpdate', data);
-      });
+      },
 
-      this.socket.on('playerJoined', (data: any) => {
+      playerJoined: (data: any) => {
         this.emit('playerJoined', data);
-      });
+      },
 
-      this.socket.on('playerLeft', (data: any) => {
+      playerLeft: (data: any) => {
         this.emit('playerLeft', data);
-      });
+      },
 
-      this.socket.on('chatMessage', (data: any) => {
+      chatMessage: (data: any) => {
         this.emit('chatMessage', data);
-      });
+      },
 
-      this.socket.on('chat', (data: any) => {
+      chat: (data: any) => {
         // Handle legacy chat events
         this.emit('chat', data);
-      });
+      },
 
-      this.socket.on('emote', (data: any) => {
+      emote: (data: any) => {
         this.emit('emote', data);
-      });
+      },
 
-      this.socket.on('error', (error) => {
+      error: (error: any) => {
         console.error('[SocketManager] Socket error:', error);
         this.connectionStatus = 'error';
         this.emit('error', error);
-      });
+      }
+    };
 
-    } catch (error) {
-      this.isConnecting = false;
-      console.error('[SocketManager] Error connecting to signaling server:', error);
+    // Register all listeners and store them for cleanup
+    Object.entries(listeners).forEach(([event, listener]) => {
+      this.socket!.on(event, listener);
+      this.eventListeners.set(event, listener);
+    });
+  }
+
+  private cleanupSocket(): void {
+    if (this.socket) {
+      // Remove all event listeners
+      this.eventListeners.forEach((listener, event) => {
+        this.socket!.off(event, listener);
+      });
+      this.eventListeners.clear();
+
+      // Disconnect the socket
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
+    // Clear any pending reconnection attempts
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
     }
   }
 
   disconnect(): void {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-    }
+    console.log('[SocketManager] Disconnecting socket manager');
+    this.cleanupSocket();
     this.isConnecting = false;
     this.connectionStatus = 'disconnected';
+    this.currentChannelId = null;
     this.emit('connectionStatusChanged', { status: 'disconnected' });
   }
 
+  // Comprehensive cleanup method
+  destroy(): void {
+    console.log('[SocketManager] Destroying socket manager');
+    this.isDestroyed = true;
+    this.disconnect();
+    
+    // Remove all event listeners from this EventEmitter
+    this.removeAllListeners();
+    
+    // Clear any remaining timeouts
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+  }
+
   joinChatChannel(channelId: string): void {
+    if (this.isDestroyed) {
+      console.warn('[SocketManager] Cannot join channel - SocketManager is destroyed');
+      return;
+    }
+
     console.log('[SocketManager] joinChatChannel called with:', channelId);
     console.log('[SocketManager] Socket status:', {
       hasSocket: !!this.socket,
@@ -231,9 +312,20 @@ export class SocketManager extends EventEmitter {
   }
 
   private attemptReconnect(): void {
-    if (this.username && this.location && !this.isConnecting) {
-      console.log('[SocketManager] Attempting to reconnect...');
-      this.connect(this.username, this.location);
+    if (this.isDestroyed || this.reconnectAttempts >= this.maxReconnectAttempts) {
+      return;
     }
+
+    this.reconnectAttempts++;
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
+    
+    console.log(`[SocketManager] Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+    
+    this.reconnectTimeout = setTimeout(() => {
+      if (this.username && this.location && !this.isConnecting && !this.isDestroyed) {
+        console.log('[SocketManager] Executing reconnect attempt');
+        this.connect(this.username, this.location);
+      }
+    }, delay);
   }
 } 

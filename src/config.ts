@@ -45,7 +45,12 @@ export interface Config {
  */
 const config: Config = {
   hive: {
-    nodes: [process.env.REACT_APP_HIVE_NODE || 'https://api.hive.blog'],
+    nodes: [
+      process.env.REACT_APP_HIVE_NODE || 'https://api.hive.blog',
+      'https://api.hivekings.com',
+      'https://anyx.io',
+      'https://api.openhive.network'
+    ],
   },
   game: {
     idName: process.env.REACT_APP_GAME_ID_NAME || 'ego-death',

@@ -15,6 +15,7 @@ import QueueManagementModal from './components/QueueManagementModal';
 import { KeychainKeyTypes } from 'keychain-sdk';
 import config from './config';
 import { MemoryMonitor } from './components/MemoryMonitor';
+import GameErrorBoundary from './components/GameErrorBoundary';
 
 // Add process polyfill for browser environment
 declare global {
@@ -356,6 +357,16 @@ function App() {
     };
   }, [gameState]);
 
+  // Cleanup on app unmount
+  useEffect(() => {
+    return () => {
+      console.log('[App] Cleaning up on unmount');
+      if (gameState && typeof gameState.destroy === 'function') {
+        gameState.destroy();
+      }
+    };
+  }, [gameState]);
+
   const handleTextEnteredWrapper = useCallback(async (text: string) => {
     if (text.startsWith('login ')) {
       const username = text.split(' ')[1];
@@ -452,7 +463,15 @@ function App() {
         </div>
       </header>
       {!isAdmin && (
-        <>
+        <GameErrorBoundary
+          onError={(error, errorInfo) => {
+            console.error('Game component error:', error, errorInfo);
+            addErrorMessage('A game component encountered an error. Please try refreshing.');
+          }}
+          onRecover={() => {
+            addInfoMessage('Game components recovered successfully.');
+          }}
+        >
           <PresentPlayers players={presentPlayers} currentUser={username} />
           <GameOutputWindow 
             output={gameOutputMessages} 
@@ -461,31 +480,45 @@ function App() {
           <div className="TextInputBox">
             <TextInputBox onEnterPressed={handleTextEnteredWrapper} />
           </div>
-        </>
+        </GameErrorBoundary>
       )}
-      <BuildModal
-        isOpen={isBuildModalOpen && !isAdmin}
-        onClose={toggleBuildModal}
-        username={username}
-        currentRoom={currentRoom ? {
-          author: currentRoom.author,
-          permlink: currentRoom.permlink
-        } : null}
-        onRoomCreated={() => {
-          if (username) {
-            updateUserProfile(username);
-          }
+      <GameErrorBoundary
+        onError={(error, errorInfo) => {
+          console.error('Build modal error:', error, errorInfo);
+          addErrorMessage('Build modal encountered an error.');
         }}
-        onBuildQueued={() => {
-          addSuccessMessage('Room created successfully! It will be available for admin approval.');
+      >
+        <BuildModal
+          isOpen={isBuildModalOpen && !isAdmin}
+          onClose={toggleBuildModal}
+          username={username}
+          currentRoom={currentRoom ? {
+            author: currentRoom.author,
+            permlink: currentRoom.permlink
+          } : null}
+          onRoomCreated={() => {
+            if (username) {
+              updateUserProfile(username);
+            }
+          }}
+          onBuildQueued={() => {
+            addSuccessMessage('Room created successfully! It will be available for admin approval.');
+          }}
+        />
+      </GameErrorBoundary>
+      <GameErrorBoundary
+        onError={(error, errorInfo) => {
+          console.error('Queue modal error:', error, errorInfo);
+          addErrorMessage('Queue management encountered an error.');
         }}
-      />
-      <QueueManagementModal
-        isOpen={isQueueModalOpen}
-        onClose={toggleQueueModal}
-        username={username}
-        buildApprovalQueue={buildApprovalQueue}
-      />
+      >
+        <QueueManagementModal
+          isOpen={isQueueModalOpen}
+          onClose={toggleQueueModal}
+          username={username}
+          buildApprovalQueue={buildApprovalQueue}
+        />
+      </GameErrorBoundary>
       <MemoryMonitor 
         hiveClient={gameState?.getHiveClient() || null}
         isVisible={process.env.NODE_ENV === 'development'}

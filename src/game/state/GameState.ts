@@ -17,7 +17,7 @@ export class GameState extends EventEmitter {
   private outputMessages: GameOutputMessage[] = [];
   private currentRoomIdentifier: string | null = null;
   private hiveClient: HiveClient;
-  private socketManager: SocketManager;
+  private socketManager: SocketManager | null;
   private lastDisplayedRoom: string | null = null;
   private lastRoomDisplayTimestamp: number = 0;
   private isLoggingIn: boolean = false;
@@ -449,6 +449,9 @@ export class GameState extends EventEmitter {
   }
 
   public getSocketManager(): SocketManager {
+    if (!this.socketManager) {
+      throw new Error('SocketManager not initialized');
+    }
     return this.socketManager;
   }
 
@@ -673,5 +676,34 @@ export class GameState extends EventEmitter {
     }
   }
 
-
+  // Comprehensive cleanup method to prevent memory leaks
+  public destroy(): void {
+    console.log('[GameState] Destroying game state');
+    
+    // Clean up socket manager
+    if (this.socketManager) {
+      this.socketManager.destroy();
+      this.socketManager = null;
+    }
+    
+    // Remove all event listeners from this EventEmitter
+    this.removeAllListeners();
+    
+    // Clear data structures
+    this.outputMessages = [];
+    this.gameMap = {};
+    this.currentRoom = null;
+    this.player = null;
+    
+    // Reset flags
+    this.isLoggingIn = false;
+    this.isProcessingMovement = false;
+    this.isBulkDataLoaded = false;
+    this.hasNotifiedChatOffline = false;
+    this.isInitialConnection = false;
+    this.hasReceivedInitialPlayerList = false;
+    this.lastDisplayedRoom = null;
+    this.lastOptimisticRoomKey = null;
+    this.currentRoomIdentifier = null;
+  }
 } 

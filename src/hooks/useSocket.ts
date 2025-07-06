@@ -15,9 +15,18 @@ export function useSocket(gameState: GameState | null) {
   const gameStateRef = useRef(gameState);
   gameStateRef.current = gameState;
 
+  // Store cleanup function ref to ensure proper cleanup
+  const cleanupRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     console.log('[useSocket] Setting up event listeners for gameState:', !!gameState);
     if (!gameState) return;
+
+    // Clean up any existing listeners first
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
 
     const handleConnectionStatusChanged = (data: { status: string; error?: string }) => {
       setConnectionStatus(data.status as any);
@@ -34,14 +43,14 @@ export function useSocket(gameState: GameState | null) {
           console.log('[useSocket] Processing new chatChannelState:', data);
           
           // Update player list in current room if it matches the channel
-          const currentRoom = gameState.getCurrentRoom();
+          const currentRoom = gameStateRef.current?.getCurrentRoom();
           if (currentRoom) {
             const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
             console.log('[useSocket] Comparing channel IDs:', { currentChannelId, receivedChannelId: data.channelId });
             if (currentChannelId === data.channelId && data.players) {
               console.log('[useSocket] Updating room players:', data.players);
               // Update the room's player list with online players
-              gameState.updateRoomPlayers(data.players);
+              gameStateRef.current?.updateRoomPlayers(data.players);
               // DO NOT display room - this should only come from blockchain movement
               // The signaling server is only for chat and player presence
             }
@@ -58,17 +67,17 @@ export function useSocket(gameState: GameState | null) {
     const handlePlayerJoined = (data: PlayerEvent) => {
       console.log('[useSocket] handlePlayerJoined received:', data);
       // Handle player joined event - update player list in current room
-      const currentRoom = gameState.getCurrentRoom();
+      const currentRoom = gameStateRef.current?.getCurrentRoom();
       if (currentRoom) {
         const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
         console.log('[useSocket] Comparing channel IDs for playerJoined:', { currentChannelId, receivedChannelId: data.channelId });
         if (currentChannelId === data.channelId && data.players) {
           console.log('[useSocket] Processing playerJoined:', data);
           // Update the room's player list with online players
-          gameState.updateRoomPlayers(data.players);
+          gameStateRef.current?.updateRoomPlayers(data.players);
           
           // Display join notification
-          gameState.notifyPlayerJoined(data.username);
+          gameStateRef.current?.notifyPlayerJoined(data.username);
           
           // DO NOT display room - this should only come from blockchain movement
           // The signaling server is only for chat and player presence
@@ -78,15 +87,15 @@ export function useSocket(gameState: GameState | null) {
 
     const handlePlayerLeft = (data: PlayerEvent) => {
       // Handle player left event - update player list in current room
-      const currentRoom = gameState.getCurrentRoom();
+      const currentRoom = gameStateRef.current?.getCurrentRoom();
       if (currentRoom) {
         const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
         if (currentChannelId === data.channelId && data.players) {
           // Update the room's player list with online players
-          gameState.updateRoomPlayers(data.players);
+          gameStateRef.current?.updateRoomPlayers(data.players);
           
           // Display leave notification
-          gameState.notifyPlayerLeft(data.username);
+          gameStateRef.current?.notifyPlayerLeft(data.username);
           
           // DO NOT display room - this should only come from blockchain movement
           // The signaling server is only for chat and player presence
@@ -112,121 +121,138 @@ export function useSocket(gameState: GameState | null) {
 
     const handleEmote = (data: { username: string; emote: string; channelId: string }) => {
       // Display emote from other players
-      if (gameState && data.username !== gameState.getPlayer()?.username) {
-        gameState.addOutputMessage(`${data.username} ${data.emote}`, false);
+      const currentUser = gameStateRef.current?.getPlayer()?.username;
+      if (gameStateRef.current && data.username !== currentUser) {
+        gameStateRef.current.addOutputMessage(`${data.username} ${data.emote}`, false);
       }
     };
 
     const handleRoomUpdate = (data: any) => {
       // Handle room update from RoomService
-      const currentRoom = gameState.getCurrentRoom();
+      const currentRoom = gameStateRef.current?.getCurrentRoom();
       if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
         // Update the room's player list with online players
-        gameState.updateRoomPlayers(data.players);
+        gameStateRef.current?.updateRoomPlayers(data.players);
       }
     };
 
     const handleRoomState = (data: any) => {
       // Handle room state response from RoomService
-      const currentRoom = gameState.getCurrentRoom();
+      const currentRoom = gameStateRef.current?.getCurrentRoom();
       if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
         // Update the room's player list with online players
-        gameState.updateRoomPlayers(data.players);
+        gameStateRef.current?.updateRoomPlayers(data.players);
       }
     };
 
     const handleRoomPlayerLeft = (data: any) => {
       // Handle player left event from RoomService
-      const currentRoom = gameState.getCurrentRoom();
+      const currentRoom = gameStateRef.current?.getCurrentRoom();
       if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
         // Update the room's player list with online players
-        gameState.updateRoomPlayers(data.players);
+        gameStateRef.current?.updateRoomPlayers(data.players);
         
         // Display leave notification
-        gameState.notifyPlayerLeft(data.username);
+        gameStateRef.current?.notifyPlayerLeft(data.username);
       }
     };
 
+    const socketManager = gameState.getSocketManager();
+    
     console.log('[useSocket] Registering event listeners with socket manager');
-    gameState.getSocketManager().on('connectionStatusChanged', handleConnectionStatusChanged);
-    gameState.getSocketManager().on('chatChannelState', handleChatChannelState);
-    gameState.getSocketManager().on('chatChannelUpdate', handleChatChannelUpdate);
-    gameState.getSocketManager().on('playerJoined', handlePlayerJoined);
-    gameState.getSocketManager().on('playerLeft', handlePlayerLeft);
-    gameState.getSocketManager().on('chat', handleChat);
-    gameState.getSocketManager().on('chatMessage', handleChatMessage);
-    gameState.getSocketManager().on('emote', handleEmote);
-    gameState.getSocketManager().on('roomUpdate', handleRoomUpdate);
-    gameState.getSocketManager().on('roomState', handleRoomState);
-    gameState.getSocketManager().on('roomPlayerLeft', handleRoomPlayerLeft);
+    socketManager.on('connectionStatusChanged', handleConnectionStatusChanged);
+    socketManager.on('chatChannelState', handleChatChannelState);
+    socketManager.on('chatChannelUpdate', handleChatChannelUpdate);
+    socketManager.on('playerJoined', handlePlayerJoined);
+    socketManager.on('playerLeft', handlePlayerLeft);
+    socketManager.on('chat', handleChat);
+    socketManager.on('chatMessage', handleChatMessage);
+    socketManager.on('emote', handleEmote);
+    socketManager.on('roomUpdate', handleRoomUpdate);
+    socketManager.on('roomState', handleRoomState);
+    socketManager.on('roomPlayerLeft', handleRoomPlayerLeft);
     console.log('[useSocket] Event listeners registered');
 
-    return () => {
-      gameState.getSocketManager().off('connectionStatusChanged', handleConnectionStatusChanged);
-      gameState.getSocketManager().off('chatChannelState', handleChatChannelState);
-      gameState.getSocketManager().off('chatChannelUpdate', handleChatChannelUpdate);
-      gameState.getSocketManager().off('playerJoined', handlePlayerJoined);
-      gameState.getSocketManager().off('playerLeft', handlePlayerLeft);
-      gameState.getSocketManager().off('chat', handleChat);
-      gameState.getSocketManager().off('chatMessage', handleChatMessage);
-      gameState.getSocketManager().off('emote', handleEmote);
-      gameState.getSocketManager().off('roomUpdate', handleRoomUpdate);
-      gameState.getSocketManager().off('roomState', handleRoomState);
-      gameState.getSocketManager().off('roomPlayerLeft', handleRoomPlayerLeft);
+    // Store cleanup function
+    const cleanup = () => {
+      console.log('[useSocket] Cleaning up event listeners');
+      socketManager.off('connectionStatusChanged', handleConnectionStatusChanged);
+      socketManager.off('chatChannelState', handleChatChannelState);
+      socketManager.off('chatChannelUpdate', handleChatChannelUpdate);
+      socketManager.off('playerJoined', handlePlayerJoined);
+      socketManager.off('playerLeft', handlePlayerLeft);
+      socketManager.off('chat', handleChat);
+      socketManager.off('chatMessage', handleChatMessage);
+      socketManager.off('emote', handleEmote);
+      socketManager.off('roomUpdate', handleRoomUpdate);
+      socketManager.off('roomState', handleRoomState);
+      socketManager.off('roomPlayerLeft', handleRoomPlayerLeft);
     };
+
+    cleanupRef.current = cleanup;
+
+    return cleanup;
   }, [gameState]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+    };
+  }, []);
 
   const connect = useCallback((username: string, location: { author: string; permlink: string }) => {
-    if (!gameState) return;
-    gameState.getSocketManager().connect(username, location);
-  }, [gameState]);
+    if (!gameStateRef.current) return;
+    gameStateRef.current.getSocketManager().connect(username, location);
+  }, []);
 
   const disconnect = useCallback(() => {
-    if (!gameState) return;
-    gameState.getSocketManager().disconnect();
-  }, [gameState]);
+    if (!gameStateRef.current) return;
+    gameStateRef.current.getSocketManager().disconnect();
+  }, []);
 
   const joinChatChannel = useCallback((channelId: string) => {
     console.log('[useSocket] joinChatChannel called with:', channelId);
-    if (!gameState) {
+    if (!gameStateRef.current) {
       console.log('[useSocket] No gameState available, cannot join channel');
       return;
     }
     console.log('[useSocket] Calling gameState.getSocketManager().joinChatChannel');
-    gameState.getSocketManager().joinChatChannel(channelId);
-  }, [gameState]);
+    gameStateRef.current.getSocketManager().joinChatChannel(channelId);
+  }, []);
 
   const leaveChatChannel = useCallback((channelId: string, username: string) => {
-    if (!gameState) return;
-    gameState.getSocketManager().leaveChatChannel(channelId, username);
-  }, [gameState]);
-
-
+    if (!gameStateRef.current) return;
+    gameStateRef.current.getSocketManager().leaveChatChannel(channelId, username);
+  }, []);
 
   const sendMessage = useCallback((message: string) => {
-    if (!gameState?.getPlayer()) return;
-    gameState.getSocketManager().sendChat(message, gameState.getPlayer()!.username);
-  }, [gameState]);
+    if (!gameStateRef.current?.getPlayer()) return;
+    gameStateRef.current.getSocketManager().sendChat(message, gameStateRef.current.getPlayer()!.username);
+  }, []);
 
   const sendEmote = useCallback((emote: string) => {
-    if (!gameState?.getPlayer()) return;
-    gameState.getSocketManager().sendEmote(emote, gameState.getPlayer()!.username);
-  }, [gameState]);
+    if (!gameStateRef.current?.getPlayer()) return;
+    gameStateRef.current.getSocketManager().sendEmote(emote, gameStateRef.current.getPlayer()!.username);
+  }, []);
 
   const getCurrentChannelId = useCallback(() => {
-    return gameState ? gameState.getSocketManager().getCurrentChannelId() : null;
-  }, [gameState]);
+    return gameStateRef.current ? gameStateRef.current.getSocketManager().getCurrentChannelId() : null;
+  }, []);
 
   const resetChannelStateTracking = useCallback(() => {
     lastProcessedChannelState.current = null;
-    if (gameState && !gameState.getIsProcessingMovement() && !gameState.getIsLoggingIn()) {
-      gameState.resetRoomDisplayTracking();
+    if (gameStateRef.current && !gameStateRef.current.getIsProcessingMovement() && !gameStateRef.current.getIsLoggingIn()) {
+      gameStateRef.current.resetRoomDisplayTracking();
     }
-  }, [gameState]);
+  }, []);
 
   const isConnected = useCallback(() => {
-    return gameState ? gameState.getSocketManager().isConnected() : false;
-  }, [gameState]);
+    return gameStateRef.current ? gameStateRef.current.getSocketManager().isConnected() : false;
+  }, []);
 
   return {
     connect,

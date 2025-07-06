@@ -631,3 +631,194 @@ body, html, #root, .App {
   color: #229488;
   font-weight: 500;
 }
+
+/* Error Boundary Styles */
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #229488;
+  padding: 20px;
+}
+
+.error-boundary__content {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 500px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.error-boundary__content h2 {
+  color: #880e8f;
+  margin: 0 0 16px 0;
+  font-size: 1.5rem;
+}
+
+.error-boundary__content p {
+  color: #666;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.error-boundary__details {
+  margin: 20px 0;
+  text-align: left;
+}
+
+.error-boundary__details summary {
+  cursor: pointer;
+  color: #880e8f;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.error-boundary__error,
+.error-boundary__stack {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 8px 0;
+  font-family: 'Fira Mono', 'Consolas', monospace;
+  font-size: 0.85rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.error-boundary__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.error-boundary__reset-btn,
+.error-boundary__reload-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.error-boundary__reset-btn {
+  background: #229488;
+  color: white;
+}
+
+.error-boundary__reset-btn:hover {
+  background: #1a7a6f;
+}
+
+.error-boundary__reload-btn {
+  background: #880e8f;
+  color: white;
+}
+
+.error-boundary__reload-btn:hover {
+  background: #6a0b6f;
+}
+
+/* Game Error Boundary Styles */
+.game-error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  background: rgba(34, 148, 136, 0.05);
+  border-radius: 12px;
+  margin: 20px;
+  border: 2px dashed #229488;
+}
+
+.game-error-boundary__content {
+  text-align: center;
+  padding: 24px;
+  max-width: 400px;
+}
+
+.game-error-boundary__icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.game-error-boundary__content h3 {
+  color: #880e8f;
+  margin: 0 0 12px 0;
+  font-size: 1.25rem;
+}
+
+.game-error-boundary__content p {
+  color: #666;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.game-error-boundary__details {
+  margin: 16px 0;
+  text-align: left;
+}
+
+.game-error-boundary__details summary {
+  cursor: pointer;
+  color: #229488;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.game-error-boundary__error,
+.game-error-boundary__stack {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 4px 0;
+  font-family: 'Fira Mono', 'Consolas', monospace;
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+
+.game-error-boundary__stack pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.game-error-boundary__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.game-error-boundary__recover-btn,
+.game-error-boundary__reload-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.game-error-boundary__recover-btn {
+  background: #229488;
+  color: white;
+}
+
+.game-error-boundary__recover-btn:hover {
+  background: #1a7a6f;
+}
+
+.game-error-boundary__reload-btn {
+  background: #880e8f;
+  color: white;
+}
+
+.game-error-boundary__reload-btn:hover {
+  background: #6a0b6f;
+}
