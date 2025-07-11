@@ -434,7 +434,7 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <div className="Title">E̴̙̣̦̩̱̮͇̋̐̏̕G̶̱͕̦͎̯͙̳̋̽͒͋̾͌̌̚͜O̴̪̤͎̼͙̫͌̏͒̑̍̏͜͠ ̶̗͎̯̥̮̲̠̝̮̲̃͆͊̽Ḇ̶̘̞̂Ȇ̶̹͎͓̳̼͇̠͜ͅA̸͖͖̠̖̙̐̍̀̉̍̾̇̚Ṯ̷̜̀̆͗̏͊͘̚H̴̛̼</div>
+        <img className="Title" src={require('./assets/egodeathbanner.png')} alt="Ego Death Banner" />
         <div className="header-buttons">
           {isSignedIn && (
             <div className="user-signout-container">
