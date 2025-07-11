@@ -214,6 +214,8 @@ export class GameState extends EventEmitter {
       }
     }
 
+
+
     if (Object.keys(room.exits).length > 0) {
       this.addOutputMessage('\nExits:', true);
       Object.entries(room.exits).forEach(([direction, destination]) => {
@@ -282,6 +284,14 @@ export class GameState extends EventEmitter {
       if (otherPlayers.length > 0) {
         this.addOutputMessage(`Players present: ${otherPlayers.join(', ')}`, false);
       }
+    }
+
+    // Show room details if they exist
+    if (this.currentRoom.details && Object.keys(this.currentRoom.details).length > 0) {
+      this.addOutputMessage('\nYou can look at:', true);
+      Object.keys(this.currentRoom.details).forEach((key) => {
+        this.addOutputMessage(key, false);
+      });
     }
 
     if (Object.keys(this.currentRoom.exits).length > 0) {

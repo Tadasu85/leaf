@@ -102,11 +102,11 @@ export class HiveClient extends EventEmitter {
    */
   public async getRoomDetails(author: string, permlink: string): Promise<{ [key: string]: string }> {
     try {
-      const comments = await this.getComments(author, permlink);
-      const authorComments = comments.filter(comment => comment.author === author);
+      const comments = await this.database.call('get_content_replies', [author, permlink]);
+      const authorComments = comments?.filter((comment: any) => comment.author === author) || [];
       
       const details: { [key: string]: string } = {};
-      authorComments.forEach(comment => {
+      authorComments.forEach((comment: any) => {
         const colonIndex = comment.body.indexOf(':');
         const key = colonIndex > 0 ? comment.body.substring(0, colonIndex).trim() : comment.permlink;
         const body = colonIndex > 0 ? comment.body.substring(colonIndex + 1).trim() : comment.body;
@@ -308,20 +308,7 @@ export class HiveClient extends EventEmitter {
     return this.client.database;
   }
 
-  public async getComments(author: string, permlink: string): Promise<any[]> {
-    try {
-      const replies = await this.client.database.getDiscussions('comments', {
-        start_author: author,
-        start_permlink: permlink,
-        limit: 20
-      });
-      
-      return replies || [];
-    } catch (error) {
-      console.error(`[HiveClient] Error fetching comments for ${author}/${permlink}:`, error);
-      return [];
-    }
-  }
+
 
   public async getProfileImage(username: string): Promise<string | null> {
     try {

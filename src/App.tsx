@@ -2,7 +2,7 @@ import './App.css';
 import GameOutputWindow from './components/GameOutputWindow';
 import SignOutButton from './components/SignOutButton';
 import TextInputBox from './components/TextInputBox';
-import BuildButton from './components/BuildButton';
+import Sidebar from './components/Sidebar';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useGameContext } from './contexts/GameContext';
 import { useSocket } from './hooks/useSocket';
@@ -10,8 +10,8 @@ import { useModalState } from './hooks/useModalState';
 import { useClients } from './hooks/useClients';
 import { useGameOutput } from './hooks/useGameOutput';
 import BuildModal from './components/BuildModal';
-import QueueButton from './components/QueueButton';
 import QueueManagementModal from './components/QueueManagementModal';
+import AddDetailModal from './components/AddDetailModal';
 import { KeychainKeyTypes } from 'keychain-sdk';
 import config from './config';
 import { MemoryMonitor } from './components/MemoryMonitor';
@@ -224,8 +224,10 @@ function App() {
   const {
     isBuildModalOpen,
     isQueueModalOpen,
+    isAddDetailModalOpen,
     toggleBuildModal,
-    toggleQueueModal
+    toggleQueueModal,
+    toggleAddDetailModal
   } = useModalState();
 
   // Refs
@@ -446,22 +448,21 @@ function App() {
               />
             </div>
           )}
-          {isSignedIn && isBuilder && (
-            <BuildButton 
-              onClick={toggleBuildModal}
-              label="Build"
-              isActive={isBuildModalOpen}
-            />
-          )}
-          {isSignedIn && username === config.game.account && (
-            <QueueButton
-              onClick={toggleQueueModal}
-              label="Queue"
-              isActive={isQueueModalOpen}
-            />
-          )}
         </div>
       </header>
+      <Sidebar
+        isSignedIn={isSignedIn}
+        isBuilder={isBuilder}
+        isAdmin={isAdmin}
+        username={username}
+        currentRoomAuthor={currentRoom?.author || null}
+        isBuildModalOpen={isBuildModalOpen}
+        isQueueModalOpen={isQueueModalOpen}
+        isAddDetailModalOpen={isAddDetailModalOpen}
+        onToggleBuildModal={toggleBuildModal}
+        onToggleQueueModal={toggleQueueModal}
+        onToggleAddDetailModal={toggleAddDetailModal}
+      />
       {!isAdmin && (
         <GameErrorBoundary
           onError={(error, errorInfo) => {
@@ -517,6 +518,29 @@ function App() {
           onClose={toggleQueueModal}
           username={username}
           buildApprovalQueue={buildApprovalQueue}
+        />
+      </GameErrorBoundary>
+      <GameErrorBoundary
+        onError={(error, errorInfo) => {
+          console.error('Add detail modal error:', error, errorInfo);
+          addErrorMessage('Add detail modal encountered an error.');
+        }}
+      >
+        <AddDetailModal
+          isOpen={isAddDetailModalOpen}
+          onClose={toggleAddDetailModal}
+          username={username}
+          currentRoom={currentRoom ? {
+            author: currentRoom.author,
+            permlink: currentRoom.permlink
+          } : null}
+          onDetailAdded={() => {
+            addSuccessMessage('Detail added successfully!');
+            // Refresh the room to show the new detail
+            if (gameState && currentRoom) {
+              gameState.loadRoom(currentRoom);
+            }
+          }}
         />
       </GameErrorBoundary>
       <MemoryMonitor 
