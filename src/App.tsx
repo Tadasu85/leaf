@@ -450,19 +450,21 @@ function App() {
           )}
         </div>
       </header>
-      <Sidebar
-        isSignedIn={isSignedIn}
-        isBuilder={isBuilder}
-        isAdmin={isAdmin}
-        username={username}
-        currentRoomAuthor={currentRoom?.author || null}
-        isBuildModalOpen={isBuildModalOpen}
-        isQueueModalOpen={isQueueModalOpen}
-        isAddDetailModalOpen={isAddDetailModalOpen}
-        onToggleBuildModal={toggleBuildModal}
-        onToggleQueueModal={toggleQueueModal}
-        onToggleAddDetailModal={toggleAddDetailModal}
-      />
+      {(isBuilder || isAdmin) && (
+        <Sidebar
+          isSignedIn={isSignedIn}
+          isBuilder={isBuilder}
+          isAdmin={isAdmin}
+          username={username}
+          currentRoomAuthor={currentRoom?.author || null}
+          isBuildModalOpen={isBuildModalOpen}
+          isQueueModalOpen={isQueueModalOpen}
+          isAddDetailModalOpen={isAddDetailModalOpen}
+          onToggleBuildModal={toggleBuildModal}
+          onToggleQueueModal={toggleQueueModal}
+          onToggleAddDetailModal={toggleAddDetailModal}
+        />
+      )}
       {!isAdmin && (
         <GameErrorBoundary
           onError={(error, errorInfo) => {
