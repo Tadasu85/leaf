@@ -287,12 +287,13 @@ export class GameState extends EventEmitter {
     }
 
     // Show room details if they exist
-    if (this.currentRoom.details && Object.keys(this.currentRoom.details).length > 0) {
-      this.addOutputMessage('\nYou can look at:', true);
-      Object.keys(this.currentRoom.details).forEach((key) => {
-        this.addOutputMessage(key, false);
-      });
-    }
+    // Commented out to remove automatic display of details list
+    // if (this.currentRoom.details && Object.keys(this.currentRoom.details).length > 0) {
+    //   this.addOutputMessage('\nYou can look at:', true);
+    //   Object.keys(this.currentRoom.details).forEach((key) => {
+    //     this.addOutputMessage(key, false);
+    //   });
+    // }
 
     if (Object.keys(this.currentRoom.exits).length > 0) {
       this.addOutputMessage('\nExits:', true);
