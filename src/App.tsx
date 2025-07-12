@@ -66,7 +66,8 @@ function App() {
     isBuilder,
     isAdmin,
     updateUserProfile,
-    updateGameJSON
+    updateGameJSON,
+    buildApprovalQueue
   } = useGameContext();
 
   // Use the new centralized output management
@@ -184,7 +185,7 @@ function App() {
           );
         }
         if (detailKey) {
-          addInfoMessage(detailKey);
+          addInfoMessage(detailKey, true);
           addInfoMessage(roomDetails[detailKey]);
         } else {
           addErrorMessage(`You don't see "${target}" here.`);
@@ -194,12 +195,6 @@ function App() {
         addErrorMessage('Unknown command. Type "help" for a list of commands.');
     }
   }, [gameState, player, currentRoom, addErrorMessage, addInfoMessage]);
-
-  // Simple build approval queue for now
-  const buildApprovalQueue = useCallback(async () => {
-    // For now, return empty array
-    return [];
-  }, []);
 
   const {
     connect,
