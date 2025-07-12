@@ -33,6 +33,17 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
 
   const keychain = new KeychainSDK(window, { rpc: config.hive.nodes[0] });
 
+  // Function to convert room name to permlink format
+  const generatePermlink = (roomName: string): string => {
+    return roomName
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-') // Replace spaces with dashes
+      .replace(/[^a-z0-9-]/g, '') // Remove any non-alphanumeric characters except dashes
+      .replace(/-+/g, '-') // Replace multiple consecutive dashes with single dash
+      .replace(/^-|-$/g, ''); // Remove leading/trailing dashes
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -53,9 +64,14 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     setError('');
 
     try {
-      // Generate a unique permlink
-      const timestamp = Date.now();
-      const permlink = `room-${timestamp}`;
+      // Generate permlink from room name
+      const permlink = generatePermlink(formData.roomName.trim());
+      
+      // Validate permlink
+      if (!permlink) {
+        setError('Room name must contain valid characters');
+        return;
+      }
 
       // Create the post data
       const postData = {
@@ -66,9 +82,18 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
         parent_author: currentRoom?.author || config.game.account,
         parent_perm: 'blog',
         json_metadata: JSON.stringify({
-          app: 'leaf',
+          app: config.game.idName,
+          type: 'room',
           format: 'markdown',
-          tags: ['leaf-room']
+          tags: ['ego-death'],
+          connection: {
+            fromRoom: currentRoom ? {
+              author: currentRoom.author,
+              permlink: currentRoom.permlink
+            } : null,
+            exitToNewRoom: formData.exitToNewRoom,
+            exitFromNewRoom: formData.exitFromNewRoom
+          }
         }),
         comment_options: JSON.stringify({
           author: username!,
