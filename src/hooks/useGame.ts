@@ -268,6 +268,8 @@ export function useGame(client: Client, keychain: KeychainSDK) {
   // Build approval queue from blockchain data
   const buildApprovalQueue = useCallback(async (): Promise<any[]> => {
     try {
+      console.log('[Build Queue] Starting queue build...');
+      
       // Get current game data
       const gameAccount = await client.database.getAccounts([config.game.account]);
       if (!gameAccount || !gameAccount[0]) {
@@ -277,6 +279,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
 
       const currentMetadata = JSON.parse(gameAccount[0].posting_json_metadata);
       const existingRooms = currentMetadata.egodeathgamedata?.rooms_authors_exits || {};
+      console.log('[Build Queue] Existing rooms:', Object.keys(existingRooms));
       
       // Get builders list from community
       const communityDetailsArray = await client.hivemind.getCommunity({ 
@@ -294,13 +297,15 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         .filter(member => member[2] === "Builder")
         .map(member => member[0]);
 
-      logger.debug('Found builders:', builders);
+      console.log('[Build Queue] Found builders:', builders);
 
       // Get recent posts from builders
       const pendingRooms = [];
       
       for (const builder of builders) {
         try {
+          console.log(`[Build Queue] Checking posts for builder: ${builder}`);
+          
           // Get recent account history for this builder to find their posts
           const accountHistory = await client.database.getAccountHistory(builder, -1, 50);
           
@@ -308,6 +313,8 @@ export function useGame(client: Client, keychain: KeychainSDK) {
           const recentPosts = accountHistory
             .filter(([, op]) => op.op[0] === 'comment' && !op.op[1].parent_author)
             .slice(0, 20); // Get the 20 most recent posts
+          
+          console.log(`[Build Queue] Found ${recentPosts.length} recent posts for ${builder}`);
           
           // Get full post content for each post
           for (const [, op] of recentPosts) {
@@ -321,9 +328,15 @@ export function useGame(client: Client, keychain: KeychainSDK) {
               if (content && content.json_metadata) {
                 try {
                   const metadata = JSON.parse(content.json_metadata);
-                  if (metadata.app === config.game.idName && 
-                      metadata.type === 'room' && 
+                  console.log(`[Build Queue] Checking post: ${content.permlink}`);
+                  console.log(`[Build Queue] Metadata app: ${metadata.app}, type: ${metadata.type}`);
+                  console.log(`[Build Queue] Already in game: ${!!existingRooms[content.permlink]}`);
+                  
+                  if ((metadata.app === config.game.idName || metadata.app === 'leaf') && 
+                      (!metadata.type || metadata.type === 'room') && 
                       !existingRooms[content.permlink]) {
+                    
+                    console.log(`[Build Queue] Adding to queue: ${content.permlink}`);
                     
                     // Extract connection information from metadata
                     const connection = metadata.connection || {};
@@ -348,24 +361,26 @@ export function useGame(client: Client, keychain: KeychainSDK) {
                         fromCurrentRoom: connection.exitToNewRoom ? { [connection.exitToNewRoom]: content.permlink } : {}
                       }
                     });
+                  } else {
+                    console.log(`[Build Queue] Skipping post ${content.permlink}: app=${metadata.app}, type=${metadata.type}, inGame=${!!existingRooms[content.permlink]}`);
                   }
                 } catch (error) {
-                  logger.error('Error parsing post metadata:', error);
+                  console.error('[Build Queue] Error parsing post metadata:', error);
                 }
               }
             } catch (error) {
-              logger.error('Error fetching post content:', error);
+              console.error('[Build Queue] Error fetching post content:', error);
             }
           }
         } catch (error) {
-          logger.error(`Error fetching posts for builder ${builder}:`, error);
+          console.error(`[Build Queue] Error fetching posts for builder ${builder}:`, error);
         }
       }
 
-      logger.debug('Found pending rooms:', pendingRooms);
+      console.log('[Build Queue] Final pending rooms:', pendingRooms);
       return pendingRooms;
     } catch (error) {
-      logger.error('Error building approval queue:', error);
+      console.error('[Build Queue] Error building approval queue:', error);
       return [];
     }
   }, [client]);
