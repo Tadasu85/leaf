@@ -46,9 +46,19 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
   const client = new Client([config.hive.nodes[0]]);
 
   useEffect(() => {
+    console.log('[Queue Modal] useEffect triggered:', {
+      isOpen,
+      username,
+      gameAccount: config.game.account,
+      hasBuildApprovalQueue: !!buildApprovalQueue,
+      shouldCall: isOpen && username === config.game.account && buildApprovalQueue
+    });
+    
     if (isOpen && username === config.game.account && buildApprovalQueue) {
+      console.log('[Queue Modal] Calling buildApprovalQueue...');
       // Build approval queue from blockchain data
       buildApprovalQueue().then(queueData => {
+        console.log('[Queue Modal] buildApprovalQueue returned:', queueData);
         setBuildRequests(queueData.map((request) => ({
           ...request,
           queueId: request.id
@@ -56,6 +66,8 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
       }).catch(error => {
         console.error('Error building approval queue:', error);
       });
+    } else {
+      console.log('[Queue Modal] Not calling buildApprovalQueue - conditions not met');
     }
   }, [isOpen, username, buildApprovalQueue]);
 
