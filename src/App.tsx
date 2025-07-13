@@ -16,6 +16,7 @@ import { KeychainKeyTypes } from 'keychain-sdk';
 import config from './config';
 import { MemoryMonitor } from './components/MemoryMonitor';
 import GameErrorBoundary from './components/GameErrorBoundary';
+import logger from './utils/Logger';
 
 // Add process polyfill for browser environment
 declare global {
@@ -263,7 +264,7 @@ function App() {
   useEffect(() => {
     // Skip if we don't have all required data
     if (!player || !currentRoom || !isLoginComplete) {
-      console.log('[App] Not ready to join room:', {
+      logger.debug('[App] Not ready to join room:', {
         hasPlayer: !!player,
         hasCurrentRoom: !!currentRoom,
         isLoginComplete,
@@ -274,14 +275,14 @@ function App() {
 
     // Skip if socket is not connected yet - let the connection effect handle it
     if (!isConnected) {
-      console.log('[App] Socket not connected yet, waiting for connection');
+      logger.debug('[App] Socket not connected yet, waiting for connection');
       return;
     }
 
     const currentChannelId = getCurrentChannelId();
     const newChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
     
-    console.log('[App] Room change effect triggered:', { 
+    logger.debug('[App] Room change effect triggered:', { 
       player: player.username, 
       currentRoom: newChannelId,
       isLoginComplete,
@@ -291,23 +292,23 @@ function App() {
     
     // Only join chat channel if we're not already in the correct channel
     if (currentChannelId !== newChannelId) {
-      console.log('[App] Joining new channel:', newChannelId);
+      logger.debug('[App] Joining new channel:', newChannelId);
       if (currentChannelId) {
         // Leave current chat channel
-        console.log('[App] Leaving current channel:', currentChannelId);
+        logger.debug('[App] Leaving current channel:', currentChannelId);
         leaveChatChannel(currentChannelId, player.username);
         resetChannelStateTracking();
       }
       // Join new channel immediately
       joinChatChannel(newChannelId);
     } else {
-      console.log('[App] Already in correct channel:', newChannelId);
+      logger.debug('[App] Already in correct channel:', newChannelId);
     }
   }, [currentRoom?.author, currentRoom?.permlink, player?.username, isLoginComplete, isConnected, joinChatChannel, leaveChatChannel, getCurrentChannelId, resetChannelStateTracking, currentRoom, player]);
 
   // Handle initial room join when socket connects
   useEffect(() => {
-    console.log('[App] Socket connection effect triggered:', {
+    logger.debug('[App] Socket connection effect triggered:', {
       player: !!player,
       currentRoom: !!currentRoom,
       isLoginComplete,
@@ -321,10 +322,10 @@ function App() {
       
       // Only join if we're not already in the correct channel
       if (currentChannelId !== newChannelId) {
-        console.log('[App] Socket connected, joining initial room:', newChannelId);
+        logger.debug('[App] Socket connected, joining initial room:', newChannelId);
         joinChatChannel(newChannelId);
       } else {
-        console.log('[App] Already in correct channel, not joining:', newChannelId);
+        logger.debug('[App] Already in correct channel, not joining:', newChannelId);
       }
     }
   }, [connectionStatus, player, currentRoom, isLoginComplete, joinChatChannel, getCurrentChannelId]);
@@ -342,7 +343,7 @@ function App() {
     if (!gameState) return;
     const handleChatChannelUpdate = (data: any) => {
       if (data && Array.isArray(data.players)) {
-        console.log('[App] Updating present players:', data.players);
+        logger.debug('[App] Updating present players:', data.players);
         setPresentPlayers(data.players);
       }
     };
@@ -357,7 +358,7 @@ function App() {
   // Cleanup on app unmount
   useEffect(() => {
     return () => {
-      console.log('[App] Cleaning up on unmount');
+      logger.debug('[App] Cleaning up on unmount');
       if (gameState && typeof gameState.destroy === 'function') {
         gameState.destroy();
       }
@@ -463,7 +464,7 @@ function App() {
       {!isAdmin && (
         <GameErrorBoundary
           onError={(error, errorInfo) => {
-            console.error('Game component error:', error, errorInfo);
+            logger.error('Game component error:', error, errorInfo);
             addErrorMessage('A game component encountered an error. Please try refreshing.');
           }}
           onRecover={() => {
@@ -482,7 +483,7 @@ function App() {
       )}
       <GameErrorBoundary
         onError={(error, errorInfo) => {
-          console.error('Build modal error:', error, errorInfo);
+          logger.error('Build modal error:', error, errorInfo);
           addErrorMessage('Build modal encountered an error.');
         }}
       >
@@ -506,7 +507,7 @@ function App() {
       </GameErrorBoundary>
       <GameErrorBoundary
         onError={(error, errorInfo) => {
-          console.error('Queue modal error:', error, errorInfo);
+          logger.error('Queue modal error:', error, errorInfo);
           addErrorMessage('Queue management encountered an error.');
         }}
       >
@@ -519,7 +520,7 @@ function App() {
       </GameErrorBoundary>
       <GameErrorBoundary
         onError={(error, errorInfo) => {
-          console.error('Add detail modal error:', error, errorInfo);
+          logger.error('Add detail modal error:', error, errorInfo);
           addErrorMessage('Add detail modal encountered an error.');
         }}
       >

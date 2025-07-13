@@ -9,6 +9,7 @@ import {
 import config from '../../config';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
+import logger from '../../utils/Logger';
 
 export class GameState extends EventEmitter {
   private player: Player | null = null;
@@ -44,7 +45,7 @@ export class GameState extends EventEmitter {
       await this.hiveClient.loadAllGameData();
       this.isBulkDataLoaded = true;
     } catch (error) {
-      console.error('[GameState] Error during initialization:', error);
+      logger.error('[GameState] Error during initialization:', error);
       throw error;
     }
   }
@@ -85,7 +86,7 @@ export class GameState extends EventEmitter {
               }
             }
           } catch (error) {
-            console.error('[Login Debug] Error parsing operation:', error);
+            logger.error('[Login Debug] Error parsing operation:', error);
           }
         }
       }
@@ -121,7 +122,7 @@ export class GameState extends EventEmitter {
       
     } catch (error) {
       this.isLoggingIn = false;
-      console.error('[Login Debug] Error during login:', error);
+      logger.error('[Login Debug] Error during login:', error);
       throw error;
     }
   }
@@ -150,7 +151,7 @@ export class GameState extends EventEmitter {
           const details = await this.hiveClient.getRoomDetails(location.author, location.permlink);
           roomCopy.details = details;
         } catch (error) {
-          console.error('[LoadRoom Debug] Error loading room details:', error);
+          logger.error('[LoadRoom Debug] Error loading room details:', error);
           roomCopy.details = {};
         }
       }
@@ -162,7 +163,7 @@ export class GameState extends EventEmitter {
         this.displayRoom();
       }
     } catch (error) {
-      console.error('Error loading room:', error);
+      logger.error('Error loading room:', error);
       this.addOutputMessage('Failed to load room', true);
     }
   }
@@ -197,7 +198,7 @@ export class GameState extends EventEmitter {
     // If we haven't received the initial player list yet, wait for it
     // This prevents displaying the room twice (once without players, once with)
     if (!this.hasReceivedInitialPlayerList && this.socketManager && this.socketManager.isConnected()) {
-      console.log('[GameState] Waiting for initial player list before displaying room');
+      logger.debug('[GameState] Waiting for initial player list before displaying room');
       return;
     }
 
@@ -254,7 +255,7 @@ export class GameState extends EventEmitter {
       await this.hiveClient.moveTo(this.player.username, location);
       
     } catch (error) {
-      console.error('Error moving:', error);
+      logger.error('Error moving:', error);
       this.addOutputMessage('Failed to move.', true);
       
       // Revert optimistic update on error
@@ -364,7 +365,7 @@ export class GameState extends EventEmitter {
         this.addOutputMessage(`${targetUsername} has not set a description yet.`, true);
       }
     } catch (error) {
-      console.error('Error loading player description:', error);
+      logger.error('Error loading player description:', error);
       this.addOutputMessage(`Unable to load ${targetUsername}'s description.`, true);
     }
   }
@@ -384,7 +385,7 @@ export class GameState extends EventEmitter {
       await this.hiveClient.setDescription(this.player.username, description);
       this.addOutputMessage('Description set successfully. It will be updated on the blockchain shortly.', false);
     } catch (error) {
-      console.error('Error setting description:', error);
+      logger.error('Error setting description:', error);
       this.addOutputMessage('Failed to set description. Please try again.', true);
     }
   }
@@ -404,7 +405,7 @@ export class GameState extends EventEmitter {
       await this.hiveClient.setShortDescription(this.player.username, shortDescription);
       this.addOutputMessage('Short description set successfully. It will be updated on the blockchain shortly.', false);
     } catch (error) {
-      console.error('Error setting short description:', error);
+      logger.error('Error setting short description:', error);
       this.addOutputMessage('Failed to set short description. Please try again.', true);
     }
   }
@@ -422,7 +423,7 @@ export class GameState extends EventEmitter {
         }
       }
     } catch (error) {
-      console.error('Error loading player descriptions:', error);
+      logger.error('Error loading player descriptions:', error);
     }
   }
 
@@ -639,7 +640,7 @@ export class GameState extends EventEmitter {
   public updateRoomPlayers(players: string[]): void {
     if (this.currentRoom) {
       const oldPlayers = this.currentRoom.players || [];
-      console.log('[GameState] updateRoomPlayers called:', { oldPlayers, newPlayers: players });
+      logger.debug('[GameState] updateRoomPlayers called:', { oldPlayers, newPlayers: players });
       this.currentRoom.players = players;
       
       // Emit event to notify UI of player list update
@@ -648,12 +649,12 @@ export class GameState extends EventEmitter {
       // Mark that we've received the initial player list
       if (!this.hasReceivedInitialPlayerList) {
         this.hasReceivedInitialPlayerList = true;
-        console.log('[GameState] Initial player list received, now displaying room');
+        logger.debug('[GameState] Initial player list received, now displaying room');
         // Display the room now that we have the player list
         this.displayRoom();
       } else if (oldPlayers.length === 0 && players.length > 0 && !this.isLoggingIn) {
         // For subsequent updates, refresh the room display to show existing players
-        console.log('[GameState] Player list updated, refreshing room display');
+        logger.debug('[GameState] Player list updated, refreshing room display');
         this.refreshRoomDisplay();
       }
     }
@@ -689,7 +690,7 @@ export class GameState extends EventEmitter {
 
   // Comprehensive cleanup method to prevent memory leaks
   public destroy(): void {
-    console.log('[GameState] Destroying game state');
+    logger.debug('[GameState] Destroying game state');
     
     // Clean up socket manager
     if (this.socketManager) {

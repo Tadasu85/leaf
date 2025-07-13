@@ -58,9 +58,21 @@ class Logger {
 }
 
 // Create default logger instance
-const defaultLogger = new Logger(
-  process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.DEBUG
-);
+const getLogLevel = (): LogLevel => {
+  // Allow environment variable override
+  if (process.env.REACT_APP_LOG_LEVEL) {
+    const level = process.env.REACT_APP_LOG_LEVEL.toUpperCase();
+    if (level === 'ERROR') return LogLevel.ERROR;
+    if (level === 'WARN') return LogLevel.WARN;
+    if (level === 'INFO') return LogLevel.INFO;
+    if (level === 'DEBUG') return LogLevel.DEBUG;
+  }
+  
+  // Default behavior
+  return process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.INFO;
+};
+
+const defaultLogger = new Logger(getLogLevel());
 
 // Export the default logger and the Logger class
 export default defaultLogger;

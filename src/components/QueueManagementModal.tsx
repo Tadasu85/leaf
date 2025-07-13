@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { KeychainSDK, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
 import config from '../config';
+import logger from '../utils/Logger';
 
 interface QueueManagementModalProps {
   isOpen: boolean;
@@ -46,7 +47,7 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
   const client = new Client([config.hive.nodes[0]]);
 
   useEffect(() => {
-    console.log('[Queue Modal] useEffect triggered:', {
+    logger.debug('[Queue Modal] useEffect triggered:', {
       isOpen,
       username,
       gameAccount: config.game.account,
@@ -55,19 +56,19 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
     });
     
     if (isOpen && username === config.game.account && buildApprovalQueue) {
-      console.log('[Queue Modal] Calling buildApprovalQueue...');
+      logger.info('[Queue Modal] Calling buildApprovalQueue...');
       // Build approval queue from blockchain data
       buildApprovalQueue().then(queueData => {
-        console.log('[Queue Modal] buildApprovalQueue returned:', queueData);
+        logger.debug('[Queue Modal] buildApprovalQueue returned:', queueData);
         setBuildRequests(queueData.map((request) => ({
           ...request,
           queueId: request.id
         })));
       }).catch(error => {
-        console.error('Error building approval queue:', error);
+        logger.error('Error building approval queue:', error);
       });
     } else {
-      console.log('[Queue Modal] Not calling buildApprovalQueue - conditions not met');
+      logger.debug('[Queue Modal] Not calling buildApprovalQueue - conditions not met');
     }
   }, [isOpen, username, buildApprovalQueue]);
 
@@ -146,7 +147,7 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
       // Show success message
       alert(`Room "${request.title}" by ${request.username} has been approved and added to the game!\n\nNote: The room has been added with proper exits. The exits have been configured based on the connection information.`);
     } catch (error) {
-      console.error('Error approving build request:', error);
+      logger.error('Error approving build request:', error);
       alert(error instanceof Error ? error.message : 'An error occurred while approving the build request');
     } finally {
       setIsUpdating(false);

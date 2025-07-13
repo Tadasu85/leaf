@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { GameState } from '../game/state/GameState';
+import logger from '../utils/Logger';
 
 interface PlayerEvent {
   username: string;
@@ -19,7 +20,7 @@ export function useSocket(gameState: GameState | null) {
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    console.log('[useSocket] Setting up event listeners for gameState:', !!gameState);
+    logger.debug('[useSocket] Setting up event listeners for gameState:', !!gameState);
     if (!gameState) return;
 
     // Clean up any existing listeners first
@@ -33,22 +34,22 @@ export function useSocket(gameState: GameState | null) {
     };
 
     const handleChatChannelState = async (data: any) => {
-      console.log('[useSocket] handleChatChannelState received:', data);
+      logger.debug('[useSocket] handleChatChannelState received:', data);
       if (data && data.channelId) {
         const stateKey = `${data.channelId}-${JSON.stringify(data.players || [])}`;
         
         // Only process if this is a new channel state or player list has changed
         if (lastProcessedChannelState.current !== stateKey) {
           lastProcessedChannelState.current = stateKey;
-          console.log('[useSocket] Processing new chatChannelState:', data);
+          logger.debug('[useSocket] Processing new chatChannelState:', data);
           
           // Update player list in current room if it matches the channel
           const currentRoom = gameStateRef.current?.getCurrentRoom();
           if (currentRoom) {
             const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
-            console.log('[useSocket] Comparing channel IDs:', { currentChannelId, receivedChannelId: data.channelId });
+            logger.debug('[useSocket] Comparing channel IDs:', { currentChannelId, receivedChannelId: data.channelId });
             if (currentChannelId === data.channelId && data.players) {
-              console.log('[useSocket] Updating room players:', data.players);
+              logger.debug('[useSocket] Updating room players:', data.players);
               // Update the room's player list with online players
               gameStateRef.current?.updateRoomPlayers(data.players);
               // DO NOT display room - this should only come from blockchain movement
@@ -56,7 +57,7 @@ export function useSocket(gameState: GameState | null) {
             }
           }
         } else {
-          console.log('[useSocket] Ignoring duplicate chatChannelState');
+          logger.debug('[useSocket] Ignoring duplicate chatChannelState');
         }
       }
     };
@@ -65,14 +66,14 @@ export function useSocket(gameState: GameState | null) {
     const handleChatChannelUpdate = handleChatChannelState;
 
     const handlePlayerJoined = (data: PlayerEvent) => {
-      console.log('[useSocket] handlePlayerJoined received:', data);
+      logger.debug('[useSocket] handlePlayerJoined received:', data);
       // Handle player joined event - update player list in current room
       const currentRoom = gameStateRef.current?.getCurrentRoom();
       if (currentRoom) {
         const currentChannelId = `${currentRoom.author}/${currentRoom.permlink}`;
-        console.log('[useSocket] Comparing channel IDs for playerJoined:', { currentChannelId, receivedChannelId: data.channelId });
+        logger.debug('[useSocket] Comparing channel IDs for playerJoined:', { currentChannelId, receivedChannelId: data.channelId });
         if (currentChannelId === data.channelId && data.players) {
-          console.log('[useSocket] Processing playerJoined:', data);
+          logger.debug('[useSocket] Processing playerJoined:', data);
           // Update the room's player list with online players
           gameStateRef.current?.updateRoomPlayers(data.players);
           
@@ -104,7 +105,7 @@ export function useSocket(gameState: GameState | null) {
     };
 
     const handleChat = (data: { username: string; message: string; channelId: string }) => {
-      console.log('[useSocket Debug] handleChat called with:', data);
+      logger.debug('[useSocket Debug] handleChat called with:', data);
       const currentUser = gameStateRef.current?.getPlayer()?.username;
       if (gameStateRef.current && data.username !== currentUser) {
         gameStateRef.current.addOutputMessage(`${data.username} says: "${data.message}"`, false);
@@ -159,7 +160,7 @@ export function useSocket(gameState: GameState | null) {
 
     const socketManager = gameState.getSocketManager();
     
-    console.log('[useSocket] Registering event listeners with socket manager');
+    logger.debug('[useSocket] Registering event listeners with socket manager');
     socketManager.on('connectionStatusChanged', handleConnectionStatusChanged);
     socketManager.on('chatChannelState', handleChatChannelState);
     socketManager.on('chatChannelUpdate', handleChatChannelUpdate);
@@ -171,11 +172,11 @@ export function useSocket(gameState: GameState | null) {
     socketManager.on('roomUpdate', handleRoomUpdate);
     socketManager.on('roomState', handleRoomState);
     socketManager.on('roomPlayerLeft', handleRoomPlayerLeft);
-    console.log('[useSocket] Event listeners registered');
+    logger.debug('[useSocket] Event listeners registered');
 
     // Store cleanup function
     const cleanup = () => {
-      console.log('[useSocket] Cleaning up event listeners');
+      logger.debug('[useSocket] Cleaning up event listeners');
       socketManager.off('connectionStatusChanged', handleConnectionStatusChanged);
       socketManager.off('chatChannelState', handleChatChannelState);
       socketManager.off('chatChannelUpdate', handleChatChannelUpdate);
@@ -215,12 +216,12 @@ export function useSocket(gameState: GameState | null) {
   }, []);
 
   const joinChatChannel = useCallback((channelId: string) => {
-    console.log('[useSocket] joinChatChannel called with:', channelId);
+    logger.debug('[useSocket] joinChatChannel called with:', channelId);
     if (!gameStateRef.current) {
-      console.log('[useSocket] No gameState available, cannot join channel');
+      logger.debug('[useSocket] No gameState available, cannot join channel');
       return;
     }
-    console.log('[useSocket] Calling gameState.getSocketManager().joinChatChannel');
+    logger.debug('[useSocket] Calling gameState.getSocketManager().joinChatChannel');
     gameStateRef.current.getSocketManager().joinChatChannel(channelId);
   }, []);
 

@@ -2,6 +2,7 @@ import { Socket, io } from 'socket.io-client';
 import { EventEmitter } from 'events';
 import config from '../../config';
 import { GameState } from '../state/GameState';
+import logger from '../../utils/Logger';
 
 export class SocketManager extends EventEmitter {
   private socket: Socket | null = null;
@@ -28,14 +29,14 @@ export class SocketManager extends EventEmitter {
 
   connect(username: string, location: { author: string; permlink: string }): void {
     if (this.isDestroyed) {
-      console.warn('[SocketManager] Cannot connect - SocketManager is destroyed');
+      logger.warn('[SocketManager] Cannot connect - SocketManager is destroyed');
       return;
     }
 
-    console.log('[SocketManager] Attempting to connect:', { username, location });
+    logger.debug('[SocketManager] Attempting to connect:', { username, location });
     
     if (this.socket) {
-      console.log('[SocketManager] Disconnecting existing socket');
+      logger.debug('[SocketManager] Disconnecting existing socket');
       this.cleanupSocket();
     }
 
@@ -44,7 +45,7 @@ export class SocketManager extends EventEmitter {
     this.location = location;
 
     try {
-      console.log('[SocketManager] Creating new socket connection to:', config.signalingServer);
+      logger.debug('[SocketManager] Creating new socket connection to:', config.signalingServer);
       this.socket = io(config.signalingServer, {
         query: { username },
         transports: ['websocket'],
@@ -57,7 +58,7 @@ export class SocketManager extends EventEmitter {
       
     } catch (error) {
       this.isConnecting = false;
-      console.error('[SocketManager] Error connecting to signaling server:', error);
+      logger.error('[SocketManager] Error connecting to signaling server:', error);
       this.connectionStatus = 'failed';
       this.emit('connectionStatusChanged', { 
         status: 'failed', 
@@ -72,7 +73,7 @@ export class SocketManager extends EventEmitter {
     // Store event listeners for cleanup
     const listeners = {
       connect: () => {
-        console.log('[SocketManager] Socket connected successfully');
+        logger.info('[SocketManager] Socket connected successfully');
         this.isConnecting = false;
         this.connectionStatus = 'connected';
         this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
@@ -86,14 +87,14 @@ export class SocketManager extends EventEmitter {
 
       registered: (data: { success: boolean; message?: string }) => {
         if (!data.success) {
-          console.error('[SocketManager] Registration failed:', data.message);
+          logger.error('[SocketManager] Registration failed:', data.message);
         } else {
-          console.log('[SocketManager] Registration successful');
+          logger.debug('[SocketManager] Registration successful');
         }
       },
 
       disconnect: (reason: string) => {
-        console.log('[SocketManager] Socket disconnected:', reason);
+        logger.debug('[SocketManager] Socket disconnected:', reason);
         this.connectionStatus = 'disconnected';
         
         // Emit connection status change
@@ -101,23 +102,23 @@ export class SocketManager extends EventEmitter {
         
         // Don't attempt manual reconnect if server initiated disconnect or manager is destroyed
         if (reason === 'io server disconnect' || this.isDestroyed) {
-          console.log('[SocketManager] Server initiated disconnect or manager destroyed, not reconnecting');
+          logger.debug('[SocketManager] Server initiated disconnect or manager destroyed, not reconnecting');
           return;
         }
         
         // Attempt to reconnect with limits
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          console.log('[SocketManager] Attempting to reconnect...');
+          logger.debug('[SocketManager] Attempting to reconnect...');
           this.attemptReconnect();
         } else {
-          console.log('[SocketManager] Max reconnection attempts reached');
+          logger.warn('[SocketManager] Max reconnection attempts reached');
           this.connectionStatus = 'failed';
           this.emit('connectionStatusChanged', { status: 'failed', error: 'Max reconnection attempts reached' });
         }
       },
 
       reconnect: (attemptNumber: number) => {
-        console.log('[SocketManager] Socket reconnected after', attemptNumber, 'attempts');
+        logger.info('[SocketManager] Socket reconnected after', attemptNumber, 'attempts');
         this.connectionStatus = 'connected';
         
         // Emit connection status change
@@ -129,9 +130,9 @@ export class SocketManager extends EventEmitter {
 
       reRegistered: (data: { success: boolean; message?: string }) => {
         if (!data.success) {
-          console.error('[SocketManager] Re-registration failed:', data.message);
+          logger.error('[SocketManager] Re-registration failed:', data.message);
         } else {
-          console.log('[SocketManager] Re-registration successful');
+          logger.debug('[SocketManager] Re-registration successful');
         }
       },
 
@@ -166,7 +167,7 @@ export class SocketManager extends EventEmitter {
       },
 
       error: (error: any) => {
-        console.error('[SocketManager] Socket error:', error);
+        logger.error('[SocketManager] Socket error:', error);
         this.connectionStatus = 'error';
         this.emit('error', error);
       }
@@ -200,7 +201,7 @@ export class SocketManager extends EventEmitter {
   }
 
   disconnect(): void {
-    console.log('[SocketManager] Disconnecting socket manager');
+    logger.debug('[SocketManager] Disconnecting socket manager');
     this.cleanupSocket();
     this.isConnecting = false;
     this.connectionStatus = 'disconnected';
@@ -210,7 +211,7 @@ export class SocketManager extends EventEmitter {
 
   // Comprehensive cleanup method
   destroy(): void {
-    console.log('[SocketManager] Destroying socket manager');
+    logger.debug('[SocketManager] Destroying socket manager');
     this.isDestroyed = true;
     this.disconnect();
     
@@ -226,24 +227,24 @@ export class SocketManager extends EventEmitter {
 
   joinChatChannel(channelId: string): void {
     if (this.isDestroyed) {
-      console.warn('[SocketManager] Cannot join channel - SocketManager is destroyed');
+      logger.warn('[SocketManager] Cannot join channel - SocketManager is destroyed');
       return;
     }
 
-    console.log('[SocketManager] joinChatChannel called with:', channelId);
-    console.log('[SocketManager] Socket status:', {
+    logger.debug('[SocketManager] joinChatChannel called with:', channelId);
+    logger.debug('[SocketManager] Socket status:', {
       hasSocket: !!this.socket,
       connectionStatus: this.connectionStatus,
       isConnected: this.connectionStatus === 'connected'
     });
     
     if (this.socket && this.connectionStatus === 'connected') {
-      console.log('[SocketManager] Emitting joinChatChannel event:', { channelId });
+      logger.debug('[SocketManager] Emitting joinChatChannel event:', { channelId });
       this.socket.emit('joinChatChannel', { channelId });
       this.currentChannelId = channelId;
-      console.log('[SocketManager] Current channel ID set to:', this.currentChannelId);
+      logger.debug('[SocketManager] Current channel ID set to:', this.currentChannelId);
     } else {
-      console.log('[SocketManager] Cannot join channel - socket not ready');
+      logger.debug('[SocketManager] Cannot join channel - socket not ready');
     }
   }
 
@@ -319,11 +320,11 @@ export class SocketManager extends EventEmitter {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
     
-    console.log(`[SocketManager] Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+    logger.debug(`[SocketManager] Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
     
     this.reconnectTimeout = setTimeout(() => {
       if (this.username && this.location && !this.isConnecting && !this.isDestroyed) {
-        console.log('[SocketManager] Executing reconnect attempt');
+        logger.debug('[SocketManager] Executing reconnect attempt');
         this.connect(this.username, this.location);
       }
     }, delay);
