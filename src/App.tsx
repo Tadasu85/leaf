@@ -104,7 +104,8 @@ function App() {
     }
 
     // Get current room exits for command validation
-    const currentRoomPermlink = player?.location.permlink;
+    // Admin users don't have a location, so they can't use movement commands
+    const currentRoomPermlink = player?.location?.permlink;
     const currentRoomExits = currentRoom?.exits;
     
     // Import CommandParser dynamically to avoid circular dependencies
@@ -251,6 +252,7 @@ function App() {
 
   // Handle login success (prevent repeated connect calls)
   useEffect(() => {
+    // Admin users don't have a location, so they don't need to connect to a specific room
     if (player && player.location && isLoginComplete) {
       const last = lastConnectedRef.current;
       if (!last || last.username !== player.username || JSON.stringify(last.location) !== JSON.stringify(player.location)) {

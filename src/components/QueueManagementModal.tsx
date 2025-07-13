@@ -154,17 +154,72 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
     }
   };
 
-  const handleReject = (queueId: string) => {
+  const handleReject = async (queueId: string) => {
     if (!username || username !== config.game.account) return;
     if (!rejectionReason.trim()) {
       alert('Please provide a reason for rejection');
       return;
     }
 
-    // For now, just remove from local state since we don't have a rejection mechanism
-    setBuildRequests(prev => prev.filter(req => req.queueId !== queueId));
-    setRejectionReason('');
-    setSelectedRequest(null);
+    setIsUpdating(true);
+    try {
+      // Get the build request
+      const request = buildRequests.find(r => r.queueId === queueId);
+      if (!request) throw new Error('Build request not found');
+
+      // Generate a unique permlink for the rejection comment
+      const timestamp = Date.now();
+      const permlink = `rejection-${timestamp}`;
+
+      // Create the rejection comment data with the format "Rejected: reason"
+      const commentData = {
+        username: username,
+        body: `Rejected: ${rejectionReason.trim()}`,
+        permlink,
+        parent_author: request.newRoom.author,
+        parent_perm: request.newRoom.permlink,
+        parent_username: request.newRoom.author,
+        json_metadata: JSON.stringify({
+          app: config.game.idName,
+          format: 'markdown',
+          tags: ['ego-death-rejection'],
+          type: 'rejection'
+        }),
+        comment_options: JSON.stringify({
+          author: username,
+          permlink,
+          max_accepted_payout: "10000.000 HBD",
+          allow_votes: true,
+          allow_curation_rewards: true,
+          extensions: [],
+          percent_hbd: 10000
+        })
+      };
+
+      // Submit the rejection comment
+      const commentResult = await keychain.post(commentData);
+      
+      if (!commentResult.success) {
+        throw new Error('Failed to post rejection comment');
+      }
+
+      // Update local state to show as rejected
+      setBuildRequests(prev => prev.map(req => 
+        req.queueId === queueId ? { ...req, status: 'rejected', rejectionReason: rejectionReason.trim() } : req
+      ));
+
+      // Show success message
+      alert(`Room "${request.title}" by ${request.username} has been rejected with reason: ${rejectionReason.trim()}`);
+      
+      // Reset form
+      setRejectionReason('');
+      setSelectedRequest(null);
+    } catch (error) {
+      logger.error('Error rejecting build request:', error);
+      alert(error instanceof Error ? error.message : 'An error occurred while rejecting the build request');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   if (!isOpen) return null;

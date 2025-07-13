@@ -92,10 +92,12 @@ export class GameState extends EventEmitter {
       }
 
       // Create player with last known location or default starting room
+      // Admin users should not have a location
+      const isAdmin = username === config.game.account;
       this.player = {
         username,
-        location: lastLocation || config.game.startRoom,
-        isAdmin: username === config.game.account,
+        location: isAdmin ? null : (lastLocation || config.game.startRoom),
+        isAdmin,
         isBuilder: false,
         characterDescription: ''
       };
@@ -104,7 +106,10 @@ export class GameState extends EventEmitter {
       await this.loadPlayerDescriptions();
 
       // Load the player's current room using bulk data (skip display during login)
-      await this.loadRoom(this.player.location, true); // Skip display during login
+      // Admin users don't have a location, so skip room loading
+      if (this.player.location) {
+        await this.loadRoom(this.player.location, true); // Skip display during login
+      }
       
       // Emit player changed event
       this.emit('playerChanged', this.player);

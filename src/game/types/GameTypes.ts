@@ -5,7 +5,7 @@ export interface Location {
 
 export interface Player {
   username: string;
-  location: Location;
+  location: Location | null; // Admin users can have null location
   isAdmin: boolean;
   isBuilder: boolean;
   characterDescription: string;

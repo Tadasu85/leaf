@@ -336,31 +336,55 @@ export function useGame(client: Client, keychain: KeychainSDK) {
                       (!metadata.type || metadata.type === 'room') && 
                       !existingRooms[content.permlink]) {
                     
-                    console.log(`[Build Queue] Adding to queue: ${content.permlink}`);
+                    // Check if this room has been rejected by looking for rejection comments
+                    let isRejected = false;
+                    let rejectionReason = '';
                     
-                    // Extract connection information from metadata
-                    const connection = metadata.connection || {};
-                    
-                    pendingRooms.push({
-                      id: `${builder}-${content.permlink}-${content.created}`,
-                      username: builder,
-                      room: connection.fromRoom || {
-                        author: builder,
-                        permlink: content.permlink
-                      },
-                      newRoom: {
-                        author: builder,
-                        permlink: content.permlink
-                      },
-                      title: content.title,
-                      body: content.body,
-                      timestamp: new Date(content.created).getTime(),
-                      status: 'pending',
-                      exits: {
-                        fromNewRoom: connection.exitFromNewRoom ? { [connection.exitFromNewRoom]: connection.fromRoom?.permlink || '' } : {},
-                        fromCurrentRoom: connection.exitToNewRoom ? { [connection.exitToNewRoom]: content.permlink } : {}
+                    try {
+                      const comments = await client.database.call('get_content_replies', [builder, content.permlink]);
+                      const adminComments = comments?.filter((comment: any) => comment.author === config.game.account) || [];
+                      
+                      for (const comment of adminComments) {
+                        if (comment.body.startsWith('Rejected:')) {
+                          isRejected = true;
+                          rejectionReason = comment.body.substring(9).trim(); // Remove "Rejected: " prefix
+                          console.log(`[Build Queue] Room ${content.permlink} has been rejected: ${rejectionReason}`);
+                          break;
+                        }
                       }
-                    });
+                    } catch (error) {
+                      console.error('[Build Queue] Error checking rejection comments:', error);
+                    }
+                    
+                    if (!isRejected) {
+                      console.log(`[Build Queue] Adding to queue: ${content.permlink}`);
+                      
+                      // Extract connection information from metadata
+                      const connection = metadata.connection || {};
+                      
+                      pendingRooms.push({
+                        id: `${builder}-${content.permlink}-${content.created}`,
+                        username: builder,
+                        room: connection.fromRoom || {
+                          author: builder,
+                          permlink: content.permlink
+                        },
+                        newRoom: {
+                          author: builder,
+                          permlink: content.permlink
+                        },
+                        title: content.title,
+                        body: content.body,
+                        timestamp: new Date(content.created).getTime(),
+                        status: 'pending',
+                        exits: {
+                          fromNewRoom: connection.exitFromNewRoom ? { [connection.exitFromNewRoom]: connection.fromRoom?.permlink || '' } : {},
+                          fromCurrentRoom: connection.exitToNewRoom ? { [connection.exitToNewRoom]: content.permlink } : {}
+                        }
+                      });
+                    } else {
+                      console.log(`[Build Queue] Skipping rejected room ${content.permlink}: ${rejectionReason}`);
+                    }
                   } else {
                     console.log(`[Build Queue] Skipping post ${content.permlink}: app=${metadata.app}, type=${metadata.type}, inGame=${!!existingRooms[content.permlink]}`);
                   }
@@ -404,6 +428,12 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     });
     
     try {
+      // Admin users don't have a location, so they can't move
+      if (!player.location) {
+        if (gameState) gameState.addOutputMessage('Admin users cannot move to locations.', true);
+        return;
+      }
+      
       let movedPlayer = {
         "Location": options?.newlocation ?? { "permlink": "genesis-scaffold-precipice", "author": player.location.author }
       };
@@ -480,7 +510,8 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     }
     
     // Get current room exits for command validation
-    const currentRoomPermlink = player?.location.permlink;
+    // Admin users don't have a location, so they can't use movement commands
+    const currentRoomPermlink = player?.location?.permlink;
     const currentRoomExits = currentRoomPermlink ? gameJSON[currentRoomPermlink]?.exits : undefined;
     
     const command = commandParser.parse(text, currentRoomExits);
@@ -525,13 +556,13 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         logger.debug('Found exit, moving to:', {
           direction,
           targetPermlink,
-          currentAuthor: player?.location.author
+          currentAuthor: player?.location?.author
         });
         
         await movePlayer({ 
           newlocation: { 
             permlink: targetPermlink, 
-            author: player?.location.author || '' 
+            author: player?.location?.author || '' 
           } 
         });
         break;
