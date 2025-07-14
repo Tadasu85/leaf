@@ -941,3 +941,105 @@ body, html, #root, .App {
 .game-error-boundary__reload-btn:hover {
   background: #6a0b6f;
 }
+
+/* Time Event Manager Styles */
+.time-event-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.time-event-section h3 {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.time-event-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.time-event-info-box {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.time-event-info-box p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.time-event-info-box strong {
+  font-weight: bold;
+}
+
+.time-event-rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.time-event-room-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.time-event-room-permlink {
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.time-event-remove-btn {
+  color: #ff4444;
+  font-size: 0.9rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.time-event-remove-btn:hover {
+  color: #cc0000;
+}
+
+.time-event-info-section {
+  padding: 1rem;
+  background-color: #e3f2fd;
+  border-radius: 4px;
+  border: 1px solid #bbdefb;
+}
+
+.time-event-info-section h3 {
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.time-event-info-section p {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.time-event-info-section p:last-child {
+  margin-bottom: 0;
+}
+
+.time-event-info-section strong {
+  font-weight: bold;
+}
+
+.time-event-empty-state {
+  color: #666;
+  font-style: italic;
+}

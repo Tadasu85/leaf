@@ -37,7 +37,47 @@ export interface RoomData {
   npcs?: string[];
   players?: string[];
   details?: Record<string, string>;
+  // New properties for time-based events
+  isTimeBased?: boolean;
+  timeEventConfig?: TimeEventConfig;
 }
+
+// New types for blockchain-based time events
+export interface TimeEventConfig {
+  type: 'ferry' | 'market' | 'weather' | 'custom';
+  intervalBlocks: number; // How many blocks between changes
+  lastChangeBlock: number; // Last block when the event changed
+  currentPhase: number; // Current phase/state of the event
+  phases: TimeEventPhase[];
+}
+
+export interface TimeEventPhase {
+  phase: number;
+  name: string;
+  description: string;
+  exits: Record<string, string>;
+  duration: number; // Duration in blocks
+}
+
+export interface BlockchainTimeEvent {
+  type: 'timeEvent';
+  roomPermlink: string;
+  author: string;
+  currentBlock: number;
+  eventType: string;
+  phase: number;
+  timestamp: string;
+}
+
+export interface MoveEvent {
+  username: string;
+  location: Location;
+  transactionId: string;
+  timestamp: string;
+}
+
+// Union type for all blockchain events
+export type BlockchainEvent = MoveEvent | BlockchainTimeEvent;
 
 export type CommandType = 
   | 'login'

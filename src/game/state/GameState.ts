@@ -4,7 +4,10 @@ import {
   GameMap, 
   Location, 
   GameOutputMessage,
-  RoomData
+  RoomData,
+  TimeEventConfig,
+  TimeEventPhase,
+  BlockchainTimeEvent
 } from '../types/GameTypes';
 import config from '../../config';
 import { HiveClient } from '../blockchain/HiveClient';
@@ -28,11 +31,144 @@ export class GameState extends EventEmitter {
   private lastOptimisticRoomKey: string | null = null;
   private isInitialConnection: boolean = false;
   private hasReceivedInitialPlayerList: boolean = false;
+  private timeEventRooms: Map<string, TimeEventConfig> = new Map();
 
   constructor(hiveClient: HiveClient, socketManager?: SocketManager) {
     super();
     this.hiveClient = hiveClient;
     this.socketManager = socketManager || new SocketManager(this);
+    
+    // Listen for time events from the blockchain
+    this.hiveClient.on('timeEventDetected', this.handleTimeEvent.bind(this));
+  }
+
+  /**
+   * Handle time-based events from the blockchain
+   */
+  private handleTimeEvent(timeEvent: BlockchainTimeEvent): void {
+    logger.debug('Time event detected:', timeEvent);
+    
+    // Update the room's exits based on the new phase
+    const config = this.timeEventRooms.get(timeEvent.roomPermlink);
+    if (config && config.phases[timeEvent.phase]) {
+      const phase = config.phases[timeEvent.phase];
+      
+      // Update the room data with new exits
+      if (this.currentRoom && this.currentRoom.permlink === timeEvent.roomPermlink) {
+        const updatedRoom: RoomData = {
+          ...this.currentRoom,
+          exits: phase.exits
+        };
+        
+        this.setCurrentRoom(updatedRoom);
+        
+        // Display the room update to the player
+        this.addOutputMessage(`\n${phase.name}`, true);
+        this.addOutputMessage(phase.description, false);
+        this.displayRoom();
+      }
+      
+      // Emit room state change for other components
+      this.emit('roomStateChanged', this.currentRoom);
+    }
+  }
+
+  /**
+   * Register a room for time-based events
+   */
+  public registerTimeEventRoom(roomPermlink: string, config: TimeEventConfig): void {
+    this.timeEventRooms.set(roomPermlink, config);
+    this.hiveClient.registerTimeEventRoom(roomPermlink, config);
+    logger.debug(`Registered time event room in GameState: ${roomPermlink}`);
+  }
+
+  /**
+   * Unregister a room from time-based events
+   */
+  public unregisterTimeEventRoom(roomPermlink: string): void {
+    this.timeEventRooms.delete(roomPermlink);
+    this.hiveClient.unregisterTimeEventRoom(roomPermlink);
+    logger.debug(`Unregistered time event room in GameState: ${roomPermlink}`);
+  }
+
+  /**
+   * Create a ferry room with time-based changing exits
+   */
+  public createFerryRoom(
+    roomPermlink: string,
+    title: string,
+    description: string,
+    intervalBlocks: number = 100, // Default: change every 100 blocks (~5 minutes)
+    startPhase: number = 0
+  ): void {
+    const ferryPhases: TimeEventPhase[] = [
+      {
+        phase: 0,
+        name: "Docked at Port A",
+        description: "The ferry is docked at Port A, ready to depart.",
+        exits: {
+          "north": "port-a-permlink",
+          "board": "ferry-interior-permlink"
+        },
+        duration: intervalBlocks
+      },
+      {
+        phase: 1,
+        name: "Departing Port A",
+        description: "The ferry is departing from Port A, heading towards Port B.",
+        exits: {
+          "board": "ferry-interior-permlink"
+        },
+        duration: intervalBlocks
+      },
+      {
+        phase: 2,
+        name: "At Sea",
+        description: "The ferry is sailing across the open water.",
+        exits: {
+          "board": "ferry-interior-permlink"
+        },
+        duration: intervalBlocks
+      },
+      {
+        phase: 3,
+        name: "Arriving at Port B",
+        description: "The ferry is approaching Port B.",
+        exits: {
+          "board": "ferry-interior-permlink"
+        },
+        duration: intervalBlocks
+      },
+      {
+        phase: 4,
+        name: "Docked at Port B",
+        description: "The ferry is docked at Port B, ready to depart.",
+        exits: {
+          "south": "port-b-permlink",
+          "board": "ferry-interior-permlink"
+        },
+        duration: intervalBlocks
+      },
+      {
+        phase: 5,
+        name: "Departing Port B",
+        description: "The ferry is departing from Port B, heading towards Port A.",
+        exits: {
+          "board": "ferry-interior-permlink"
+        },
+        duration: intervalBlocks
+      }
+    ];
+
+    const timeEventConfig: TimeEventConfig = {
+      type: 'ferry',
+      intervalBlocks,
+      lastChangeBlock: 0, // Will be set when first block is processed
+      currentPhase: startPhase,
+      phases: ferryPhases
+    };
+
+    this.registerTimeEventRoom(roomPermlink, timeEventConfig);
   }
 
   /**
@@ -159,6 +295,17 @@ export class GameState extends EventEmitter {
           logger.error('[LoadRoom Debug] Error loading room details:', error);
           roomCopy.details = {};
         }
+      }
+
+      // Check if this is a time-based room and apply dynamic exits
+      const timeEventConfig = this.hiveClient.getTimeEventConfig(location.permlink);
+      if (timeEventConfig && timeEventConfig.phases[timeEventConfig.currentPhase]) {
+        const currentPhase = timeEventConfig.phases[timeEventConfig.currentPhase];
+        roomCopy.exits = currentPhase.exits;
+        roomCopy.isTimeBased = true;
+        roomCopy.timeEventConfig = timeEventConfig;
+        
+        logger.debug(`Applied time-based exits for room ${location.permlink}:`, currentPhase.exits);
       }
       
       this.setCurrentRoom(roomCopy);

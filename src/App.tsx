@@ -12,6 +12,7 @@ import { useGameOutput } from './hooks/useGameOutput';
 import BuildModal from './components/BuildModal';
 import QueueManagementModal from './components/QueueManagementModal';
 import AddDetailModal from './components/AddDetailModal';
+import TimeEventManager from './components/TimeEventManager';
 import { KeychainKeyTypes } from 'keychain-sdk';
 import config from './config';
 import { MemoryMonitor } from './components/MemoryMonitor';
@@ -222,9 +223,11 @@ function App() {
     isBuildModalOpen,
     isQueueModalOpen,
     isAddDetailModalOpen,
+    isTimeEventManagerOpen,
     toggleBuildModal,
     toggleQueueModal,
-    toggleAddDetailModal
+    toggleAddDetailModal,
+    toggleTimeEventManager
   } = useModalState();
 
   // Refs
@@ -458,9 +461,11 @@ function App() {
           isBuildModalOpen={isBuildModalOpen}
           isQueueModalOpen={isQueueModalOpen}
           isAddDetailModalOpen={isAddDetailModalOpen}
+          isTimeEventManagerOpen={isTimeEventManagerOpen}
           onToggleBuildModal={toggleBuildModal}
           onToggleQueueModal={toggleQueueModal}
           onToggleAddDetailModal={toggleAddDetailModal}
+          onToggleTimeEventManager={toggleTimeEventManager}
         />
       )}
       {!isAdmin && (
@@ -541,6 +546,17 @@ function App() {
               gameState.loadRoom(currentRoom);
             }
           }}
+        />
+      </GameErrorBoundary>
+      <GameErrorBoundary
+        onError={(error, errorInfo) => {
+          logger.error('Time event manager error:', error, errorInfo);
+          addErrorMessage('Time event manager encountered an error.');
+        }}
+      >
+        <TimeEventManager
+          isVisible={isTimeEventManagerOpen}
+          onClose={toggleTimeEventManager}
         />
       </GameErrorBoundary>
       <MemoryMonitor 

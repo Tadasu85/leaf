@@ -1,6 +1,6 @@
 import { Client, Operation } from '@hiveio/dhive';
 import { KeychainSDK, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
-import { Location, GameMap, RoomData } from '../types/GameTypes';
+import { Location, GameMap, RoomData, BlockchainTimeEvent, TimeEventConfig } from '../types/GameTypes';
 import config from '../../config';
 import { EventEmitter } from 'events';
 import { BulkDataLoader } from './BulkDataLoader';
@@ -14,6 +14,8 @@ export class HiveClient extends EventEmitter {
   private isListening: boolean = false;
   private bulkLoader: BulkDataLoader;
   private isBulkDataLoaded: boolean = false;
+  private timeEventRooms: Map<string, TimeEventConfig> = new Map();
+  private lastProcessedBlock: number = 0;
 
   constructor() {
     super();
@@ -25,6 +27,82 @@ export class HiveClient extends EventEmitter {
       loadRoomDetails: false, // Disabled to reduce memory usage - load on demand instead
       memoryLimitMB: 100 // Set to 100MB as requested
     });
+  }
+
+  /**
+   * Register a room for time-based events
+   */
+  public registerTimeEventRoom(roomPermlink: string, config: TimeEventConfig): void {
+    this.timeEventRooms.set(roomPermlink, config);
+    logger.debug(`Registered time event room: ${roomPermlink}`, config);
+  }
+
+  /**
+   * Unregister a room from time-based events
+   */
+  public unregisterTimeEventRoom(roomPermlink: string): void {
+    this.timeEventRooms.delete(roomPermlink);
+    logger.debug(`Unregistered time event room: ${roomPermlink}`);
+  }
+
+  /**
+   * Get time event config for a room
+   */
+  public getTimeEventConfig(roomPermlink: string): TimeEventConfig | undefined {
+    return this.timeEventRooms.get(roomPermlink);
+  }
+
+  /**
+   * Check if a room has time-based events
+   */
+  public isTimeEventRoom(roomPermlink: string): boolean {
+    return this.timeEventRooms.has(roomPermlink);
+  }
+
+  /**
+   * Process time-based events for a specific block
+   */
+  private async processTimeEvents(blockNumber: number): Promise<void> {
+    for (const [roomPermlink, config] of this.timeEventRooms.entries()) {
+      // Initialize lastChangeBlock if it's 0 (first time)
+      if (config.lastChangeBlock === 0) {
+        const newConfig: TimeEventConfig = {
+          ...config,
+          lastChangeBlock: blockNumber
+        };
+        this.timeEventRooms.set(roomPermlink, newConfig);
+        logger.debug(`Initialized time event for room ${roomPermlink} at block ${blockNumber}`);
+        continue;
+      }
+      
+      const blocksSinceLastChange = blockNumber - config.lastChangeBlock;
+      
+      if (blocksSinceLastChange >= config.intervalBlocks) {
+        // Time to change the event
+        const nextPhase = (config.currentPhase + 1) % config.phases.length;
+        const newConfig: TimeEventConfig = {
+          ...config,
+          lastChangeBlock: blockNumber,
+          currentPhase: nextPhase
+        };
+        
+        this.timeEventRooms.set(roomPermlink, newConfig);
+        
+        // Emit time event
+        const timeEvent: BlockchainTimeEvent = {
+          type: 'timeEvent',
+          roomPermlink,
+          author: config.phases[nextPhase]?.name || 'Unknown',
+          currentBlock: blockNumber,
+          eventType: config.type,
+          phase: nextPhase,
+          timestamp: new Date().toISOString()
+        };
+        
+        this.emit('timeEventDetected', timeEvent);
+        logger.debug(`Time event triggered for room ${roomPermlink}: phase ${nextPhase}`);
+      }
+    }
   }
 
   /**
@@ -262,6 +340,13 @@ export class HiveClient extends EventEmitter {
     try {
       for await (const operation of operations) {
         if (!this.isListening) break;
+        
+        // Process time events for each new block
+        if (operation.block_num && operation.block_num > this.lastProcessedBlock) {
+          this.lastProcessedBlock = operation.block_num;
+          await this.processTimeEvents(operation.block_num);
+        }
+        
         // Check if this is a custom_json operation for our game
         if (operation.op[0] === 'custom_json' && operation.op[1].id === config.game.idName) {
           try {

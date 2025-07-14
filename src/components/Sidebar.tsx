@@ -2,6 +2,7 @@ import React from 'react';
 import BuildButton from './BuildButton';
 import QueueButton from './QueueButton';
 import AddDetailButton from './AddDetailButton';
+import TimeEventButton from './TimeEventButton';
 import config from '../config';
 
 interface SidebarProps {
@@ -13,9 +14,11 @@ interface SidebarProps {
   isBuildModalOpen: boolean;
   isQueueModalOpen: boolean;
   isAddDetailModalOpen: boolean;
+  isTimeEventManagerOpen: boolean;
   onToggleBuildModal: () => void;
   onToggleQueueModal: () => void;
   onToggleAddDetailModal: () => void;
+  onToggleTimeEventManager: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -27,9 +30,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   isBuildModalOpen,
   isQueueModalOpen,
   isAddDetailModalOpen,
+  isTimeEventManagerOpen,
   onToggleBuildModal,
   onToggleQueueModal,
-  onToggleAddDetailModal
+  onToggleAddDetailModal,
+  onToggleTimeEventManager
 }) => {
   if (!isSignedIn) {
     return null;
@@ -56,6 +61,15 @@ const Sidebar: React.FC<SidebarProps> = ({
               onClick={onToggleAddDetailModal}
               label="Add Detail"
               isActive={isAddDetailModalOpen}
+            />
+          </div>
+        )}
+        {isBuilder && (
+          <div className="sidebar-button-container">
+            <TimeEventButton
+              onClick={onToggleTimeEventManager}
+              label="Time Events"
+              isActive={isTimeEventManagerOpen}
             />
           </div>
         )}
