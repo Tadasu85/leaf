@@ -41,11 +41,11 @@ window.process = window.process || {
 function PresentPlayers({ players, currentUser }: { players: string[]; currentUser?: string | null }) {
   if (!players || players.length === 0) return null;
   return (
-    <div className="PresentPlayers">
-      <span className="PresentPlayers__label">Present:</span>
-      {players.map((p) => (
-        <span key={p} className={p === currentUser ? 'PresentPlayers__me' : ''}>{p}</span>
-      ))}
+            <div className="app__present-players">
+          <span className="app__present-players__label">Present:</span>
+              {players.map((p) => (
+          <span key={p} className={p === currentUser ? 'app__present-players__me' : ''}>{p}</span>
+        ))}
     </div>
   );
 }
@@ -434,14 +434,14 @@ function App() {
   }, [updateUserProfile, addInfoMessage]);
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <img className="Title" src={require('./assets/egodeathbanner.png')} alt="Ego Death Banner" />
-        <div className="header-buttons">
+    <div className="app">
+      <header className="app__header">
+        <img className="app__title" src={require('./assets/egodeathbanner.png')} alt="Ego Death Banner" />
+        <div className="app__header-buttons">
           {isSignedIn && (
-            <div className="user-signout-container">
+            <div className="app__user-signout-container">
               {userProfileJSON.profile_image && (
-                <img src={userProfileJSON.profile_image} alt="User Icon" className="user-icon" />
+                <img src={userProfileJSON.profile_image} alt="User Icon" className="app__user-icon" />
               )}
               <SignOutButton 
                 isSignedIn={isSignedIn} 
@@ -484,7 +484,7 @@ function App() {
             output={gameOutputMessages} 
             maxMessages={200}
           />
-          <div className="TextInputBox">
+          <div className="text-input-box">
             <TextInputBox onEnterPressed={handleTextEnteredWrapper} />
           </div>
         </GameErrorBoundary>

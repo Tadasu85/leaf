@@ -138,21 +138,21 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
+    <div className="modal__overlay">
+      <div className="modal__content">
+        <div className="modal__header">
           <h2>Edit Room</h2>
-          <button className="close-button" onClick={onClose}>&times;</button>
+          <button className="modal__close-button" onClick={onClose}>&times;</button>
         </div>
-        <div className="modal-body">
+        <div className="modal__body">
           <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
             <p><strong>Room Editing:</strong></p>
             <p>You can edit the title and description of this room. Note that you can only edit rooms that you created.</p>
           </div>
           {error && (
-            <div className="error-message" style={{ color: '#ff4444', marginBottom: '1rem' }}>
-              {error}
-            </div>
+                    <div className="modal__error-message">
+          {error}
+        </div>
           )}
           {isLoading ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
@@ -160,10 +160,10 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              <div className="modal-form-group">
-                <label className="modal-form-label" htmlFor="roomName">Room Name:</label>
+              <div className="modal__form-group">
+                <label className="modal__form-label" htmlFor="roomName">Room Name:</label>
                 <input
-                  className="modal-form-input"
+                  className="modal__form-input"
                   type="text"
                   id="roomName"
                   name="roomName"
@@ -175,10 +175,10 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                 />
               </div>
 
-              <div className="modal-form-group">
-                <label className="modal-form-label" htmlFor="description">Room Description:</label>
+              <div className="modal__form-group">
+                <label className="modal__form-label" htmlFor="description">Room Description:</label>
                 <textarea
-                  className="modal-form-textarea"
+                  className="modal__form-textarea"
                   id="description"
                   name="description"
                   value={formData.description}
@@ -190,17 +190,17 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                 />
               </div>
 
-              <div className="form-actions">
+              <div className="modal__form-actions">
                 <button 
                   type="submit" 
-                  className="submit-button"
+                  className="modal__submit-button"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Updating Room...' : 'Update Room'}
                 </button>
                 <button 
                   type="button" 
-                  className="cancel-button" 
+                  className="modal__cancel-button" 
                   onClick={onClose}
                   disabled={isSubmitting}
                 >

@@ -45,9 +45,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className="sidebar">
-      <div className="sidebar-content">
+      <div className="sidebar__content">
         {isBuilder && (
-          <div className="sidebar-button-container">
+          <div className="sidebar__button-container">
             <BuildButton 
               onClick={onToggleBuildModal}
               label="Build"
@@ -56,7 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
         {isBuilder && isRoomOwner && (
-          <div className="sidebar-button-container">
+          <div className="sidebar__button-container">
             <EditRoomButton
               onClick={onToggleEditRoomModal}
               label="Edit Room"
@@ -65,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
         {isRoomOwner && (
-          <div className="sidebar-button-container">
+          <div className="sidebar__button-container">
             <AddDetailButton
               onClick={onToggleAddDetailModal}
               label="Add Detail"
@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
         {isAdmin && username === config.game.account && (
-          <div className="sidebar-button-container">
+          <div className="sidebar__button-container">
             <QueueButton
               onClick={onToggleQueueModal}
               label="Queue"

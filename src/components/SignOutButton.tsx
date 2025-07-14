@@ -10,7 +10,7 @@ const SignOutButton: React.FC<SignOutButtonProps> = ({ isSignedIn, username, onS
   if (!isSignedIn) return null; // Don't render if not signed in
 
   return (
-    <button className="SignOutButton" onClick={onSignOut}>
+    <button className="signout__button" onClick={onSignOut}>
       Sign Out {username}
     </button>
   );

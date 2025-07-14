@@ -30,13 +30,13 @@ function GameOutputWindow({
   const displayMessages = output.slice(-maxMessages);
 
   return (
-    <div className={`GameOutputWindow ${className}`} ref={outputRef} data-testid="game-output">
+    <div className={`game-output-window ${className}`} ref={outputRef} data-testid="game-output">
       {displayMessages.map((message: SimpleMessage) => {
         if (!message || !message.text) return null;
         
         const lines = message.text.split('\n');
         return lines.map((line, lineIndex) => (
-          <div key={`${message.id}-${lineIndex}`} className={`output-message ${message.bold ? 'output-message--bold' : ''}`}>
+          <div key={`${message.id}-${lineIndex}`} className={`game-output-window__message${message.bold ? ' game-output-window__message--bold' : ''}`}>
             {line}
           </div>
         ));

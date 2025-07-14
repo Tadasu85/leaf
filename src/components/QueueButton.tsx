@@ -9,20 +9,14 @@ interface QueueButtonProps {
 const QueueButton: React.FC<QueueButtonProps> = ({ onClick, label, isActive }) => {
   return (
     <button
+      className={`sidebar__button ${isActive ? 'sidebar__button--active' : ''}`}
       onClick={onClick}
-      className={`queue-button ${isActive ? 'active' : ''}`}
-      style={{
-        padding: '8px 16px',
-        marginLeft: '10px',
-        backgroundColor: isActive ? '#4CAF50' : '#2196F3',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        transition: 'background-color 0.3s'
-      }}
+      title="Queue Management"
     >
-      {label}
+      <div className="sidebar__button-content">
+        <div className="sidebar__button-icon">📋</div>
+        <div className="sidebar__button-label">{label}</div>
+      </div>
     </button>
   );
 };

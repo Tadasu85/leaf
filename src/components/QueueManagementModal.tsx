@@ -225,13 +225,13 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '800px', width: '90%' }}>
-        <div className="modal-header">
+    <div className="modal__overlay">
+      <div className="modal__content" style={{ maxWidth: '800px', width: '90%' }}>
+        <div className="modal__header">
           <h2>Room Build Queue</h2>
-          <button className="close-button" onClick={onClose}>&times;</button>
+          <button className="modal__close-button" onClick={onClose}>&times;</button>
         </div>
-        <div className="modal-body">
+        <div className="modal__body">
           <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
             <p><strong>New Build Queue System:</strong></p>
             <p>Builders now create rooms directly on the blockchain. This queue shows rooms that have been posted but not yet added to the game map. When you approve a room, it will be added to the game with proper exits that you can configure later.</p>
@@ -239,9 +239,9 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
           {buildRequests.length === 0 ? (
             <p>No pending build requests</p>
           ) : (
-            <div className="queue-list">
+            <div className="queue-management__list">
               {buildRequests.map(request => (
-                <div key={request.queueId} className="queue-item" style={{ marginBottom: '1rem', padding: '1rem', border: '1px solid #ccc' }}>
+                <div key={request.queueId} className="queue-management__item" style={{ marginBottom: '1rem', padding: '1rem', border: '1px solid #ccc' }}>
                   <h3>Request from {request.username}</h3>
                   <p><strong>Room Title:</strong> {request.title}</p>
                   <p><strong>Room Description:</strong></p>
@@ -264,25 +264,25 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
                     <p><strong>Rejection Reason:</strong> {request.rejectionReason}</p>
                   )}
                   {request.status === 'pending' && (
-                    <div className="queue-actions">
+                    <div className="queue-management__actions">
                       <button
                         onClick={() => handleApprove(request.queueId)}
                         disabled={isUpdating}
-                        className="approve-button"
+                        className="queue-management__approve-button"
                       >
                         Approve
                       </button>
                       <button
                         onClick={() => setSelectedRequest(request.queueId)}
                         disabled={isUpdating}
-                        className="reject-button"
+                        className="queue-management__reject-button"
                       >
                         Reject
                       </button>
                     </div>
                   )}
                   {selectedRequest === request.queueId && (
-                    <div className="rejection-form" style={{ marginTop: '1rem' }}>
+                    <div className="queue-management__rejection-form" style={{ marginTop: '1rem' }}>
                       <textarea
                         value={rejectionReason}
                         onChange={(e) => setRejectionReason(e.target.value)}
@@ -292,7 +292,7 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
                       <button
                         onClick={() => handleReject(request.queueId)}
                         disabled={isUpdating}
-                        className="submit-rejection-button"
+                        className="queue-management__submit-rejection-button"
                       >
                         Submit Rejection
                       </button>

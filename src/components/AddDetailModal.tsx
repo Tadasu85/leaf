@@ -116,23 +116,23 @@ const AddDetailModal: React.FC<AddDetailModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
+    <div className="modal__overlay">
+      <div className="modal__content">
+        <div className="modal__header">
           <h2>Add Room Detail</h2>
-          <button className="close-button" onClick={onClose}>&times;</button>
+          <button className="modal__close-button" onClick={onClose}>&times;</button>
         </div>
-        <div className="modal-body">
+        <div className="modal__body">
           <form onSubmit={handleSubmit}>
-            <div className="modal-form-group">
-              <label className="modal-form-label" htmlFor="detailName">
+            <div className="modal__form-group">
+              <label className="modal__form-label" htmlFor="detailName">
                 Detail Name:
               </label>
               <input
                 type="text"
                 id="detailName"
                 name="detailName"
-                className="modal-form-input"
+                className="modal__form-input"
                 value={formData.detailName}
                 onChange={handleInputChange}
                 placeholder="e.g., Ancient Book, Mysterious Door"
@@ -141,14 +141,14 @@ const AddDetailModal: React.FC<AddDetailModalProps> = ({
               />
             </div>
             
-            <div className="modal-form-group">
-              <label className="modal-form-label" htmlFor="detailDescription">
+            <div className="modal__form-group">
+              <label className="modal__form-label" htmlFor="detailDescription">
                 Detail Description:
               </label>
               <textarea
                 id="detailDescription"
                 name="detailDescription"
-                className="modal-form-textarea"
+                className="modal__form-textarea"
                 value={formData.detailDescription}
                 onChange={handleInputChange}
                 placeholder="Describe what players see when they look at this detail..."
@@ -164,17 +164,17 @@ const AddDetailModal: React.FC<AddDetailModalProps> = ({
               </div>
             )}
 
-            <div className="form-actions">
+            <div className="modal__form-actions">
               <button
                 type="submit"
-                className="submit-button"
+                className="modal__submit-button"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Adding...' : 'Add Detail'}
               </button>
               <button
                 type="button"
-                className="cancel-button"
+                className="modal__cancel-button"
                 onClick={onClose}
                 disabled={isSubmitting}
               >

@@ -98,18 +98,18 @@ function TextInputBox({ onEnterPressed, isLoading = false }: TextInputBoxProps) 
   };
 
   const getInputClassName = () => {
-    let className = 'TextInputBox__input';
+    let className = 'text-input-box__input';
     if (!isValid) {
-      className += ' TextInputBox__input--error';
+      className += ' text-input-box__input--error';
     }
     if (isLoading) {
-      className += ' TextInputBox__input--loading';
+      className += ' text-input-box__input--loading';
     }
     return className;
   };
 
   return (
-    <div className="TextInputBox">
+    <div className="text-input-box">
       <input
         ref={inputRef}
         type="text"
@@ -128,14 +128,14 @@ function TextInputBox({ onEnterPressed, isLoading = false }: TextInputBoxProps) 
       {errorMessage && (
         <div 
           id="input-error" 
-          className="TextInputBox__error"
+          className="text-input-box__error"
           role="alert"
           aria-live="polite"
         >
           {errorMessage}
         </div>
       )}
-      <div className="TextInputBox__counter">
+      <div className="text-input-box__counter">
         {inputText.length}/{MAX_INPUT_LENGTH}
       </div>
     </div>

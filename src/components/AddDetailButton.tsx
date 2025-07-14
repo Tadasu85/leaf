@@ -8,11 +8,15 @@ interface AddDetailButtonProps {
 
 const AddDetailButton: React.FC<AddDetailButtonProps> = ({ onClick, label, isActive = false }) => {
   return (
-    <button 
-      className={`sidebar-button ${isActive ? 'active' : ''}`}
+    <button
+      className={`sidebar__button ${isActive ? 'sidebar__button--active' : ''}`}
       onClick={onClick}
+      title="Add Detail"
     >
-      {label}
+      <div className="sidebar__button-content">
+        <div className="sidebar__button-icon">➕</div>
+        <div className="sidebar__button-label">{label}</div>
+      </div>
     </button>
   );
 };

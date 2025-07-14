@@ -188,27 +188,27 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
+    <div className="modal__overlay">
+      <div className="modal__content">
+        <div className="modal__header">
           <h2>Create New Room</h2>
-          <button className="close-button" onClick={onClose}>&times;</button>
+          <button className="modal__close-button" onClick={onClose}>&times;</button>
         </div>
-        <div className="modal-body">
+        <div className="modal__body">
           <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
             <p><strong>Room Connection:</strong></p>
             <p>Specify how this new room connects to your current location. The exits will be configured automatically when the room is approved.</p>
           </div>
           {error && (
-            <div className="error-message" style={{ color: '#ff4444', marginBottom: '1rem' }}>
-              {error}
-            </div>
+                    <div className="modal__error-message">
+          {error}
+        </div>
           )}
           <form onSubmit={handleSubmit}>
-            <div className="modal-form-group">
-              <label className="modal-form-label" htmlFor="roomName">Room Name:</label>
+            <div className="modal__form-group">
+              <label className="modal__form-label" htmlFor="roomName">Room Name:</label>
               <input
-                className="modal-form-input"
+                className="modal__form-input"
                 type="text"
                 id="roomName"
                 name="roomName"
@@ -220,10 +220,10 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
               />
             </div>
 
-            <div className="modal-form-group">
-              <label className="modal-form-label" htmlFor="exitToNewRoom">Exit from Current Room:</label>
+            <div className="modal__form-group">
+              <label className="modal__form-label" htmlFor="exitToNewRoom">Exit from Current Room:</label>
               <input
-                className="modal-form-input"
+                className="modal__form-input"
                 type="text"
                 id="exitToNewRoom"
                 name="exitToNewRoom"
@@ -235,10 +235,10 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
               />
             </div>
 
-            <div className="modal-form-group">
-              <label className="modal-form-label" htmlFor="exitFromNewRoom">Exit from New Room:</label>
+            <div className="modal__form-group">
+              <label className="modal__form-label" htmlFor="exitFromNewRoom">Exit from New Room:</label>
               <input
-                className="modal-form-input"
+                className="modal__form-input"
                 type="text"
                 id="exitFromNewRoom"
                 name="exitFromNewRoom"
@@ -250,10 +250,10 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
               />
             </div>
 
-            <div className="modal-form-group">
-              <label className="modal-form-label" htmlFor="description">Room Description:</label>
+            <div className="modal__form-group">
+              <label className="modal__form-label" htmlFor="description">Room Description:</label>
               <textarea
-                className="modal-form-textarea"
+                className="modal__form-textarea"
                 id="description"
                 name="description"
                 value={formData.description}
@@ -266,8 +266,8 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
             </div>
 
             {/* Time-based Event Toggle */}
-            <div className="modal-form-group">
-              <label className="modal-form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="modal__form-group">
+              <label className="modal__form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <input
                   type="checkbox"
                   id="isTimeBased"
@@ -295,10 +295,10 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
                 </p>
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div className="modal-form-group">
-                    <label className="modal-form-label" htmlFor="intervalBlocks">Interval Blocks:</label>
+                  <div className="modal__form-group">
+                    <label className="modal__form-label" htmlFor="intervalBlocks">Interval Blocks:</label>
                     <input
-                      className="modal-form-input"
+                      className="modal__form-input"
                       type="number"
                       id="intervalBlocks"
                       name="intervalBlocks"
@@ -313,10 +313,10 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
                     </small>
                   </div>
 
-                  <div className="modal-form-group">
-                    <label className="modal-form-label" htmlFor="startPhase">Start Phase:</label>
+                  <div className="modal__form-group">
+                    <label className="modal__form-label" htmlFor="startPhase">Start Phase:</label>
                     <input
-                      className="modal-form-input"
+                      className="modal__form-input"
                       type="number"
                       id="startPhase"
                       name="startPhase"
@@ -345,17 +345,17 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
               </div>
             )}
 
-            <div className="form-actions">
+            <div className="modal__form-actions">
               <button 
                 type="submit" 
-                className="submit-button"
+                className="modal__submit-button"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Creating Room...' : 'Create Room'}
               </button>
               <button 
                 type="button" 
-                className="cancel-button" 
+                className="modal__cancel-button" 
                 onClick={onClose}
                 disabled={isSubmitting}
               >
