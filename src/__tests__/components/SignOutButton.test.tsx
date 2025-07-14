@@ -48,7 +48,7 @@ describe('SignOutButton Component', () => {
     render(<SignOutButton isSignedIn={true} onSignOut={mockOnSignOut} />);
     
     const button = screen.getByRole('button', { name: /sign out/i });
-    expect(button).toHaveClass('SignOutButton');
+    expect(button).toHaveClass('signout__button');
   });
 
   it('handles empty username gracefully', () => {

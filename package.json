@@ -32,7 +32,10 @@
 	"jest": {
 		"coverageReporters": [
 			"jest-junit"
-		]
+		],
+		"moduleNameMapper": {
+			"^react-markdown$": "<rootDir>/src/__mocks__/react-markdown.js"
+		}
 	},
 	"eslintConfig": {
 		"extends": [

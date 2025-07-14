@@ -241,6 +241,60 @@ body, html, #root, .app {
   transition: background 0.15s;
 }
 
+/* Override ReactMarkdown default margins */
+.game-output-window__message p {
+  margin: 0;
+  padding: 0;
+}
+
+.game-output-window__message h1,
+.game-output-window__message h2,
+.game-output-window__message h3,
+.game-output-window__message h4,
+.game-output-window__message h5,
+.game-output-window__message h6 {
+  margin: 8px 0 4px 0;
+  padding: 0;
+}
+
+.game-output-window__message ul,
+.game-output-window__message ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.game-output-window__message li {
+  margin: 2px 0;
+}
+
+.game-output-window__message blockquote {
+  margin: 4px 0;
+  padding-left: 12px;
+  border-left: 3px solid #229488;
+  color: #666;
+}
+
+.game-output-window__message code {
+  background: rgba(34, 148, 136, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.game-output-window__message pre {
+  background: rgba(34, 148, 136, 0.05);
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 4px 0;
+}
+
+.game-output-window__message pre code {
+  background: none;
+  padding: 0;
+}
+
 .game-output-window__message:hover {
   background: rgba(34, 148, 136, 0.05);
 }

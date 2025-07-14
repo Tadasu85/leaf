@@ -347,7 +347,7 @@ describe('App Component', () => {
     
     // The title contains glitch characters, so we'll check that the title element exists by class
     const titleElement = screen.getByText((content, element) => {
-      return element?.className === 'Title';
+      return element?.className === 'app__title';
     });
     expect(titleElement).toBeInTheDocument();
   });
@@ -377,8 +377,10 @@ describe('App Component', () => {
     });
     
     const commandInput = screen.getByPlaceholderText(/enter command/i);
-    await user.type(commandInput, 'login testuser');
-    await user.keyboard('{Enter}');
+    await act(async () => {
+      await user.type(commandInput, 'login testuser');
+      await user.keyboard('{Enter}');
+    });
     
     expect(commandInput).toHaveValue('');
   });
@@ -411,8 +413,10 @@ describe('App Component', () => {
     });
     
     const commandInput = screen.getByPlaceholderText(/enter command/i);
-    await user.type(commandInput, 'look');
-    await user.keyboard('{Enter}');
+    await act(async () => {
+      await user.type(commandInput, 'look');
+      await user.keyboard('{Enter}');
+    });
     
     // Verify the command was processed
     expect(commandInput).toHaveValue('');

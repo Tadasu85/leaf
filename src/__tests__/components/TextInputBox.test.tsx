@@ -23,7 +23,7 @@ describe('TextInputBox Component', () => {
     const input = screen.getByTestId('command-input');
     expect(input).toBeDisabled();
     expect(input).toHaveAttribute('placeholder', 'Processing...');
-    expect(input).toHaveClass('TextInputBox__input--loading');
+    expect(input).toHaveClass('text-input-box__input--loading');
   });
 
   it('handles text input correctly', async () => {

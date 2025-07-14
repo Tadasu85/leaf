@@ -34,12 +34,16 @@ function GameOutputWindow({
     <div className={`game-output-window ${className}`} ref={outputRef} data-testid="game-output">
       {displayMessages.map((message: SimpleMessage) => {
         if (!message || !message.text) return null;
+        
+        // Convert single line breaks to double line breaks for Markdown rendering
+        const processedText = message.text.replace(/\n/g, '\n\n');
+        
         return (
           <div
             key={message.id}
             className={`game-output-window__message${message.bold ? ' game-output-window__message--bold' : ''}`}
           >
-            <ReactMarkdown>{message.text}</ReactMarkdown>
+            <ReactMarkdown>{processedText}</ReactMarkdown>
           </div>
         );
       })}

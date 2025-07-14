@@ -28,7 +28,7 @@ describe('GameOutputWindow Component', () => {
     render(<GameOutputWindow output={mockMessages} />);
     
     const boldMessage = screen.getByText('You are in a dark room.');
-    expect(boldMessage).toHaveClass('output-message--bold');
+    expect(boldMessage.closest('.game-output-window__message')).toHaveClass('game-output-window__message--bold');
   });
 
   it('handles empty output array', () => {
@@ -61,9 +61,11 @@ describe('GameOutputWindow Component', () => {
 
     render(<GameOutputWindow output={multiLineMessages} />);
     
-    expect(screen.getByText('Line 1')).toBeInTheDocument();
-    expect(screen.getByText('Line 2')).toBeInTheDocument();
-    expect(screen.getByText('Line 3')).toBeInTheDocument();
+    // Since ReactMarkdown processes the text, we need to check for the content within the markdown div
+    const markdownDiv = screen.getByTestId('react-markdown');
+    expect(markdownDiv).toHaveTextContent('Line 1');
+    expect(markdownDiv).toHaveTextContent('Line 2');
+    expect(markdownDiv).toHaveTextContent('Line 3');
   });
 
   it('respects maxMessages limit', () => {
@@ -86,7 +88,7 @@ describe('GameOutputWindow Component', () => {
     render(<GameOutputWindow output={mockMessages} className="custom-class" />);
     
     const outputWindow = screen.getByTestId('game-output');
-    expect(outputWindow).toHaveClass('GameOutputWindow');
+    expect(outputWindow).toHaveClass('game-output-window');
     expect(outputWindow).toHaveClass('custom-class');
   });
 
@@ -109,9 +111,10 @@ describe('GameOutputWindow Component', () => {
 
     render(<GameOutputWindow output={multiLineMessage} />);
     
-    // Both lines should be rendered
-    expect(screen.getByText('First line')).toBeInTheDocument();
-    expect(screen.getByText('Second line')).toBeInTheDocument();
+    // Both lines should be rendered within the markdown div
+    const markdownDiv = screen.getByTestId('react-markdown');
+    expect(markdownDiv).toHaveTextContent('First line');
+    expect(markdownDiv).toHaveTextContent('Second line');
   });
 
   it('handles very long messages', () => {
@@ -137,12 +140,16 @@ describe('GameOutputWindow Component', () => {
     
     expect(screen.getByText('Regular message')).toBeInTheDocument();
     expect(screen.getByText('Bold message')).toBeInTheDocument();
-    expect(screen.getByText('Multi-line')).toBeInTheDocument();
-    expect(screen.getByText('message')).toBeInTheDocument();
     expect(screen.getByText('Another regular message')).toBeInTheDocument();
+    
+    // Check that multi-line content is present
+    const markdownDivs = screen.getAllByTestId('react-markdown');
+    const multiLineDiv = markdownDivs[2]; // Third message
+    expect(multiLineDiv).toHaveTextContent('Multi-line');
+    expect(multiLineDiv).toHaveTextContent('message');
     
     // Check bold styling
     const boldMessage = screen.getByText('Bold message');
-    expect(boldMessage).toHaveClass('output-message--bold');
+    expect(boldMessage.closest('.game-output-window__message')).toHaveClass('game-output-window__message--bold');
   });
 }); 
