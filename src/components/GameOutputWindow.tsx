@@ -1,4 +1,5 @@
 import React, { useRef, useLayoutEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { SimpleMessage } from '../hooks/useGameOutput';
 
 interface GameOutputWindowProps {
@@ -33,13 +34,14 @@ function GameOutputWindow({
     <div className={`game-output-window ${className}`} ref={outputRef} data-testid="game-output">
       {displayMessages.map((message: SimpleMessage) => {
         if (!message || !message.text) return null;
-        
-        const lines = message.text.split('\n');
-        return lines.map((line, lineIndex) => (
-          <div key={`${message.id}-${lineIndex}`} className={`game-output-window__message${message.bold ? ' game-output-window__message--bold' : ''}`}>
-            {line}
+        return (
+          <div
+            key={message.id}
+            className={`game-output-window__message${message.bold ? ' game-output-window__message--bold' : ''}`}
+          >
+            <ReactMarkdown>{message.text}</ReactMarkdown>
           </div>
-        ));
+        );
       })}
     </div>
   );
