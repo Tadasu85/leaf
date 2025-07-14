@@ -166,6 +166,12 @@ export class SocketManager extends EventEmitter {
         this.emit('emote', data);
       },
 
+      keepalive: () => {
+        logger.debug('[SocketManager] Received keepalive from server, responding');
+        // Respond to keepalive to prevent being removed from chat room
+        this.socket?.emit('keepalive');
+      },
+
       error: (error: any) => {
         logger.error('[SocketManager] Socket error:', error);
         this.connectionStatus = 'error';

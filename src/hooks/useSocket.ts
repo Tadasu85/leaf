@@ -158,6 +158,12 @@ export function useSocket(gameState: GameState | null) {
       }
     };
 
+    const handleKeepalive = () => {
+      logger.debug('[useSocket] Received keepalive event');
+      // The SocketManager will automatically respond to keepalive
+      // This handler is for any additional client-side logic if needed
+    };
+
     const socketManager = gameState.getSocketManager();
     
     logger.debug('[useSocket] Registering event listeners with socket manager');
@@ -172,6 +178,7 @@ export function useSocket(gameState: GameState | null) {
     socketManager.on('roomUpdate', handleRoomUpdate);
     socketManager.on('roomState', handleRoomState);
     socketManager.on('roomPlayerLeft', handleRoomPlayerLeft);
+    socketManager.on('keepalive', handleKeepalive);
     logger.debug('[useSocket] Event listeners registered');
 
     // Store cleanup function
@@ -188,6 +195,7 @@ export function useSocket(gameState: GameState | null) {
       socketManager.off('roomUpdate', handleRoomUpdate);
       socketManager.off('roomState', handleRoomState);
       socketManager.off('roomPlayerLeft', handleRoomPlayerLeft);
+      socketManager.off('keepalive', handleKeepalive);
     };
 
     cleanupRef.current = cleanup;
