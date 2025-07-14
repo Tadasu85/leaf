@@ -23,7 +23,7 @@ export class HiveClient extends EventEmitter {
     this.keychain = new KeychainSDK(window);
     this.bulkLoader = new BulkDataLoader(this.client, {
       maxCacheSize: 500, // Reduced from 1000 to 500 for better memory management
-      enableCompression: true,
+      enableCompression: false, // Disabled to preserve room description formatting
       loadRoomDetails: false, // Disabled to reduce memory usage - load on demand instead
       memoryLimitMB: 100 // Set to 100MB as requested
     });

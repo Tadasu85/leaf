@@ -274,6 +274,8 @@ body, html, #root, .app {
   color: #666;
 }
 
+
+
 .game-output-window__message code {
   background: rgba(34, 148, 136, 0.1);
   padding: 2px 4px;
