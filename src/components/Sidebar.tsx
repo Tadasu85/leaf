@@ -2,7 +2,7 @@ import React from 'react';
 import BuildButton from './BuildButton';
 import QueueButton from './QueueButton';
 import AddDetailButton from './AddDetailButton';
-import TimeEventButton from './TimeEventButton';
+import EditRoomButton from './EditRoomButton';
 import config from '../config';
 
 interface SidebarProps {
@@ -14,11 +14,11 @@ interface SidebarProps {
   isBuildModalOpen: boolean;
   isQueueModalOpen: boolean;
   isAddDetailModalOpen: boolean;
-  isTimeEventManagerOpen: boolean;
+  isEditRoomModalOpen: boolean;
   onToggleBuildModal: () => void;
   onToggleQueueModal: () => void;
   onToggleAddDetailModal: () => void;
-  onToggleTimeEventManager: () => void;
+  onToggleEditRoomModal: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -30,11 +30,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   isBuildModalOpen,
   isQueueModalOpen,
   isAddDetailModalOpen,
-  isTimeEventManagerOpen,
+  isEditRoomModalOpen,
   onToggleBuildModal,
   onToggleQueueModal,
   onToggleAddDetailModal,
-  onToggleTimeEventManager
+  onToggleEditRoomModal
 }) => {
   if (!isSignedIn) {
     return null;
@@ -55,21 +55,21 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
           </div>
         )}
+        {isBuilder && isRoomOwner && (
+          <div className="sidebar-button-container">
+            <EditRoomButton
+              onClick={onToggleEditRoomModal}
+              label="Edit Room"
+              isActive={isEditRoomModalOpen}
+            />
+          </div>
+        )}
         {isRoomOwner && (
           <div className="sidebar-button-container">
             <AddDetailButton
               onClick={onToggleAddDetailModal}
               label="Add Detail"
               isActive={isAddDetailModalOpen}
-            />
-          </div>
-        )}
-        {isBuilder && (
-          <div className="sidebar-button-container">
-            <TimeEventButton
-              onClick={onToggleTimeEventManager}
-              label="Time Events"
-              isActive={isTimeEventManagerOpen}
             />
           </div>
         )}

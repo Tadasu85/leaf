@@ -12,7 +12,8 @@ import { useGameOutput } from './hooks/useGameOutput';
 import BuildModal from './components/BuildModal';
 import QueueManagementModal from './components/QueueManagementModal';
 import AddDetailModal from './components/AddDetailModal';
-import TimeEventManager from './components/TimeEventManager';
+
+import EditRoomModal from './components/EditRoomModal';
 import { KeychainKeyTypes } from 'keychain-sdk';
 import config from './config';
 import { MemoryMonitor } from './components/MemoryMonitor';
@@ -223,11 +224,11 @@ function App() {
     isBuildModalOpen,
     isQueueModalOpen,
     isAddDetailModalOpen,
-    isTimeEventManagerOpen,
+    isEditRoomModalOpen,
     toggleBuildModal,
     toggleQueueModal,
     toggleAddDetailModal,
-    toggleTimeEventManager
+    toggleEditRoomModal
   } = useModalState();
 
   // Refs
@@ -461,11 +462,11 @@ function App() {
           isBuildModalOpen={isBuildModalOpen}
           isQueueModalOpen={isQueueModalOpen}
           isAddDetailModalOpen={isAddDetailModalOpen}
-          isTimeEventManagerOpen={isTimeEventManagerOpen}
+          isEditRoomModalOpen={isEditRoomModalOpen}
           onToggleBuildModal={toggleBuildModal}
           onToggleQueueModal={toggleQueueModal}
           onToggleAddDetailModal={toggleAddDetailModal}
-          onToggleTimeEventManager={toggleTimeEventManager}
+          onToggleEditRoomModal={toggleEditRoomModal}
         />
       )}
       {!isAdmin && (
@@ -548,16 +549,31 @@ function App() {
           }}
         />
       </GameErrorBoundary>
+
       <GameErrorBoundary
         onError={(error, errorInfo) => {
-          logger.error('Time event manager error:', error, errorInfo);
-          addErrorMessage('Time event manager encountered an error.');
+          logger.error('Edit room modal error:', error, errorInfo);
+          addErrorMessage('Edit room modal encountered an error.');
         }}
       >
-        <TimeEventManager
-          isVisible={isTimeEventManagerOpen}
-          onClose={toggleTimeEventManager}
-        />
+                 <EditRoomModal
+           isOpen={isEditRoomModalOpen}
+           onClose={toggleEditRoomModal}
+           username={username}
+           currentRoom={currentRoom ? {
+             author: currentRoom.author,
+             permlink: currentRoom.permlink,
+             title: currentRoom.title,
+             description: currentRoom.description
+           } : null}
+           onRoomUpdated={() => {
+             addSuccessMessage('Room updated successfully!');
+             // Refresh the room to show the updated content
+             if (gameState && currentRoom) {
+               gameState.loadRoom(currentRoom);
+             }
+           }}
+         />
       </GameErrorBoundary>
       <MemoryMonitor 
         hiveClient={gameState?.getHiveClient() || null}

@@ -19,6 +19,9 @@ interface RoomFormData {
   exitToNewRoom: string;
   exitFromNewRoom: string;
   description: string;
+  isTimeBased: boolean;
+  intervalBlocks: number;
+  startPhase: number;
 }
 
 const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued }) => {
@@ -26,7 +29,10 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     roomName: '',
     exitToNewRoom: '',
     exitFromNewRoom: '',
-    description: ''
+    description: '',
+    isTimeBased: false,
+    intervalBlocks: 100,
+    startPhase: 0
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +58,32 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     }));
   };
 
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+    }));
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: parseInt(value) || 0
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.roomName.trim() || !formData.description.trim()) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    if (formData.isTimeBased && formData.intervalBlocks <= 0) {
+      setError('Interval blocks must be greater than 0');
       return;
     }
 
@@ -93,7 +120,15 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
             } : null,
             exitToNewRoom: formData.exitToNewRoom,
             exitFromNewRoom: formData.exitFromNewRoom
-          }
+          },
+          // Add time-based event configuration if enabled
+          ...(formData.isTimeBased && {
+            timeEvent: {
+              type: 'ferry',
+              intervalBlocks: formData.intervalBlocks,
+              startPhase: formData.startPhase
+            }
+          })
         }),
         comment_options: JSON.stringify({
           author: username!,
@@ -116,8 +151,14 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           roomName: '',
           exitToNewRoom: '',
           exitFromNewRoom: '',
-          description: ''
+          description: '',
+          isTimeBased: false,
+          intervalBlocks: 100,
+          startPhase: 0
         });
+        if (onBuildQueued) {
+          onBuildQueued();
+        }
       } else {
         setError('Failed to create room. Please try again.');
       }
@@ -128,10 +169,21 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     }
   };
 
-  // Add debug logging for props changes
+  // Reset form when modal opens
   useEffect(() => {
-    //console.log('BuildModal props updated:', { username, currentRoom });
-  }, [username, currentRoom]);
+    if (isOpen) {
+      setFormData({
+        roomName: '',
+        exitToNewRoom: '',
+        exitFromNewRoom: '',
+        description: '',
+        isTimeBased: false,
+        intervalBlocks: 100,
+        startPhase: 0
+      });
+      setError(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -212,6 +264,86 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
                 disabled={isSubmitting}
               />
             </div>
+
+            {/* Time-based Event Toggle */}
+            <div className="modal-form-group">
+              <label className="modal-form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="isTimeBased"
+                  name="isTimeBased"
+                  checked={formData.isTimeBased}
+                  onChange={handleCheckboxChange}
+                  disabled={isSubmitting}
+                />
+                <span>Enable Time-based Events (Ferry Room)</span>
+              </label>
+            </div>
+
+            {/* Time-based Event Options */}
+            {formData.isTimeBased && (
+              <div style={{ 
+                marginTop: '1rem', 
+                padding: '1rem', 
+                backgroundColor: '#f8f9fa', 
+                borderRadius: '4px',
+                border: '1px solid #e9ecef'
+              }}>
+                <h4 style={{ margin: '0 0 1rem 0', color: '#495057' }}>⏰ Time-based Event Configuration</h4>
+                <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem', color: '#6c757d' }}>
+                  This room will change its exits based on blockchain time. Each Hive block represents ~3 seconds of real time.
+                </p>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="modal-form-group">
+                    <label className="modal-form-label" htmlFor="intervalBlocks">Interval Blocks:</label>
+                    <input
+                      className="modal-form-input"
+                      type="number"
+                      id="intervalBlocks"
+                      name="intervalBlocks"
+                      value={formData.intervalBlocks}
+                      onChange={handleNumberChange}
+                      min="1"
+                      placeholder="100"
+                      disabled={isSubmitting}
+                    />
+                    <small style={{ color: '#6c757d', fontSize: '0.8rem' }}>
+                      Blocks between state changes (~{Math.round(formData.intervalBlocks * 3 / 60)} minutes)
+                    </small>
+                  </div>
+
+                  <div className="modal-form-group">
+                    <label className="modal-form-label" htmlFor="startPhase">Start Phase:</label>
+                    <input
+                      className="modal-form-input"
+                      type="number"
+                      id="startPhase"
+                      name="startPhase"
+                      value={formData.startPhase}
+                      onChange={handleNumberChange}
+                      min="0"
+                      placeholder="0"
+                      disabled={isSubmitting}
+                    />
+                    <small style={{ color: '#6c757d', fontSize: '0.8rem' }}>
+                      Initial phase (0 = Docked at Port A)
+                    </small>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: '1rem', 
+                  padding: '0.75rem', 
+                  backgroundColor: '#e3f2fd', 
+                  borderRadius: '4px',
+                  fontSize: '0.85rem'
+                }}>
+                  <strong>Ferry Phases:</strong> Docked at Port A → Departing → At Sea → Arriving at Port B → 
+                  Docked at Port B → Departing → (cycle repeats)
+                </div>
+              </div>
+            )}
 
             <div className="form-actions">
               <button 

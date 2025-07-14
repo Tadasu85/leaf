@@ -4,7 +4,7 @@ export function useModalState() {
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
   const [isAddDetailModalOpen, setIsAddDetailModalOpen] = useState(false);
-  const [isTimeEventManagerOpen, setIsTimeEventManagerOpen] = useState(false);
+  const [isEditRoomModalOpen, setIsEditRoomModalOpen] = useState(false);
 
   const toggleBuildModal = useCallback(() => {
     setIsBuildModalOpen(prev => !prev);
@@ -18,18 +18,18 @@ export function useModalState() {
     setIsAddDetailModalOpen(prev => !prev);
   }, []);
 
-  const toggleTimeEventManager = useCallback(() => {
-    setIsTimeEventManagerOpen(prev => !prev);
+  const toggleEditRoomModal = useCallback(() => {
+    setIsEditRoomModalOpen(prev => !prev);
   }, []);
 
   return {
     isBuildModalOpen,
     isQueueModalOpen,
     isAddDetailModalOpen,
-    isTimeEventManagerOpen,
+    isEditRoomModalOpen,
     toggleBuildModal,
     toggleQueueModal,
     toggleAddDetailModal,
-    toggleTimeEventManager
+    toggleEditRoomModal
   };
 } 
