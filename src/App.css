@@ -140,15 +140,15 @@ body, html, #root, .app {
 }
 
 .app__user-signout-container {
-  background: #fff;
-  color: #222;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  padding: 16px 24px;
-  margin-bottom: 12px;
+  background: transparent;
+  color: white;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 .app__user-icon {
