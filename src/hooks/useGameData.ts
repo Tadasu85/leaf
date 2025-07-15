@@ -24,7 +24,7 @@ export function useGameData(client: Client, gameState: GameState | null) {
 
       initializeBulkData();
     }
-  }, [gameState, isBulkDataLoaded]);
+  }, [gameState, isBulkDataLoaded, setError]);
 
   // Update game map when it changes (now handled by bulk loader)
   useEffect(() => {
@@ -47,7 +47,7 @@ export function useGameData(client: Client, gameState: GameState | null) {
       logger.error('[useGameData] Error fetching game data:', error);
       setError('Failed to fetch game data from blockchain');
     }
-  }, [gameState, isBulkDataLoaded]);
+  }, [gameState, isBulkDataLoaded, setError]);
 
   // Get game map
   const getGameMap = useCallback(() => {

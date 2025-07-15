@@ -114,7 +114,7 @@ export function useUserProfile(gameState: GameState | null, player: any, client:
       logger.error('[UpdateUserProfile Debug] Error fetching profile data:', error);
       setUserProfileJSON((prev) => ({ ...prev, profile_image: undefined }));
     }
-  }, [client, fetchBuildersList, gameState]);
+  }, [client, fetchBuildersList, gameState, setUserProfileJSON, setIsBuilder, setIsAdmin]);
 
   // Update builder status
   const updateBuilderStatus = useCallback((isBuilder: boolean) => {
