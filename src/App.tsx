@@ -1,8 +1,9 @@
 import './App.css';
 import GameOutputWindow from './components/GameOutputWindow';
-import SignOutButton from './components/SignOutButton';
+import Header from './components/Header';
 import TextInputBox from './components/TextInputBox';
 import Sidebar from './components/Sidebar';
+import PresentPlayers from './components/PresentPlayers';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useGameContext } from './contexts/GameContext';
 import { useSocket } from './hooks/useSocket';
@@ -37,18 +38,7 @@ window.process = window.process || {
   }
 };
 
-// Add PresentPlayers component
-function PresentPlayers({ players, currentUser }: { players: string[]; currentUser?: string | null }) {
-  if (!players || players.length === 0) return null;
-  return (
-            <div className="app__present-players">
-          <span className="app__present-players__label">Present:</span>
-              {players.map((p) => (
-          <span key={p} className={p === currentUser ? 'app__present-players__me' : ''}>{p}</span>
-        ))}
-    </div>
-  );
-}
+
 
 function App() {
   const [username, setUsername] = useState<string | null>(null);
@@ -340,23 +330,12 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app__header">
-        <img className="app__title" src={require('./assets/egodeathbanner.png')} alt="Ego Death Banner" />
-        <div className="app__header-buttons">
-          {isSignedIn && (
-            <div className="app__user-signout-container">
-              {userProfileJSON.profile_image && (
-                <img src={userProfileJSON.profile_image} alt="User Icon" className="app__user-icon" />
-              )}
-              <SignOutButton 
-                isSignedIn={isSignedIn} 
-                username={username || undefined}
-                onSignOut={handleSignOut}
-              />
-            </div>
-          )}
-        </div>
-      </header>
+      <Header
+        isSignedIn={isSignedIn}
+        username={username}
+        userProfileJSON={userProfileJSON}
+        onSignOut={handleSignOut}
+      />
       {(isBuilder || isAdmin) && (
         <Sidebar
           isSignedIn={isSignedIn}
