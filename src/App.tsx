@@ -70,7 +70,8 @@ function App() {
     isAdmin,
     updateUserProfile,
     updateGameJSON,
-    buildApprovalQueue
+    buildApprovalQueue,
+    handleCommand
   } = useGameContext();
 
   // Use the new centralized output management
@@ -98,107 +99,7 @@ function App() {
     // Debug logging removed for cleaner console output
   }, [isLoginComplete]);
 
-  // Command handler that processes actual commands
-  const handleCommand = useCallback((text: string) => {
-    if (!gameState) {
-      addErrorMessage('Game state not available');
-      return;
-    }
 
-    // Get current room exits for command validation
-    // Admin users don't have a location, so they can't use movement commands
-    const currentRoomPermlink = player?.location?.permlink;
-    const currentRoomExits = currentRoom?.exits;
-    
-    // Import CommandParser dynamically to avoid circular dependencies
-    const { CommandParser } = require('./game/commands/CommandParser');
-    const commandParser = new CommandParser();
-    
-    const command = commandParser.parse(text, currentRoomExits);
-    if (!command) {
-      addErrorMessage('Invalid command. Type "help" for a list of commands.');
-      return;
-    }
-    
-    switch (command.type) {
-      case 'move':
-        const direction = command.args[0];
-        
-        if (!currentRoomPermlink) {
-          addErrorMessage('Cannot determine current location.');
-          return;
-        }
-        
-        // Look up the exit in the current room
-        if (!currentRoomExits || !currentRoomExits[direction]) {
-          addErrorMessage(`You cannot go ${direction}.`);
-          return;
-        }
-        
-        // Use the gameState's move method
-        gameState.move(direction);
-        break;
-      case 'say':
-        gameState.say(command.args[0]);
-        break;
-      case 'emote':
-        gameState.emote(command.args[0]);
-        break;
-      case 'look':
-        gameState.look();
-        break;
-      case 'help':
-        gameState.help();
-        break;
-      case 'describe':
-        gameState.setDescription(command.args[0]);
-        break;
-      case 'describeshort':
-        gameState.setShortDescription(command.args[0]);
-        break;
-      case 'lookAt':
-        const target = command.args[0];
-
-        // 1. Special case for "look self" or "look me"
-        if (["self", "me"].includes(target.toLowerCase())) {
-          gameState.lookAtSelf();
-          break;
-        }
-
-        const currentRoom = gameState.getCurrentRoom();
-        if (!currentRoom) {
-          addErrorMessage('No current room found');
-          break;
-        }
-
-        // 2. Check if the target is a player in the room
-        const roomPlayers = currentRoom.players || [];
-        const isPlayerInRoom = roomPlayers.some(player => player.toLowerCase() === target.toLowerCase());
-        if (isPlayerInRoom) {
-          gameState.lookAtPlayer(target);
-          break;
-        }
-
-        // 3. Check if the detail exists in the room
-        const roomDetails = (currentRoom as any).details || {};
-        let detailKey = Object.keys(roomDetails).find(key => key.toLowerCase() === target.toLowerCase());
-        if (!detailKey) {
-          detailKey = Object.keys(roomDetails).find(key =>
-            key.toLowerCase().includes(target.toLowerCase()) ||
-            target.toLowerCase().includes(key.toLowerCase())
-          );
-        }
-        if (detailKey) {
-          addInfoMessage(detailKey, true);
-          addInfoMessage(roomDetails[detailKey]);
-        } else {
-          addErrorMessage(`You don't see "${target}" here.`);
-        }
-        break;
-      default:
-        addErrorMessage('Unknown command. Type "help" for a list of commands.');
-    }
-  }, [gameState, player, currentRoom, addErrorMessage, addInfoMessage]);
 
   const {
     connect,
@@ -422,7 +323,11 @@ function App() {
         });
     } else {
       // Handle other commands
-      handleCommand(text);
+      try {
+        await handleCommand(text);
+      } catch (error) {
+        addErrorMessage(`Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
   }, [keychain, updateUserProfile, login, gameState, isBuilder, addErrorMessage, addInfoMessage, handleCommand]);
 

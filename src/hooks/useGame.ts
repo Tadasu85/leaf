@@ -237,7 +237,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
             playerData = metadata.egodeathplayer;
           }
         } catch (error) {
-          console.error('[UpdateUserProfile Debug] Error parsing account metadata:', error);
+          logger.error('[UpdateUserProfile Debug] Error parsing account metadata:', error);
         }
       }
       
@@ -247,7 +247,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         egodeathplayer: playerData
       }));
     } catch (error) {
-      console.error('[UpdateUserProfile Debug] Error fetching profile data:', error);
+      logger.error('[UpdateUserProfile Debug] Error fetching profile data:', error);
       setUserProfileJSON((prev) => ({ ...prev, profile_image: undefined }));
     }
   }, [client]);
@@ -268,7 +268,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
   // Build approval queue from blockchain data
   const buildApprovalQueue = useCallback(async (): Promise<any[]> => {
     try {
-      console.log('[Build Queue] Starting queue build...');
+      logger.info('[Build Queue] Starting queue build...');
       
       // Get current game data
       const gameAccount = await client.database.getAccounts([config.game.account]);
@@ -279,7 +279,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
 
       const currentMetadata = JSON.parse(gameAccount[0].posting_json_metadata);
       const existingRooms = currentMetadata.egodeathgamedata?.rooms_authors_exits || {};
-      console.log('[Build Queue] Existing rooms:', Object.keys(existingRooms));
+      logger.debug('[Build Queue] Existing rooms:', Object.keys(existingRooms));
       
       // Get builders list from community
       const communityDetailsArray = await client.hivemind.getCommunity({ 
@@ -297,14 +297,14 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         .filter(member => member[2] === "Builder")
         .map(member => member[0]);
 
-      console.log('[Build Queue] Found builders:', builders);
+      logger.debug('[Build Queue] Found builders:', builders);
 
       // Get recent posts from builders
       const pendingRooms = [];
       
       for (const builder of builders) {
         try {
-          console.log(`[Build Queue] Checking posts for builder: ${builder}`);
+          logger.debug(`[Build Queue] Checking posts for builder: ${builder}`);
           
           // Get recent account history for this builder to find their posts
           const accountHistory = await client.database.getAccountHistory(builder, -1, 50);
@@ -314,7 +314,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
             .filter(([, op]) => op.op[0] === 'comment' && !op.op[1].parent_author)
             .slice(0, 20); // Get the 20 most recent posts
           
-          console.log(`[Build Queue] Found ${recentPosts.length} recent posts for ${builder}`);
+          logger.debug(`[Build Queue] Found ${recentPosts.length} recent posts for ${builder}`);
           
           // Get full post content for each post
           for (const [, op] of recentPosts) {
@@ -328,9 +328,9 @@ export function useGame(client: Client, keychain: KeychainSDK) {
               if (content && content.json_metadata) {
                 try {
                   const metadata = JSON.parse(content.json_metadata);
-                  console.log(`[Build Queue] Checking post: ${content.permlink}`);
-                  console.log(`[Build Queue] Metadata app: ${metadata.app}, type: ${metadata.type}`);
-                  console.log(`[Build Queue] Already in game: ${!!existingRooms[content.permlink]}`);
+                                logger.debug(`[Build Queue] Checking post: ${content.permlink}`);
+              logger.debug(`[Build Queue] Metadata app: ${metadata.app}, type: ${metadata.type}`);
+              logger.debug(`[Build Queue] Already in game: ${!!existingRooms[content.permlink]}`);
                   
                   if ((metadata.app === config.game.idName || metadata.app === 'leaf') && 
                       (!metadata.type || metadata.type === 'room') && 
@@ -348,7 +348,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
                         if (comment.body.startsWith('Rejected:')) {
                           isRejected = true;
                           rejectionReason = comment.body.substring(9).trim(); // Remove "Rejected: " prefix
-                          console.log(`[Build Queue] Room ${content.permlink} has been rejected: ${rejectionReason}`);
+                          logger.debug(`[Build Queue] Room ${content.permlink} has been rejected: ${rejectionReason}`);
                           break;
                         }
                       }
@@ -357,7 +357,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
                     }
                     
                     if (!isRejected) {
-                      console.log(`[Build Queue] Adding to queue: ${content.permlink}`);
+                      logger.debug(`[Build Queue] Adding to queue: ${content.permlink}`);
                       
                       // Extract connection information from metadata
                       const connection = metadata.connection || {};
@@ -383,28 +383,28 @@ export function useGame(client: Client, keychain: KeychainSDK) {
                         }
                       });
                     } else {
-                      console.log(`[Build Queue] Skipping rejected room ${content.permlink}: ${rejectionReason}`);
+                      logger.debug(`[Build Queue] Skipping rejected room ${content.permlink}: ${rejectionReason}`);
                     }
                   } else {
-                    console.log(`[Build Queue] Skipping post ${content.permlink}: app=${metadata.app}, type=${metadata.type}, inGame=${!!existingRooms[content.permlink]}`);
+                    logger.debug(`[Build Queue] Skipping post ${content.permlink}: app=${metadata.app}, type=${metadata.type}, inGame=${!!existingRooms[content.permlink]}`);
                   }
-                } catch (error) {
-                  console.error('[Build Queue] Error parsing post metadata:', error);
-                }
+                        } catch (error) {
+          logger.error('[Build Queue] Error parsing post metadata:', error);
+        }
               }
             } catch (error) {
-              console.error('[Build Queue] Error fetching post content:', error);
+              logger.error('[Build Queue] Error fetching post content:', error);
             }
           }
         } catch (error) {
-          console.error(`[Build Queue] Error fetching posts for builder ${builder}:`, error);
+          logger.error(`[Build Queue] Error fetching posts for builder ${builder}:`, error);
         }
       }
 
-      console.log('[Build Queue] Final pending rooms:', pendingRooms);
+      logger.debug('[Build Queue] Final pending rooms:', pendingRooms);
       return pendingRooms;
     } catch (error) {
-      console.error('[Build Queue] Error building approval queue:', error);
+      logger.error('[Build Queue] Error building approval queue:', error);
       return [];
     }
   }, [client]);
@@ -512,11 +512,11 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     // Get current room exits for command validation
     // Admin users don't have a location, so they can't use movement commands
     const currentRoomPermlink = player?.location?.permlink;
-    const currentRoomExits = currentRoomPermlink ? gameJSON[currentRoomPermlink]?.exits : undefined;
+    const currentRoomExits = currentRoom?.exits;
     
     const command = commandParser.parse(text, currentRoomExits);
     if (!command) {
-      gameState.addOutputMessage('Invalid command. Type "help" for a list of commands.');
+      gameState.addOutputMessage('Invalid command. Type "help" for a list of commands.', true);
       return;
     }
     
@@ -531,8 +531,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
           direction,
           currentRoomPermlink,
           playerLocation: player?.location,
-          gameJSONKeys: Object.keys(gameJSON),
-          currentRoomExits: currentRoomPermlink ? gameJSON[currentRoomPermlink]?.exits : 'no permlink'
+          currentRoomExits
         });
         
         if (!currentRoomPermlink) {
@@ -540,13 +539,12 @@ export function useGame(client: Client, keychain: KeychainSDK) {
           return;
         }
         
-        // Look up the exit in the gameJSON
+        // Look up the exit in the current room
         if (!currentRoomExits || !currentRoomExits[direction]) {
           logger.debug('Exit not found:', {
             currentRoomPermlink,
             direction,
-            availableExits: currentRoomExits ? Object.keys(currentRoomExits) : 'none',
-            gameJSONForRoom: gameJSON[currentRoomPermlink]
+            availableExits: currentRoomExits ? Object.keys(currentRoomExits) : 'none'
           });
           gameState.addOutputMessage(`You cannot go ${direction}.`, true);
           return;
@@ -559,12 +557,8 @@ export function useGame(client: Client, keychain: KeychainSDK) {
           currentAuthor: player?.location?.author
         });
         
-        await movePlayer({ 
-          newlocation: { 
-            permlink: targetPermlink, 
-            author: player?.location?.author || '' 
-          } 
-        });
+        // Use the gameState's move method (same as App.tsx version)
+        gameState.move(direction);
         break;
       case 'say':
         logger.debug('Processing say command');
@@ -632,9 +626,9 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         break;
       default:
         logger.debug('Processing default case, command type:', command.type);
-        gameState.addOutputMessage('Unknown command. Type "help" for a list of commands.');
+        gameState.addOutputMessage('Unknown command. Type "help" for a list of commands.', true);
     }
-  }, [gameState, player, commandParser, movePlayer, gameJSON]);
+  }, [gameState, player, currentRoom, commandParser]);
 
   return {
     // Game State

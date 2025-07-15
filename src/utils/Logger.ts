@@ -68,8 +68,8 @@ const getLogLevel = (): LogLevel => {
     if (level === 'DEBUG') return LogLevel.DEBUG;
   }
   
-  // Default behavior
-  return process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.INFO;
+  // Default behavior - show debug in development for better debugging
+  return process.env.NODE_ENV === 'production' ? LogLevel.ERROR : LogLevel.DEBUG;
 };
 
 const defaultLogger = new Logger(getLogLevel());

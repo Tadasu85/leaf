@@ -55,6 +55,9 @@ interface GameContextType extends GameContextState {
   // User actions
   updateUserProfile: (username: string | null) => Promise<void>;
   
+  // Command handling
+  handleCommand: (text: string) => Promise<void>;
+  
   // Utility actions
   clearError: () => void;
   buildApprovalQueue: () => Promise<any[]>;
@@ -109,6 +112,9 @@ export function GameProvider({ children }: GameProviderProps) {
     
     // User actions
     updateUserProfile: game.updateUserProfile,
+    
+    // Command handling
+    handleCommand: game.handleCommand,
     
     // Utility actions
     clearError: () => {},
