@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { KeychainSDK } from 'keychain-sdk';
 import config from '../config';
+import logger from '../utils/Logger';
 
 interface AddDetailModalProps {
   isOpen: boolean;
@@ -77,7 +78,7 @@ const AddDetailModal: React.FC<AddDetailModalProps> = ({
       // Submit the comment
       const commentResult = await keychain.post(commentData);
       
-      console.log('Keychain post result:', commentResult);
+      logger.debug('Keychain post result:', commentResult);
       
       if (commentResult.success) {
         onClose();
@@ -90,11 +91,11 @@ const AddDetailModal: React.FC<AddDetailModalProps> = ({
           onDetailAdded();
         }
       } else {
-        console.error('Keychain post failed:', commentResult);
+        logger.error('Keychain post failed:', commentResult);
         setError(`Failed to add detail: ${commentResult.message || 'Unknown error'}`);
       }
     } catch (err) {
-      console.error('Error adding detail:', err);
+      logger.error('Error adding detail:', err);
       if (err instanceof Error) {
         setError(`Error: ${err.message}`);
       } else {

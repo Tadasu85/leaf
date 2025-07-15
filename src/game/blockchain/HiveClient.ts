@@ -331,7 +331,7 @@ export class HiveClient extends EventEmitter {
       const operations = this.client.blockchain.getOperations(currentBlock);
       this.processOperationsAsyncIterator(username, operations);
     } catch (error) {
-      console.error('[HiveClient Debug] Error starting operations stream:', error);
+      logger.error('[HiveClient Debug] Error starting operations stream:', error);
       this.isListening = false;
     }
   }
@@ -366,12 +366,12 @@ export class HiveClient extends EventEmitter {
               }
             }
           } catch (error) {
-            console.error('[HiveClient Debug] Error parsing move operation:', error);
+            logger.error('[HiveClient Debug] Error parsing move operation:', error);
           }
         }
       }
     } catch (error) {
-      console.error('[HiveClient Debug] Error in operations async iterator:', error);
+      logger.error('[HiveClient Debug] Error in operations async iterator:', error);
       // Restart the stream after a delay
       setTimeout(() => {
         if (this.isListening) {
@@ -403,7 +403,7 @@ export class HiveClient extends EventEmitter {
         return metadata.profile?.profile_image || null;
       }
     } catch (error) {
-      console.error('[HiveClient Debug] Error fetching profile image:', error);
+      logger.error('[HiveClient Debug] Error fetching profile image:', error);
     }
     return null;
   }

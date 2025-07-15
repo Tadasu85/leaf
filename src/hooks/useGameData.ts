@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Client } from '@hiveio/dhive';
 import { GameState } from '../game/state/GameState';
+import logger from '../utils/Logger';
 
 export function useGameData(client: Client, gameState: GameState | null) {
   const [isLoadedGame, setIsLoadedGame] = useState(false);
@@ -16,7 +17,7 @@ export function useGameData(client: Client, gameState: GameState | null) {
           setIsBulkDataLoaded(true);
           // Get cache stats for monitoring
         } catch (error) {
-          console.error('[useGameData] Error initializing bulk data:', error);
+          logger.error('[useGameData] Error initializing bulk data:', error);
           setError('Failed to load game data. Please refresh the page.');
         }
       };
@@ -43,7 +44,7 @@ export function useGameData(client: Client, gameState: GameState | null) {
         setIsLoadedGame(true);
       }
     } catch (error) {
-      console.error('[useGameData] Error fetching game data:', error);
+      logger.error('[useGameData] Error fetching game data:', error);
       setError('Failed to fetch game data from blockchain');
     }
   }, [gameState, isBulkDataLoaded]);

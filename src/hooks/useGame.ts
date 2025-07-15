@@ -7,11 +7,13 @@ import { CommandParser } from '../game/commands/CommandParser';
 import { 
   Player, 
   GameOutputMessage, 
-  RoomData, 
-  LegacyRoomData, 
-  GameJSON,
-  UserProfileJSON
+  RoomData,
+  LegacyRoomData,
+  GameJSON
 } from '../game/types/GameTypes';
+import { useUserProfile } from './useUserProfile';
+import { useRoomState } from './useRoomState';
+import { useGameData } from './useGameData';
 import config from '../config';
 import logger from '../utils/Logger';
 
@@ -19,32 +21,14 @@ export function useGame(client: Client, keychain: KeychainSDK) {
   // Game State
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
   const [currentRoom, setCurrentRoom] = useState<RoomData | null>(null);
   const [isLoginComplete, setIsLoginComplete] = useState(false);
-  const [isBulkDataLoaded, setIsBulkDataLoaded] = useState(false);
 
-  // Room State
-  const [roomData, setRoomData] = useState<LegacyRoomData>({
-    body: '',
-    title: '',
-    players: [],
-    details: {},
-    exits: {},
-    author: '',
-    permlink: '',
-  });
-  const [gameJSON, setGameJSON] = useState<GameJSON>({});
-  const [isLoadedGame, setIsLoadedGame] = useState(false);
-
-  // User State
-  const [userProfileJSON, setUserProfileJSON] = useState<UserProfileJSON>({});
-  const [isBuilder, setIsBuilder] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Refs
-  const buildersList = useRef<string[]>([]);
+  // Use specialized hooks instead of duplicating functionality
+  const gameData = useGameData(client, gameState);
+  const roomState = useRoomState();
+  const userProfile = useUserProfile(gameState, player, client);
 
   // Command handler logic
   const commandParser = useRef(new CommandParser()).current;
@@ -84,27 +68,25 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     };
   }, []);
 
-  // Initialize bulk data loading
+  // Initialize bulk data loading - now handled by useGameData hook
   useEffect(() => {
-    if (gameState && !isBulkDataLoaded) {
+    if (gameState && !gameData.isBulkDataLoaded) {
       const initializeBulkData = async () => {
         try {
           logger.debug('Initializing bulk data loading...');
           await gameState.initialize();
-          setIsBulkDataLoaded(true);
           
           // Get cache stats for monitoring
           const stats = gameState.getHiveClient().getCacheStats();
           logger.debug('Bulk data loaded. Cache stats:', stats);
         } catch (error) {
           logger.error('Error initializing bulk data:', error);
-          setError('Failed to load game data. Please refresh the page.');
         }
       };
 
       initializeBulkData();
     }
-  }, [gameState, isBulkDataLoaded]);
+  }, [gameState, gameData.isBulkDataLoaded]);
 
   // Cleanup blockchain listener when player changes
   useEffect(() => {
@@ -120,52 +102,37 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     }
   }, [gameState, player]);
 
-  // Update game map when it changes (now handled by bulk loader)
+  // Update game map when it changes - now handled by useGameData hook
   useEffect(() => {
-    if (gameState && isBulkDataLoaded) {
+    if (gameState && gameData.isBulkDataLoaded) {
       const hiveClient = gameState.getHiveClient();
       const gameMap = hiveClient.getGameMap();
-      setGameJSON(gameMap);
-      setIsLoadedGame(true);
+      roomState.updateGameJSON(gameMap);
+      roomState.setLoadedGame(true);
     }
-  }, [gameState, isBulkDataLoaded]);
+  }, [gameState, gameData.isBulkDataLoaded, roomState]);
 
-  // Fetch game data (now simplified since bulk loader handles it)
+  // Fetch game data - now handled by useGameData hook
   const fetchGameData = useCallback(async () => {
     try {
-      setIsLoadedGame(false);
+      roomState.setLoadedGame(false);
       
-      const communityDetailsArray = await client.hivemind.getCommunity({ 
-        name: config.game.account, 
-        observer: ''
-      });
-      const communityDetails = Array.isArray(communityDetailsArray) ? communityDetailsArray[0] : communityDetailsArray;
-      if (communityDetails && communityDetails.team) {
-        const builders = communityDetails.team
-          .filter(member => member[2] === "Builder")
-          .map(member => member[0]);
-        buildersList.current = builders;
-      } else {
-        buildersList.current = [];
-      }
-
       // Game map is now loaded by bulk loader, so we just need to get it
-      if (gameState && isBulkDataLoaded) {
+      if (gameState && gameData.isBulkDataLoaded) {
         const hiveClient = gameState.getHiveClient();
         const gameMap = hiveClient.getGameMap();
-        setGameJSON(gameMap);
-        setIsLoadedGame(true);
+        roomState.updateGameJSON(gameMap);
+        roomState.setLoadedGame(true);
       }
     } catch (error) {
       logger.error('Error fetching game data:', error);
     }
-  }, [client, gameState, isBulkDataLoaded]);
+  }, [gameState, gameData.isBulkDataLoaded, roomState]);
 
-  // Check if user is builder
+  // Check if user is builder - now handled by useUserProfile hook
   const checkIfUserIsBuilder = useCallback((username: string) => {
-    const isUserBuilder = buildersList.current.includes(username);
-    return isUserBuilder;
-  }, []);
+    return userProfile.checkIfUserIsBuilder(username);
+  }, [userProfile]);
 
   // Login function
   const login = useCallback(async (username: string) => {
@@ -176,94 +143,30 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       setIsLoginComplete(true);
     } catch (error) {
       setIsLoginComplete(false);
-      setError(error instanceof Error ? error.message : 'Failed to login');
+      // Error handling is now done by the calling component
+      throw error;
     }
   }, [gameState]);
 
-  // Update room data
+  // Update room data - now handled by useRoomState hook
   const updateRoomData = useCallback((data: LegacyRoomData | ((prev: LegacyRoomData) => LegacyRoomData)) => {
-    if (typeof data === 'function') {
-      setRoomData(prev => {
-        const newData = data(prev);
-        return {
-          ...newData,
-          exits: gameJSON[newData.permlink]?.exits || {}
-        };
-      });
-    } else {
-      setRoomData({
-        ...data,
-        exits: gameJSON[data.permlink]?.exits || {}
-      });
-    }
-  }, [gameJSON]);
+    roomState.updateRoomData(data);
+  }, [roomState]);
 
-  // Update game JSON
+  // Update game JSON - now handled by useRoomState hook
   const updateGameJSON = useCallback((data: GameJSON) => {
-    setGameJSON(data);
-    setRoomData(prev => ({
-      ...prev,
-      exits: data[prev.permlink]?.exits || {}
-    }));
-  }, []);
+    roomState.updateGameJSON(data);
+  }, [roomState]);
 
-  // Update user profile
+  // Update user profile - now handled by useUserProfile hook
   const updateUserProfile = useCallback(async (username: string | null) => {
-    if (!username) {
-      setUserProfileJSON({});
-      setIsBuilder(false);
-      setIsAdmin(false);
-      return;
-    }
+    await userProfile.updateUserProfile(username);
+  }, [userProfile]);
 
-    // Use dynamic builder detection from community + static config as fallback
-    const isUserBuilder = buildersList.current.includes(username) || config.builders.includes(username);
-    setIsBuilder(isUserBuilder);
-    setIsAdmin(config.admins.includes(username));
-
-    // Fetch Hive profile data including player descriptions
-    try {
-      const hiveClient = new HiveClient();
-      const profileImage = await hiveClient.getProfileImage(username);
-      
-      // Get full account data to access json_metadata
-      const accounts = await client.database.call('get_accounts', [[username]]);
-      let playerData = {};
-      
-      if (accounts && accounts[0] && accounts[0].json_metadata) {
-        try {
-          const metadata = JSON.parse(accounts[0].json_metadata);
-          if (metadata.egodeathplayer) {
-            playerData = metadata.egodeathplayer;
-          }
-        } catch (error) {
-          logger.error('[UpdateUserProfile Debug] Error parsing account metadata:', error);
-        }
-      }
-      
-      setUserProfileJSON((prev) => ({ 
-        ...prev, 
-        profile_image: profileImage || undefined,
-        egodeathplayer: playerData
-      }));
-    } catch (error) {
-      logger.error('[UpdateUserProfile Debug] Error fetching profile data:', error);
-      setUserProfileJSON((prev) => ({ ...prev, profile_image: undefined }));
-    }
-  }, [client]);
-
-  // Check if room data has changed
+  // Check if room data has changed - now handled by useRoomState hook
   const hasRoomDataChanged = useCallback((newData: LegacyRoomData, oldData: LegacyRoomData | null): boolean => {
-    if (!oldData) return true;
-    
-    return (
-      newData.title !== oldData.title ||
-      newData.body !== oldData.body ||
-      JSON.stringify(newData.players) !== JSON.stringify(oldData.players) ||
-      JSON.stringify(newData.exits) !== JSON.stringify(oldData.exits) ||
-      JSON.stringify(newData.details) !== JSON.stringify(oldData.details)
-    );
-  }, []);
+    return roomState.hasRoomDataChanged(newData);
+  }, [roomState]);
 
   // Build approval queue from blockchain data
   const buildApprovalQueue = useCallback(async (): Promise<any[]> => {
@@ -273,7 +176,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       // Get current game data
       const gameAccount = await client.database.getAccounts([config.game.account]);
       if (!gameAccount || !gameAccount[0]) {
-        console.error('[Build Queue] Failed to fetch game account data');
+        logger.error('[Build Queue] Failed to fetch game account data');
         return [];
       }
 
@@ -289,7 +192,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
       const communityDetails = Array.isArray(communityDetailsArray) ? communityDetailsArray[0] : communityDetailsArray;
       
       if (!communityDetails || !communityDetails.team) {
-        console.error('[Build Queue] Failed to fetch community team data');
+        logger.error('[Build Queue] Failed to fetch community team data');
         return [];
       }
 
@@ -353,7 +256,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
                         }
                       }
                     } catch (error) {
-                      console.error('[Build Queue] Error checking rejection comments:', error);
+                      logger.error('[Build Queue] Error checking rejection comments:', error);
                     }
                     
                     if (!isRejected) {
@@ -505,8 +408,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     logger.debug('handleCommand called with:', text);
     
     if (!gameState) {
-      setError('Cannot handle command: gameState is null');
-      return;
+      throw new Error('Cannot handle command: gameState is null');
     }
     
     // Get current room exits for command validation
@@ -634,31 +536,32 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     // Game State
     gameState,
     isLoading,
-    error,
+    error: gameData.error,
     player,
     currentRoom,
     login,
     isLoginComplete,
     
-    // Room State
-    roomData,
-    gameJSON,
-    isLoadedGame,
+    // Room State - from useRoomState hook
+    roomData: roomState.roomData,
+    gameJSON: roomState.gameJSON,
+    isLoadedGame: roomState.isLoadedGame,
     updateRoomData,
     updateGameJSON,
     hasRoomDataChanged,
     
-    // Game Data
+    // Game Data - from useGameData hook
     fetchGameData,
     checkIfUserIsBuilder,
     
-    // User State
-    userProfileJSON,
-    setUserProfileJSON,
-    isBuilder,
-    isAdmin,
+    // User State - from useUserProfile hook
+    userProfileJSON: userProfile.userProfileJSON,
+    setUserProfileJSON: () => {}, // Deprecated, use updateUserProfile instead
+    isBuilder: userProfile.isBuilder,
+    isAdmin: userProfile.isAdmin,
     updateUserProfile,
-    // new additions
+    
+    // Command handling
     handleCommand,
     movePlayer,
     buildApprovalQueue

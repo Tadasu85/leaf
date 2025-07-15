@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { KeychainSDK } from 'keychain-sdk';
 import config from '../config';
+import logger from '../utils/Logger';
 
 interface EditRoomModalProps {
   isOpen: boolean;
@@ -128,7 +129,7 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
         setError('Failed to update room. Please try again.');
       }
     } catch (error) {
-      console.error('Error updating room:', error);
+      logger.error('Error updating room:', error);
       setError('An error occurred while updating the room.');
     } finally {
       setIsSubmitting(false);

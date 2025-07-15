@@ -4,6 +4,7 @@ import { GameState } from '../game/state/GameState';
 import { HiveClient } from '../game/blockchain/HiveClient';
 import { Client } from '@hiveio/dhive';
 import config from '../config';
+import logger from '../utils/Logger';
 
 export function useUserProfile(gameState: GameState | null, player: any, client: Client | null) {
   const [userProfileJSON, setUserProfileJSON] = useState<UserProfileJSON>({});
@@ -33,7 +34,7 @@ export function useUserProfile(gameState: GameState | null, player: any, client:
   // Fetch builders list from community
   const fetchBuildersList = useCallback(async () => {
     if (!client) {
-      console.log('[useUserProfile] No client available for community fetch');
+      logger.debug('[useUserProfile] No client available for community fetch');
       return;
     }
     
@@ -53,7 +54,7 @@ export function useUserProfile(gameState: GameState | null, player: any, client:
         buildersList.current = [];
       }
     } catch (error) {
-      console.error('[useUserProfile] Error fetching builders list:', error);
+      logger.error('[useUserProfile] Error fetching builders list:', error);
       buildersList.current = [];
     }
   }, [client]);
@@ -100,7 +101,7 @@ export function useUserProfile(gameState: GameState | null, player: any, client:
             playerData = metadata.egodeathplayer;
           }
         } catch (error) {
-          console.error('[UpdateUserProfile Debug] Error parsing account metadata:', error);
+          logger.error('[UpdateUserProfile Debug] Error parsing account metadata:', error);
         }
       }
       
@@ -110,7 +111,7 @@ export function useUserProfile(gameState: GameState | null, player: any, client:
         egodeathplayer: playerData
       }));
     } catch (error) {
-      console.error('[UpdateUserProfile Debug] Error fetching profile data:', error);
+      logger.error('[UpdateUserProfile Debug] Error fetching profile data:', error);
       setUserProfileJSON((prev) => ({ ...prev, profile_image: undefined }));
     }
   }, [client, fetchBuildersList, gameState]);

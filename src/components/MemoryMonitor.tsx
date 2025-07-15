@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { HiveClient } from '../game/blockchain/HiveClient';
+import logger from '../utils/Logger';
 
 interface MemoryMonitorProps {
   hiveClient: HiveClient | null;
@@ -33,7 +34,7 @@ export const MemoryMonitor: React.FC<MemoryMonitorProps> = ({
           setMemoryUsage(performance.memory.usedJSHeapSize / (1024 * 1024));
         }
       } catch (error) {
-        console.error('[MemoryMonitor] Error getting cache stats:', error);
+        logger.error('[MemoryMonitor] Error getting cache stats:', error);
       }
     };
 
