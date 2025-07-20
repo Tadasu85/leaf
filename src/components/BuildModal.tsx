@@ -12,6 +12,7 @@ interface BuildModalProps {
   } | null;
   onRoomCreated?: () => void;
   onBuildQueued?: () => void;
+  onError?: (error: string) => void; // Add error callback prop
 }
 
 interface RoomFormData {
@@ -24,7 +25,7 @@ interface RoomFormData {
   startPhase: number;
 }
 
-const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued }) => {
+const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued, onError }) => {
   const [formData, setFormData] = useState<RoomFormData>({
     roomName: '',
     exitToNewRoom: '',
@@ -78,12 +79,16 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     e.preventDefault();
     
     if (!formData.roomName.trim() || !formData.description.trim()) {
-      setError('Please fill in all required fields');
+      const errorMsg = 'Please fill in all required fields';
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
       return;
     }
 
     if (formData.isTimeBased && formData.intervalBlocks <= 0) {
-      setError('Interval blocks must be greater than 0');
+      const errorMsg = 'Interval blocks must be greater than 0';
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
       return;
     }
 
@@ -96,7 +101,9 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
       
       // Validate permlink
       if (!permlink) {
-        setError('Room name must contain valid characters');
+        const errorMsg = 'Room name must contain valid characters';
+        setError(errorMsg);
+        if (onError) onError(errorMsg);
         return;
       }
 
@@ -160,10 +167,14 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           onBuildQueued();
         }
       } else {
-        setError('Failed to create room. Please try again.');
+        const errorMsg = 'Failed to create room. Please try again.';
+        setError(errorMsg);
+        if (onError) onError(errorMsg);
       }
     } catch (err) {
-      setError('An error occurred while creating the room.');
+      const errorMsg = 'An error occurred while creating the room.';
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

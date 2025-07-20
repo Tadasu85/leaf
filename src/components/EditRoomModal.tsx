@@ -14,6 +14,7 @@ interface EditRoomModalProps {
     description: string;
   } | null;
   onRoomUpdated?: () => void;
+  onError?: (error: string) => void; // Add error callback prop
 }
 
 interface RoomFormData {
@@ -26,7 +27,8 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
   onClose, 
   username, 
   currentRoom, 
-  onRoomUpdated 
+  onRoomUpdated,
+  onError 
 }) => {
   const [formData, setFormData] = useState<RoomFormData>({
     roomName: currentRoom?.title || '',
@@ -59,23 +61,29 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
     e.preventDefault();
     
     if (!username || !currentRoom) {
-      setError('You must be logged in and in a room to edit it.');
+      const errorMsg = 'You must be logged in and in a room to edit it.';
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
       return;
     }
 
     if (!formData.roomName.trim() || !formData.description.trim()) {
-      setError('Please fill in all required fields');
+      const errorMsg = 'Please fill in all required fields';
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
       return;
     }
 
     // Check if user is the author of the room
     if (username !== currentRoom.author) {
-      setError('You can only edit rooms that you created.');
+      const errorMsg = 'You can only edit rooms that you created.';
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
       return;
     }
 
     setIsSubmitting(true);
-    setError('');
+    setError(null);
 
     try {
       // Use HiveClient to update the post (works even after payout)
@@ -113,7 +121,9 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
       }
     } catch (error) {
       logger.error('Error updating room:', error);
-      setError('An error occurred while updating the room.');
+      const errorMsg = error instanceof Error ? error.message : 'An error occurred while updating the room.';
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

@@ -204,6 +204,12 @@ export class GameState extends EventEmitter {
     let lastKnownTimestamp: string | null = null;
 
     try {
+      // First, verify the account exists
+      const accounts = await this.hiveClient.database.call('get_accounts', [[username]]);
+      if (!accounts || accounts.length === 0 || !accounts[0]) {
+        throw new Error(`Account '${username}' not found on Hive blockchain`);
+      }
+
       const accountHistory = await this.hiveClient.database.getAccountHistory(username, -1, 100);
       
       // Look for the most recent move_to operation

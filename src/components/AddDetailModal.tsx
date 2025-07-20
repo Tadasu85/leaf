@@ -12,6 +12,7 @@ interface AddDetailModalProps {
     permlink: string;
   } | null;
   onDetailAdded?: () => void;
+  onError?: (error: string) => void; // Add error callback prop
 }
 
 const AddDetailModal: React.FC<AddDetailModalProps> = ({
@@ -19,7 +20,8 @@ const AddDetailModal: React.FC<AddDetailModalProps> = ({
   onClose,
   username,
   currentRoom,
-  onDetailAdded
+  onDetailAdded,
+  onError
 }) => {
   const [formData, setFormData] = useState({
     detailName: '',
@@ -92,15 +94,20 @@ const AddDetailModal: React.FC<AddDetailModalProps> = ({
         }
       } else {
         logger.error('Keychain post failed:', commentResult);
-        setError(`Failed to add detail: ${commentResult.message || 'Unknown error'}`);
+        const errorMsg = `Failed to add detail: ${commentResult.message || 'Unknown error'}`;
+        setError(errorMsg);
+        if (onError) onError(errorMsg);
       }
     } catch (err) {
       logger.error('Error adding detail:', err);
+      let errorMsg: string;
       if (err instanceof Error) {
-        setError(`Error: ${err.message}`);
+        errorMsg = `Error: ${err.message}`;
       } else {
-        setError('An error occurred while adding the detail.');
+        errorMsg = 'An error occurred while adding the detail.';
       }
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

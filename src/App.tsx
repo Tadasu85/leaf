@@ -19,6 +19,7 @@ import { KeychainKeyTypes } from 'keychain-sdk';
 import config from './config';
 import { MemoryMonitor } from './components/MemoryMonitor';
 import GameErrorBoundary from './components/GameErrorBoundary';
+import ErrorBoundary from './components/ErrorBoundary';
 import logger from './utils/Logger';
 
 // Add process polyfill for browser environment
@@ -40,10 +41,14 @@ window.process = window.process || {
 
 
 
+
+
 function App() {
+  // State
   const [username, setUsername] = useState<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [presentPlayers, setPresentPlayers] = useState<string[]>([]);
+  const [globalError, setGlobalError] = useState<{ message: string; details?: string } | null>(null);
 
   const { keychain } = useClients();
 
@@ -124,6 +129,51 @@ function App() {
 
   // Refs
   const hasShownGreeting = useRef(false);
+
+  // Unified error handler - all errors go through this
+  const handleGlobalError = useCallback((error: Error | string, details?: string) => {
+    const errorMessage = typeof error === 'string' ? error : error.message;
+    logger.error('Global error caught:', errorMessage, details);
+    
+    // Set global error state to trigger modal
+    setGlobalError({
+      message: errorMessage,
+      details: details
+    });
+    
+    // Also add to game output for logging
+    addErrorMessage(errorMessage);
+  }, [addErrorMessage]);
+
+  // Set up global error handlers
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const error = event.reason;
+      handleGlobalError(
+        error instanceof Error ? error : new Error(String(error)),
+        'Unhandled promise rejection'
+      );
+      // Prevent the default browser behavior
+      event.preventDefault();
+    };
+
+    const handleGlobalErrorEvent = (event: ErrorEvent) => {
+      handleGlobalError(
+        event.error || new Error(event.message),
+        'Global error event'
+      );
+    };
+
+
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleGlobalErrorEvent);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleGlobalErrorEvent);
+    };
+  }, [handleGlobalError]);
   const lastConnectedRef = useRef<{ username: string; location: any } | null>(null);
 
   // Constants
@@ -299,27 +349,74 @@ function App() {
               }
               // Regular users don't need any additional messages - the game state speaks for itself
             }).catch((error) => {
-              addErrorMessage(`Game login failed: ${error.message}`);
+              handleGlobalError(error, 'Game login failed');
               // Reset login state if game login fails
               setIsSignedIn(false);
               setUsername(null);
             });
           } else {
-            addErrorMessage('Keychain login failed. Please check your Keychain extension.');
+            // Keychain login failed
+            logger.debug('Keychain login failed result:', result);
+            
+            // Extract the main error message
+            const errorMessage = result.message || result.error || 'Keychain login failed. Please check your Keychain extension.';
+            
+            // Build detailed error information
+            const errorDetails = {
+              error: result.error,
+              message: result.message,
+              data: result.data,
+              request_id: result.request_id,
+              fullResult: result
+            };
+            
+            handleGlobalError(errorMessage, `Keychain login details:\n${JSON.stringify(errorDetails, null, 2)}`);
           }
         })
         .catch((error) => {
-          addErrorMessage(`Login error: ${error.message}`);
+          // Extract detailed error information from keychain error
+          logger.debug('Keychain login catch error:', error);
+          let errorMessage = 'Login error';
+          let errorDetails = 'Unknown error';
+          
+          if (error && typeof error === 'object') {
+            errorMessage = error.message || error.error || error.toString();
+            
+            // For user_cancel errors, provide more specific error messages
+            if (error.error === 'user_cancel' && error.data && error.data.username) {
+              const username = error.data.username;
+              errorMessage = `Account @${username} has not been added to the Hive Keychain wallet. Please add this account to your Keychain extension first.`;
+            } else if (error.error === 'user_cancel') {
+              errorMessage = 'Login was canceled. This usually means the account was not found in your Hive Keychain wallet or there was an issue with the login request.';
+            }
+            
+            // Build detailed error information for catch errors
+            const detailedError = {
+              error: error.error,
+              message: error.message,
+              data: error.data,
+              request_id: error.request_id,
+              stack: error.stack,
+              fullError: error
+            };
+            
+            errorDetails = `Catch error details:\n${JSON.stringify(detailedError, null, 2)}`;
+          } else if (typeof error === 'string') {
+            errorMessage = error;
+            errorDetails = 'String error';
+          }
+          
+          handleGlobalError(errorMessage, errorDetails);
         });
     } else {
       // Handle other commands
       try {
         await handleCommand(text);
       } catch (error) {
-        addErrorMessage(`Command failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        handleGlobalError(error instanceof Error ? error : new Error(String(error)), 'Command failed');
       }
     }
-  }, [keychain, updateUserProfile, login, gameState, isBuilder, addErrorMessage, addInfoMessage, handleCommand]);
+  }, [keychain, updateUserProfile, login, gameState, isBuilder, addErrorMessage, addInfoMessage, handleCommand, handleGlobalError]);
 
   const handleSignOut = useCallback(() => {
     setUsername(null);
@@ -329,13 +426,18 @@ function App() {
   }, [updateUserProfile, addInfoMessage]);
 
   return (
-    <div className="app">
-      <Header
-        isSignedIn={isSignedIn}
-        username={username}
-        userProfileJSON={userProfileJSON}
-        onSignOut={handleSignOut}
-      />
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        handleGlobalError(error, `Application error: ${errorInfo?.componentStack || 'Unknown component'}`);
+      }}
+    >
+      <div className="app">
+        <Header
+          isSignedIn={isSignedIn}
+          username={username}
+          userProfileJSON={userProfileJSON}
+          onSignOut={handleSignOut}
+        />
       {(isBuilder || isAdmin) && (
         <Sidebar
           isSignedIn={isSignedIn}
@@ -356,8 +458,7 @@ function App() {
       {!isAdmin && (
         <GameErrorBoundary
           onError={(error, errorInfo) => {
-            logger.error('Game component error:', error, errorInfo);
-            addErrorMessage('A game component encountered an error. Please try refreshing.');
+            handleGlobalError(error, `Game component error: ${errorInfo?.componentStack || 'Unknown component'}`);
           }}
           onRecover={() => {
             addInfoMessage('Game components recovered successfully.');
@@ -373,12 +474,6 @@ function App() {
           </div>
         </GameErrorBoundary>
       )}
-      <GameErrorBoundary
-        onError={(error, errorInfo) => {
-          logger.error('Build modal error:', error, errorInfo);
-          addErrorMessage('Build modal encountered an error.');
-        }}
-      >
         <BuildModal
           isOpen={isBuildModalOpen && !isAdmin}
           onClose={toggleBuildModal}
@@ -395,27 +490,19 @@ function App() {
           onBuildQueued={() => {
             addSuccessMessage('Room created successfully! It will be available for admin approval.');
           }}
+          onError={(error) => {
+            handleGlobalError(error, 'Room creation error');
+          }}
         />
-      </GameErrorBoundary>
-      <GameErrorBoundary
-        onError={(error, errorInfo) => {
-          logger.error('Queue modal error:', error, errorInfo);
-          addErrorMessage('Queue management encountered an error.');
-        }}
-      >
         <QueueManagementModal
           isOpen={isQueueModalOpen}
           onClose={toggleQueueModal}
           username={username}
           buildApprovalQueue={buildApprovalQueue}
+          onError={(error) => {
+            handleGlobalError(error, 'Queue management error');
+          }}
         />
-      </GameErrorBoundary>
-      <GameErrorBoundary
-        onError={(error, errorInfo) => {
-          logger.error('Add detail modal error:', error, errorInfo);
-          addErrorMessage('Add detail modal encountered an error.');
-        }}
-      >
         <AddDetailModal
           isOpen={isAddDetailModalOpen}
           onClose={toggleAddDetailModal}
@@ -431,15 +518,11 @@ function App() {
               gameState.loadRoom(currentRoom);
             }
           }}
+          onError={(error) => {
+            handleGlobalError(error, 'Add detail error');
+          }}
         />
-      </GameErrorBoundary>
 
-      <GameErrorBoundary
-        onError={(error, errorInfo) => {
-          logger.error('Edit room modal error:', error, errorInfo);
-          addErrorMessage('Edit room modal encountered an error.');
-        }}
-      >
                  <EditRoomModal
            isOpen={isEditRoomModalOpen}
            onClose={toggleEditRoomModal}
@@ -457,13 +540,59 @@ function App() {
                gameState.loadRoom(currentRoom);
              }
            }}
+           onError={(error) => {
+             handleGlobalError(error, 'Room editing error');
+           }}
          />
-      </GameErrorBoundary>
       <MemoryMonitor 
         hiveClient={gameState?.getHiveClient() || null}
         isVisible={process.env.NODE_ENV === 'development'}
       />
-    </div>
+      
+      {/* Global Error Modal */}
+      {globalError && (
+        <div className="modal__overlay" style={{ zIndex: 9999 }}>
+          <div className="modal__content" style={{ maxWidth: '500px' }}>
+            <div className="modal__header">
+              <h2>⚠️ Error</h2>
+              <button 
+                className="modal__close-button" 
+                onClick={() => setGlobalError(null)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal__body">
+              <p style={{ marginBottom: '1rem' }}>{globalError.message}</p>
+              {globalError.details && process.env.NODE_ENV === 'development' && (
+                <details style={{ marginTop: '1rem' }}>
+                  <summary>Error Details (Development)</summary>
+                  <pre style={{ 
+                    backgroundColor: '#f5f5f5', 
+                    padding: '0.5rem', 
+                    borderRadius: '4px',
+                    fontSize: '0.8rem',
+                    overflow: 'auto',
+                    maxHeight: '200px'
+                  }}>
+                    {globalError.details}
+                  </pre>
+                </details>
+              )}
+            </div>
+            <div className="modal__form-actions">
+              <button 
+                className="modal__submit-button"
+                onClick={() => setGlobalError(null)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    </ErrorBoundary>
   );
 }
 

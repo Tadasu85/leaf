@@ -9,6 +9,7 @@ interface QueueManagementModalProps {
   onClose: () => void;
   username: string | null;
   buildApprovalQueue?: () => Promise<any[]>;
+  onError?: (error: string) => void; // Add error callback prop
 }
 
 interface BuildRequest {
@@ -37,7 +38,7 @@ interface BuildRequest {
   rejectionReason?: string;
 }
 
-const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onClose, username, buildApprovalQueue }) => {
+const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onClose, username, buildApprovalQueue, onError }) => {
   const [buildRequests, setBuildRequests] = useState<BuildRequest[]>([]);
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
@@ -216,7 +217,8 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
       setSelectedRequest(null);
     } catch (error) {
       logger.error('Error rejecting build request:', error);
-      alert(error instanceof Error ? error.message : 'An error occurred while rejecting the build request');
+      const errorMsg = error instanceof Error ? error.message : 'An error occurred while rejecting the build request';
+      if (onError) onError(errorMsg);
     } finally {
       setIsUpdating(false);
     }
