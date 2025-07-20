@@ -30,6 +30,14 @@ export function useGame(client: Client, keychain: KeychainSDK) {
   const roomState = useRoomState();
   const userProfile = useUserProfile(gameState, player, client);
 
+  // Create refs to access current state without causing re-renders
+  const roomStateRef = useRef(roomState);
+  const userProfileRef = useRef(userProfile);
+  
+  // Update refs when state changes
+  roomStateRef.current = roomState;
+  userProfileRef.current = userProfile;
+
   // Command handler logic
   const commandParser = useRef(new CommandParser()).current;
 
@@ -107,32 +115,32 @@ export function useGame(client: Client, keychain: KeychainSDK) {
     if (gameState && gameData.isBulkDataLoaded) {
       const hiveClient = gameState.getHiveClient();
       const gameMap = hiveClient.getGameMap();
-      roomState.updateGameJSON(gameMap);
-      roomState.setLoadedGame(true);
+      roomStateRef.current.updateGameJSON(gameMap);
+      roomStateRef.current.setLoadedGame(true);
     }
-  }, [gameState, gameData.isBulkDataLoaded, roomState]);
+  }, [gameState, gameData.isBulkDataLoaded]);
 
   // Fetch game data - now handled by useGameData hook
   const fetchGameData = useCallback(async () => {
     try {
-      roomState.setLoadedGame(false);
+      roomStateRef.current.setLoadedGame(false);
       
       // Game map is now loaded by bulk loader, so we just need to get it
       if (gameState && gameData.isBulkDataLoaded) {
         const hiveClient = gameState.getHiveClient();
         const gameMap = hiveClient.getGameMap();
-        roomState.updateGameJSON(gameMap);
-        roomState.setLoadedGame(true);
+        roomStateRef.current.updateGameJSON(gameMap);
+        roomStateRef.current.setLoadedGame(true);
       }
     } catch (error) {
       logger.error('Error fetching game data:', error);
     }
-  }, [gameState, gameData.isBulkDataLoaded, roomState]);
+  }, [gameState, gameData.isBulkDataLoaded]);
 
   // Check if user is builder - now handled by useUserProfile hook
   const checkIfUserIsBuilder = useCallback((username: string) => {
-    return userProfile.checkIfUserIsBuilder(username);
-  }, [userProfile]);
+    return userProfileRef.current.checkIfUserIsBuilder(username);
+  }, []);
 
   // Login function
   const login = useCallback(async (username: string) => {
@@ -150,23 +158,23 @@ export function useGame(client: Client, keychain: KeychainSDK) {
 
   // Update room data - now handled by useRoomState hook
   const updateRoomData = useCallback((data: LegacyRoomData | ((prev: LegacyRoomData) => LegacyRoomData)) => {
-    roomState.updateRoomData(data);
-  }, [roomState]);
+    roomStateRef.current.updateRoomData(data);
+  }, []);
 
   // Update game JSON - now handled by useRoomState hook
   const updateGameJSON = useCallback((data: GameJSON) => {
-    roomState.updateGameJSON(data);
-  }, [roomState]);
+    roomStateRef.current.updateGameJSON(data);
+  }, []);
 
   // Update user profile - now handled by useUserProfile hook
   const updateUserProfile = useCallback(async (username: string | null) => {
-    await userProfile.updateUserProfile(username);
-  }, [userProfile]);
+    await userProfileRef.current.updateUserProfile(username);
+  }, []);
 
   // Check if room data has changed - now handled by useRoomState hook
   const hasRoomDataChanged = useCallback((newData: LegacyRoomData, oldData: LegacyRoomData | null): boolean => {
-    return roomState.hasRoomDataChanged(newData);
-  }, [roomState]);
+    return roomStateRef.current.hasRoomDataChanged(newData);
+  }, []);
 
   // Build approval queue from blockchain data
   const buildApprovalQueue = useCallback(async (): Promise<any[]> => {

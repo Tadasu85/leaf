@@ -318,6 +318,37 @@ export class HiveClient extends EventEmitter {
     await this.keychain.broadcast(broadcastData);
   }
 
+  public async updatePost(username: string, permlink: string, title: string, body: string, jsonMetadata: any): Promise<void> {
+    // First, get the original post to get its parent information
+    const originalPost = await this.database.call('get_content', [username, permlink]);
+    if (!originalPost) {
+      throw new Error('Original post not found');
+    }
+
+    // Use comment operation to update the post (works even after payout)
+    // Use the same parent author and permlink as the original post
+    const operation: Operation = [
+      'comment',
+      {
+        parent_author: originalPost.parent_author,
+        parent_permlink: originalPost.parent_permlink,
+        author: username,
+        permlink: permlink,
+        title: title,
+        body: body,
+        json_metadata: JSON.stringify(jsonMetadata)
+      }
+    ];
+
+    const broadcastData = {
+      username,
+      operations: [operation],
+      method: KeychainKeyTypes.posting
+    } as unknown as Broadcast;
+
+    await this.keychain.broadcast(broadcastData);
+  }
+
   public async startMoveListener(username: string, startFromBlock?: number): Promise<void> {
     if (this.isListening) {
       this.stopMoveListener();

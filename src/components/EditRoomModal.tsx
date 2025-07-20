@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { KeychainSDK } from 'keychain-sdk';
+import { HiveClient } from '../game/blockchain/HiveClient';
 import config from '../config';
 import logger from '../utils/Logger';
 
@@ -29,26 +29,23 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
   onRoomUpdated 
 }) => {
   const [formData, setFormData] = useState<RoomFormData>({
-    roomName: '',
-    description: ''
+    roomName: currentRoom?.title || '',
+    description: currentRoom?.description || ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const keychain = new KeychainSDK(window, { rpc: config.hive.nodes[0] });
+  const hiveClient = new HiveClient();
 
-  // Load existing room data when modal opens
+  // Update form data when currentRoom changes
   useEffect(() => {
-    if (isOpen && currentRoom) {
-      setIsLoading(true);
+    if (currentRoom) {
       setFormData({
         roomName: currentRoom.title,
         description: currentRoom.description
       });
-      setIsLoading(false);
     }
-  }, [isOpen, currentRoom]);
+  }, [currentRoom]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -81,52 +78,38 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
     setError('');
 
     try {
-      // Create the update post data (using comment operation with same permlink)
-      const updateData = {
-        username: username,
-        title: formData.roomName.trim(),
-        body: formData.description.trim(),
-        permlink: currentRoom.permlink, // Use the same permlink to update the post
-        parent_author: '', // Empty for top-level posts
-        parent_perm: '', // Empty for top-level posts
-        json_metadata: JSON.stringify({
-          app: config.game.idName,
-          type: 'room',
-          format: 'markdown',
-          tags: ['ego-death'],
-          // Preserve any existing connection metadata if it exists
-          connection: {
-            fromRoom: null, // This will be preserved from the original post
-            exitToNewRoom: '',
-            exitFromNewRoom: ''
-          }
-        }),
-        comment_options: JSON.stringify({
-          author: username,
-          permlink: currentRoom.permlink,
-          max_accepted_payout: "10000.000 HBD",
-          allow_votes: true,
-          allow_curation_rewards: true,
-          extensions: [],
-          percent_hbd: 10000
-        })
+      // Use HiveClient to update the post (works even after payout)
+      const jsonMetadata = {
+        app: config.game.idName,
+        type: 'room',
+        format: 'markdown',
+        tags: ['ego-death'],
+        // Preserve any existing connection metadata if it exists
+        connection: {
+          fromRoom: null, // This will be preserved from the original post
+          exitToNewRoom: '',
+          exitFromNewRoom: ''
+        }
       };
 
-      // Submit the update using the same permlink (this updates the existing post)
-      const updateResult = await keychain.post(updateData);
+      // Submit the update using HiveClient
+      await hiveClient.updatePost(
+        username,
+        currentRoom.permlink,
+        formData.roomName.trim(),
+        formData.description.trim(),
+        jsonMetadata
+      );
       
-      if (updateResult.success) {
-        onClose();
-        // Reset form
-        setFormData({
-          roomName: '',
-          description: ''
-        });
-        if (onRoomUpdated) {
-          onRoomUpdated();
-        }
-      } else {
-        setError('Failed to update room. Please try again.');
+      // If we get here, the update was successful
+      onClose();
+      // Reset form
+      setFormData({
+        roomName: '',
+        description: ''
+      });
+      if (onRoomUpdated) {
+        onRoomUpdated();
       }
     } catch (error) {
       logger.error('Error updating room:', error);
@@ -151,13 +134,13 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
             <p>You can edit the title and description of this room. Note that you can only edit rooms that you created.</p>
           </div>
           {error && (
-                    <div className="modal__error-message">
-          {error}
-        </div>
+            <div className="modal__error-message">
+              {error}
+            </div>
           )}
-          {isLoading ? (
+          {isSubmitting ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>
-              Loading room data...
+              Updating Room...
             </div>
           ) : (
             <form onSubmit={handleSubmit}>

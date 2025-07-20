@@ -1,4 +1,4 @@
-import { useReducer, useCallback } from 'react';
+import { useReducer, useCallback, useRef } from 'react';
 import { LegacyRoomData, GameJSON } from '../game/types/GameTypes';
 
 // Room state reducer
@@ -71,15 +71,19 @@ function roomStateReducer(state: RoomState, action: RoomStateAction): RoomState 
 
 export function useRoomState() {
   const [state, dispatch] = useReducer(roomStateReducer, initialRoomState);
+  
+  // Use ref to access current state without causing re-renders
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // Update room data
   const updateRoomData = useCallback((data: LegacyRoomData | ((prev: LegacyRoomData) => LegacyRoomData)) => {
     if (typeof data === 'function') {
-      dispatch({ type: 'UPDATE_ROOM_DATA', payload: data(state.roomData) });
+      dispatch({ type: 'UPDATE_ROOM_DATA', payload: data(stateRef.current.roomData) });
     } else {
       dispatch({ type: 'SET_ROOM_DATA', payload: data });
     }
-  }, [state.roomData]);
+  }, []);
 
   // Update game JSON
   const updateGameJSON = useCallback((gameJSON: GameJSON) => {
@@ -93,8 +97,8 @@ export function useRoomState() {
 
   // Check if room data has changed
   const hasRoomDataChanged = useCallback((newData: LegacyRoomData) => {
-    return JSON.stringify(newData) !== JSON.stringify(state.roomData);
-  }, [state.roomData]);
+    return JSON.stringify(newData) !== JSON.stringify(stateRef.current.roomData);
+  }, []);
 
   // Reset room state
   const resetRoomState = useCallback(() => {
