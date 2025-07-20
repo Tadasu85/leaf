@@ -8,7 +8,7 @@ import logger from '../../utils/Logger';
 
 export class HiveClient extends EventEmitter {
   private client: Client;
-  private keychain: KeychainSDK;
+  private keychain: any; // Changed to any to support both KeychainSDK and mobile interface
   private operationsStream: any = null;
   private streamReader: any = null;
   private isListening: boolean = false;
@@ -17,10 +17,10 @@ export class HiveClient extends EventEmitter {
   private timeEventRooms: Map<string, TimeEventConfig> = new Map();
   private lastProcessedBlock: number = 0;
 
-  constructor() {
+  constructor(keychain?: any) {
     super();
     this.client = new Client(config.hive.nodes);
-    this.keychain = new KeychainSDK(window);
+    this.keychain = keychain || new KeychainSDK(window);
     this.bulkLoader = new BulkDataLoader(this.client, {
       maxCacheSize: 500, // Reduced from 1000 to 500 for better memory management
       enableCompression: false, // Disabled to preserve room description formatting

@@ -177,13 +177,30 @@ function App() {
   const lastConnectedRef = useRef<{ username: string; location: any } | null>(null);
 
   // Constants
-  const gameGreeting = useMemo(() => [
-    "If you've arrived here by accident and do not have a Hive account. ",
-    "Please make your way to https://ecency.com/ to create an account.",
-    "Otherwise you may proceed with a login command by typing 'login' 'your hive username'",
-    "You will also need the hive keychain extension installed and the account added.",
-    "If this is successful you will see your username in the top right."
-  ], []);
+  const gameGreeting = useMemo(() => {
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                          (window.innerWidth <= 768 && window.innerHeight <= 1024);
+    
+    const baseGreeting = [
+      "If you've arrived here by accident and do not have a Hive account. ",
+      "Please make your way to https://ecency.com/ to create an account.",
+      "Otherwise you may proceed with a login command by typing 'login' 'your hive username'"
+    ];
+    
+    if (isMobileDevice) {
+      return [
+        ...baseGreeting,
+        "You will need the Hive Keychain app installed on your mobile device and your account added.",
+        "If this is successful you will see your username in the top right."
+      ];
+    } else {
+      return [
+        ...baseGreeting,
+        "You will also need the hive keychain extension installed and the account added.",
+        "If this is successful you will see your username in the top right."
+      ];
+    }
+  }, []);
 
   // Effects
   useEffect(() => {
@@ -358,19 +375,43 @@ function App() {
             // Keychain login failed
             logger.debug('Keychain login failed result:', result);
             
-            // Extract the main error message
-            const errorMessage = result.message || result.error || 'Keychain login failed. Please check your Keychain extension.';
-            
-            // Build detailed error information
-            const errorDetails = {
-              error: result.error,
-              message: result.message,
-              data: result.data,
-              request_id: result.request_id,
-              fullResult: result
-            };
-            
-            handleGlobalError(errorMessage, `Keychain login details:\n${JSON.stringify(errorDetails, null, 2)}`);
+            // Handle mobile-specific errors
+            if (result.error === 'mobile_keychain_required' || result.error === 'mobile_app_redirect') {
+              // Mobile-specific error handling
+              const errorMessage = result.message || 'Mobile keychain app required';
+              let errorDetails = 'Mobile platform detected. ';
+              
+              if (result.data?.requiresApp) {
+                errorDetails += 'Please install the Hive Keychain app from your device\'s app store and add your account.';
+              }
+              
+              if (result.data?.instructions) {
+                errorDetails += `\n\nInstructions: ${result.data.instructions}`;
+              }
+              
+              // For mobile app redirect, show as info rather than error
+              if (result.error === 'mobile_app_redirect') {
+                addInfoMessage(errorMessage);
+                if (result.data?.instructions) {
+                  addInfoMessage(result.data.instructions);
+                }
+              } else {
+                handleGlobalError(errorMessage, errorDetails);
+              }
+            } else {
+              // Standard desktop error handling
+              const errorMessage = result.message || result.error || 'Keychain login failed. Please check your Keychain extension.';
+              
+              const errorDetails = {
+                error: result.error,
+                message: result.message,
+                data: result.data,
+                request_id: result.request_id,
+                fullResult: result
+              };
+              
+              handleGlobalError(errorMessage, `Keychain login details:\n${JSON.stringify(errorDetails, null, 2)}`);
+            }
           }
         })
         .catch((error) => {
@@ -425,6 +466,67 @@ function App() {
     addInfoMessage('You have been signed out.');
   }, [updateUserProfile, addInfoMessage]);
 
+  // Visual logging for mobile debugging
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebugLogs, setShowDebugLogs] = useState(false);
+
+  // Override console.log for mobile debugging
+  useEffect(() => {
+    const originalLog = console.log;
+    const originalDebug = console.debug;
+    const originalInfo = console.info;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    const addToDebugLogs = (level: string, ...args: any[]) => {
+      const timestamp = new Date().toLocaleTimeString();
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ');
+      const logEntry = `[${timestamp}] [${level}] ${message}`;
+      
+      setDebugLogs(prev => {
+        const newLogs = [...prev, logEntry];
+        // Keep only last 50 logs to prevent memory issues
+        return newLogs.slice(-50);
+      });
+    };
+
+    console.log = (...args) => {
+      originalLog(...args);
+      addToDebugLogs('LOG', ...args);
+    };
+
+    console.debug = (...args) => {
+      originalDebug(...args);
+      addToDebugLogs('DEBUG', ...args);
+    };
+
+    console.info = (...args) => {
+      originalInfo(...args);
+      addToDebugLogs('INFO', ...args);
+    };
+
+    console.warn = (...args) => {
+      originalWarn(...args);
+      addToDebugLogs('WARN', ...args);
+    };
+
+    console.error = (...args) => {
+      originalError(...args);
+      addToDebugLogs('ERROR', ...args);
+    };
+
+    // Cleanup function
+    return () => {
+      console.log = originalLog;
+      console.debug = originalDebug;
+      console.info = originalInfo;
+      console.warn = originalWarn;
+      console.error = originalError;
+    };
+  }, []);
+
   return (
     <ErrorBoundary
       onError={(error, errorInfo) => {
@@ -438,6 +540,74 @@ function App() {
           userProfileJSON={userProfileJSON}
           onSignOut={handleSignOut}
         />
+        
+        {/* Debug Logs Toggle Button - Only show on mobile */}
+        {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
+          <button
+            onClick={() => setShowDebugLogs(!showDebugLogs)}
+            style={{
+              position: 'fixed',
+              top: '10px',
+              right: '10px',
+              zIndex: 1000,
+              padding: '5px 10px',
+              backgroundColor: showDebugLogs ? '#ff4444' : '#4444ff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              fontSize: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            {showDebugLogs ? 'Hide' : 'Show'} Debug Logs
+          </button>
+        )}
+        
+        {/* Debug Logs Panel */}
+        {showDebugLogs && (
+          <div
+            style={{
+              position: 'fixed',
+              top: '50px',
+              right: '10px',
+              width: '300px',
+              maxHeight: '400px',
+              backgroundColor: 'rgba(0, 0, 0, 0.9)',
+              color: '#00ff00',
+              padding: '10px',
+              borderRadius: '5px',
+              fontSize: '10px',
+              fontFamily: 'monospace',
+              overflowY: 'auto',
+              zIndex: 999,
+              border: '1px solid #00ff00'
+            }}
+          >
+            <div style={{ marginBottom: '10px', fontWeight: 'bold' }}>
+              Debug Logs ({debugLogs.length})
+              <button
+                onClick={() => setDebugLogs([])}
+                style={{
+                  float: 'right',
+                  backgroundColor: '#ff4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  padding: '2px 6px',
+                  fontSize: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear
+              </button>
+            </div>
+            {debugLogs.map((log, index) => (
+              <div key={index} style={{ marginBottom: '2px', wordBreak: 'break-all' }}>
+                {log}
+              </div>
+            ))}
+          </div>
+        )}
       {(isBuilder || isAdmin) && (
         <Sidebar
           isSignedIn={isSignedIn}

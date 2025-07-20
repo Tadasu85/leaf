@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Client } from '@hiveio/dhive';
-import { KeychainSDK, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
+import { KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { GameState } from '../game/state/GameState';
 import { HiveClient } from '../game/blockchain/HiveClient';
 import { CommandParser } from '../game/commands/CommandParser';
@@ -17,7 +17,7 @@ import { useGameData } from './useGameData';
 import config from '../config';
 import logger from '../utils/Logger';
 
-export function useGame(client: Client, keychain: KeychainSDK) {
+export function useGame(client: Client, keychain: any) {
   // Game State
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +43,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
 
   // Initialize GameState with bulk data loading
   useEffect(() => {
-    const hiveClient = new HiveClient();
+    const hiveClient = new HiveClient(keychain);
     const state = new GameState(hiveClient);
     
     setGameState(state);
@@ -74,7 +74,7 @@ export function useGame(client: Client, keychain: KeychainSDK) {
         hiveClient.stopMoveListener();
       }
     };
-  }, []);
+  }, [keychain]);
 
   // Initialize bulk data loading - now handled by useGameData hook
   useEffect(() => {
