@@ -753,44 +753,7 @@ body, html, #root, .app {
   background: #c82333;
 }
 
-.app__present-players {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  margin: 16px 140px 16px 16px;
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 0.9rem;
-  color: #333;
-  border: 1px solid rgba(34, 148, 136, 0.1);
-}
 
-.app__present-players__label {
-  font-weight: 600;
-  color: #229488;
-  margin-right: 8px;
-}
-
-.app__present-players__me {
-  background: #229488;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 0.8rem;
-}
-
-.app__present-players span:not(.app__present-players__label):not(.app__present-players__me) {
-  background: #f0f0f0;
-  color: #666;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 0.8rem;
-  border: 1px solid #e0e0e0;
-}
 
 .error-boundary {
   background: #fff;

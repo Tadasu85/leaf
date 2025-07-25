@@ -3,7 +3,7 @@ import GameOutputWindow from './components/GameOutputWindow';
 import Header from './components/Header';
 import TextInputBox from './components/TextInputBox';
 import Sidebar from './components/Sidebar';
-import PresentPlayers from './components/PresentPlayers';
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useGameContext } from './contexts/GameContext';
 import { useSocket } from './hooks/useSocket';
@@ -47,7 +47,6 @@ function App() {
   // State
   const [username, setUsername] = useState<string | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [presentPlayers, setPresentPlayers] = useState<string[]>([]);
   const [globalError, setGlobalError] = useState<{ message: string; details?: string } | null>(null);
 
   const { keychain } = useClients();
@@ -302,22 +301,7 @@ function App() {
     }
   }, [gameState, isLoadedGame, updateGameJSON]);
 
-  // Listen for chat channel events to update present players
-  useEffect(() => {
-    if (!gameState) return;
-    const handleChatChannelUpdate = (data: any) => {
-      if (data && Array.isArray(data.players)) {
-        logger.debug('[App] Updating present players:', data.players);
-        setPresentPlayers(data.players);
-      }
-    };
-    gameState.on('chatChannelUpdate', handleChatChannelUpdate);
-    gameState.on('chatChannelState', handleChatChannelUpdate);
-    return () => {
-      gameState.off('chatChannelUpdate', handleChatChannelUpdate);
-      gameState.off('chatChannelState', handleChatChannelUpdate);
-    };
-  }, [gameState]);
+
 
   // Cleanup on app unmount
   useEffect(() => {
@@ -634,7 +618,6 @@ function App() {
             addInfoMessage('Game components recovered successfully.');
           }}
         >
-          <PresentPlayers players={presentPlayers} currentUser={username} />
           <GameOutputWindow 
             output={gameOutputMessages} 
             maxMessages={200}

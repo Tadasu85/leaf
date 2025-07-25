@@ -32,6 +32,7 @@ export class GameState extends EventEmitter {
   private isInitialConnection: boolean = false;
   private hasReceivedInitialPlayerList: boolean = false;
   private timeEventRooms: Map<string, TimeEventConfig> = new Map();
+  private disconnectDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(hiveClient: HiveClient, socketManager?: SocketManager) {
     super();
@@ -730,7 +731,6 @@ export class GameState extends EventEmitter {
   // Method to set socket manager (called by useSocket hook)
   public setSocketManager(socketManager: SocketManager): void {
     this.socketManager = socketManager;
-    let disconnectDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     
     // Set up event listeners for socket manager events
     if (socketManager) {
@@ -743,26 +743,26 @@ export class GameState extends EventEmitter {
       
       socketManager.on('connectionStatusChanged', (data: { status: string; error?: string }) => {
         if (data.status === 'failed') {
-          if (disconnectDebounceTimer) {
-            clearTimeout(disconnectDebounceTimer);
-            disconnectDebounceTimer = null;
+          if (this.disconnectDebounceTimer) {
+            clearTimeout(this.disconnectDebounceTimer);
+            this.disconnectDebounceTimer = null;
           }
           if (!this.hasNotifiedChatOffline) {
             this.addOutputMessage('Chat server is unavailable. You can still navigate and play the game.', true);
             this.hasNotifiedChatOffline = true;
           }
         } else if (data.status === 'connected') {
-          if (disconnectDebounceTimer) {
-            clearTimeout(disconnectDebounceTimer);
-            disconnectDebounceTimer = null;
+          if (this.disconnectDebounceTimer) {
+            clearTimeout(this.disconnectDebounceTimer);
+            this.disconnectDebounceTimer = null;
           }
           this.addOutputMessage('Chat server connected. Chat is now available.', false);
           this.hasNotifiedChatOffline = false; // Reset flag when chat comes back online
         } else if (data.status === 'disconnected') {
-          if (disconnectDebounceTimer) {
-            clearTimeout(disconnectDebounceTimer);
+          if (this.disconnectDebounceTimer) {
+            clearTimeout(this.disconnectDebounceTimer);
           }
-          disconnectDebounceTimer = setTimeout(() => {
+          this.disconnectDebounceTimer = setTimeout(() => {
             if (!this.hasNotifiedChatOffline) {
               this.addOutputMessage('Chat server disconnected. Chat is no longer available.', true);
               this.hasNotifiedChatOffline = true;
@@ -849,6 +849,12 @@ export class GameState extends EventEmitter {
   // Comprehensive cleanup method to prevent memory leaks
   public destroy(): void {
     logger.debug('[GameState] Destroying game state');
+    
+    // Clean up timers
+    if (this.disconnectDebounceTimer) {
+      clearTimeout(this.disconnectDebounceTimer);
+      this.disconnectDebounceTimer = null;
+    }
     
     // Clean up socket manager
     if (this.socketManager) {
