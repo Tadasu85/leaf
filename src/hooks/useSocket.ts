@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { GameState } from '../game/state/GameState';
 import logger from '../utils/Logger';
 
@@ -12,16 +12,33 @@ export function useSocket(gameState: GameState | null) {
   const lastProcessedChannelState = useRef<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'failed'>('disconnected');
 
-  // Always point to the latest gameState
-  const gameStateRef = useRef(gameState);
-  gameStateRef.current = gameState;
-
   // Store cleanup function ref to ensure proper cleanup
   const cleanupRef = useRef<(() => void) | null>(null);
 
+  // Track if we've already set up listeners for this gameState
+  const setupRef = useRef<boolean>(false);
+  const gameStateRef = useRef<GameState | null>(null);
+
+  // Always point to the latest gameState
+  gameStateRef.current = gameState;
+  
   useEffect(() => {
     logger.debug('[useSocket] Setting up event listeners for gameState:', !!gameState);
     if (!gameState) return;
+
+    // Only set up listeners once per gameState instance
+    if (setupRef.current && gameStateRef.current === gameState) {
+      logger.debug('[useSocket] Listeners already set up for this gameState, skipping');
+      return;
+    }
+    
+    // Reset setup flag if gameState has changed
+    if (gameStateRef.current !== gameState) {
+      setupRef.current = false;
+      gameStateRef.current = gameState;
+    }
+    
+    setupRef.current = true;
 
     // Clean up any existing listeners first
     if (cleanupRef.current) {
@@ -201,7 +218,7 @@ export function useSocket(gameState: GameState | null) {
     cleanupRef.current = cleanup;
 
     return cleanup;
-  }, [gameState]);
+  }, [gameState]); // Add gameState as dependency to properly track changes
 
   // Cleanup on unmount
   useEffect(() => {

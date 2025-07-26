@@ -24,7 +24,7 @@ export function useGameData(client: Client, gameState: GameState | null) {
 
       initializeBulkData();
     }
-  }, [gameState, isBulkDataLoaded, setError]);
+  }, [gameState, isBulkDataLoaded]);
 
   // Update game map when it changes (now handled by bulk loader)
   useEffect(() => {

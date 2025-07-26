@@ -454,6 +454,21 @@ function App() {
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const [showDebugLogs, setShowDebugLogs] = useState(false);
 
+  // Memoize the addToDebugLogs function to prevent infinite loops
+  const addToDebugLogs = useCallback((level: string, ...args: any[]) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const message = args.map(arg => 
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+    ).join(' ');
+    const logEntry = `[${timestamp}] [${level}] ${message}`;
+    
+    setDebugLogs(prev => {
+      const newLogs = [...prev, logEntry];
+      // Keep only last 50 logs to prevent memory issues
+      return newLogs.slice(-50);
+    });
+  }, []);
+
   // Override console.log for mobile debugging
   useEffect(() => {
     const originalLog = console.log;
@@ -461,20 +476,6 @@ function App() {
     const originalInfo = console.info;
     const originalWarn = console.warn;
     const originalError = console.error;
-
-    const addToDebugLogs = (level: string, ...args: any[]) => {
-      const timestamp = new Date().toLocaleTimeString();
-      const message = args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-      ).join(' ');
-      const logEntry = `[${timestamp}] [${level}] ${message}`;
-      
-      setDebugLogs(prev => {
-        const newLogs = [...prev, logEntry];
-        // Keep only last 50 logs to prevent memory issues
-        return newLogs.slice(-50);
-      });
-    };
 
     console.log = (...args) => {
       originalLog(...args);
