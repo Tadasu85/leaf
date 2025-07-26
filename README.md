@@ -2,150 +2,55 @@
 
 Leaf is a framework for building text-based adventure games on the Hive blockchain. It provides the infrastructure for creating interactive worlds where players can explore interconnected rooms, interact with the environment, and customize their characters.
 
-## Components
-
-### Leaf Server
-The Leaf Server component provides real-time communication and state management for the game. It handles:
-- WebSocket connections for real-time updates
-- Room state synchronization
-- Player presence tracking
-- Chat and emote broadcasting
-- Builder queue management
-- P2P signaling for direct player connections
-
-### Leaf Client
-The client-side application that players interact with, featuring:
-- Text-based adventure gameplay
-- Hive blockchain integration
-- Real-time player interactions
-- Character customization
-- Room exploration and movement
-- Real-time updates via blockchain operations
-- P2P communication between players
-
-## Ego Death - The First Game Built on Leaf
+## 🎮 Ego Death - The First Game Built on Leaf
 
 Ego Death is the first game built using the Leaf framework. In this text-based adventure, players explore a mysterious world, interact with their environment, and customize their character's appearance and description.
 
-### Features
+### Key Features
+- **Text-based adventure gameplay** with command-line interface
+- **Hive blockchain integration** for persistent game state
+- **Real-time player interactions** via WebSocket communication
+- **Character customization** and room exploration
+- **Builder system** for content creation
+- **Queue management** for builder applications
+- **Time-based events** using blockchain heartbeat
+- **Mobile-responsive design** with PWA support
 
-- Text-based adventure gameplay
-- Hive blockchain integration
-- Real-time player interactions
-- Character customization
-- Room exploration and movement
-- Real-time updates via blockchain operations
-- P2P communication between players
-- Builder system for content creation
-- Queue management system
-- Real-time chat and emotes
-- Room state synchronization
-- Automatic player tracking
+## 🚀 Quick Start
 
-## Prerequisites
-
+### Prerequisites
 - [Hive Keychain](https://hive-keychain.com/) browser extension
-- Node.js and npm
-- Git
+- Node.js 22+ and npm
 - A Hive account (create one at [Ecency](https://ecency.com/))
 
-## Installation
+### Installation
 
-### Server Setup
-1. Install Node.js and npm (recommended: use NVM)
-   ```bash
-   curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-   nvm install 22
-   nvm use 22
-   ```
-
-2. Clone the repository
-   ```bash
-   git clone https://gitlab.com/Tadasu85/leaf_server.git
-   cd leaf_server
-   ```
-
-3. Install dependencies
-   ```bash
-   npm install
-   ```
-
-4. Configure environment variables
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-5. Start the server
-   ```bash
-   npm start
-   ```
-
-### Client Setup
-1. Clone the client repository
-   ```bash
-   git clone https://gitlab.com/Tadasu85/leaf.git
-   cd leaf
-   ```
-
-2. Install dependencies
-   ```bash
-   npm install
-   ```
-
-3. Start the development server
-   ```bash
-   npm start
-   ```
-
-4. Open your browser and navigate to `http://localhost:3000`
-
-## Environment Configuration
-
-The application uses environment variables to configure the WebSocket signaling server connection:
-
-### `REACT_APP_SIGNALING_SERVER`
-- **Description**: Primary signaling server URL
-- **Default**: None (falls back to environment-specific defaults)
-- **Example**: `https://your-signaling-server.com`
-
-### `REACT_APP_PRODUCTION_SIGNALING_SERVER`
-- **Description**: Production-specific signaling server URL (used when `NODE_ENV=production`)
-- **Default**: `https://leaf-server-5lrq.onrender.com`
-- **Example**: `https://your-production-server.com`
-
-### Configuration Logic
-
-The signaling server URL is determined in this order:
-
-1. `REACT_APP_SIGNALING_SERVER` (if set, used for all environments)
-2. If in production (`NODE_ENV=production`):
-   - `REACT_APP_PRODUCTION_SIGNALING_SERVER` (if set)
-   - Fallback to `https://leaf-server-5lrq.onrender.com`
-3. If in development:
-   - Fallback to `http://localhost:4001`
-
-### Setting Environment Variables
-
-#### For Development
-Create a `.env` file in the `leaf` directory:
-```
-REACT_APP_SIGNALING_SERVER=http://localhost:4001
-```
-
-#### For Production
-Set the environment variable in your deployment platform:
+#### 1. Clone and Setup Client
 ```bash
-REACT_APP_PRODUCTION_SIGNALING_SERVER=https://your-actual-production-server.com
+git clone https://gitlab.com/Tadasu85/leaf.git
+cd leaf
+npm install
+npm start
 ```
 
-## Game Commands
+#### 2. Clone and Setup Server (Optional - for development)
+```bash
+git clone https://gitlab.com/Tadasu85/leaf_server.git
+cd leaf_server
+npm install
+npm start
+```
+
+#### 3. Open Your Browser
+Navigate to `http://localhost:3000` and start playing!
+
+## 🎯 Game Commands
 
 ### Basic Commands
 - `login <username>` - Log in with your Hive username
 - `look` - View current room description
 - `look self` - View your character description
-- `look <object>` - Look at a specific detail or player in the room
+- `look <object>` - Look at a specific detail or player
 - `north/south/east/west` - Move in the specified direction
 
 ### Character Customization
@@ -154,197 +59,105 @@ REACT_APP_PRODUCTION_SIGNALING_SERVER=https://your-actual-production-server.com
 
 ### Social Interaction
 - `say <message>` - Send a message to all players in the room
-- `emote <action>` - Perform an emote visible to all players in the room
+- `emote <action>` - Perform an emote visible to all players
 
 ### Builder Commands (Builder Role Required)
-- Use the "Build" button in the top-right corner to access the builder interface
-- Create and modify rooms
-- Add room details and exits
-- Manage room content
+- Use the "Build" button to access the builder interface
+- Create and modify rooms, add details and exits
 
 ### Queue Management (Game Account Only)
-- Use the "Queue" button in the top-right corner to access the queue management interface
-- View and manage the builder queue
-- Approve or reject builder applications
+- Use the "Queue" button to manage builder applications
 
-## Technical Architecture
+## 🏗️ Technical Architecture
 
 ### Sources of Truth
 
-The Leaf Game uses a sophisticated multi-layered architecture with clear sources of truth:
-
 #### 1. Hive Blockchain (Primary Source of Truth)
-- **Game Map Data**: Stored in the game account's `posting_json_metadata` field
+- **Game Map Data**: Stored in game account's `posting_json_metadata`
 - **Room Content**: Each room is a Hive post with title, body, and metadata
 - **Player Locations**: On-chain via blockchain transactions
 - **Builder Permissions**: Managed through Hive community roles
-- **Build Queue**: App-managed through builder posts with specific metadata
 
 #### 2. Signaling Server (Real-time State)
 - **Player Presence**: Tracks who is currently in each room
 - **Chat System**: Manages real-time messaging between players
 - **Room Updates**: Broadcasts room state changes to all connected players
-- **User Sessions**: Tracks user connections and session data
 
 #### 3. Client-Side State Management
 - **GameState Class**: Core game logic and state management
 - **React Hooks Architecture**: Multiple specialized hooks for different concerns
-- **Configuration**: Centralized configuration via `config.ts`
+- **Bulk Data Loading**: Loads all game data upfront for instant room transitions
 
-### Data Flow Architecture
+### Performance Features
+- **20-50x faster room transitions** with bulk loading
+- **90% reduction in API calls** through upfront data loading
+- **LRU caching** with automatic memory management
+- **Instant room switching** (<10ms vs previous 200-500ms)
 
-```
-Hive Blockchain (Primary Truth)
-    ↓ (Read operations)
-Client GameState
-    ↓ (Real-time sync)
-Signaling Server
-    ↓ (WebSocket events)
-Client UI Components
-```
-
-### State Synchronization Strategy
-
-- **Single Source of Truth**: Blockchain for persistent data
-- **Derived State**: Client-side state derived from blockchain data
-- **Ephemeral State**: Real-time presence managed by signaling server
-- **Optimistic Updates**: UI updates immediately, blockchain confirms later
-
-## Bulk Loading Architecture
-
-The Leaf game uses a **bulk data loading** approach that loads all game data upfront from the blockchain instead of incrementally loading rooms as players move. This provides significant performance improvements while maintaining memory efficiency.
-
-### Key Benefits
-
-- **Instant room transitions**: No more loading delays when moving between rooms
-- **Reduced API calls**: All room data is loaded once at startup
-- **Better user experience**: Smooth, responsive gameplay
-- **Memory efficiency**: LRU caching and data compression prevent memory bloat
-
-### Performance Characteristics
-
-- **Startup Time**: ~2-5 seconds (one-time cost for persistent performance gains)
-- **Room Transitions**: <10ms (20-50x faster than incremental loading)
-- **Memory Usage**: Configurable limits with automatic cache management
-- **Cache Efficiency**: 80-95% hit rate typical
-
-### Memory Management
-
-- **LRU Cache**: Least Recently Used cache eviction prevents memory bloat
-- **Data Compression**: Whitespace removal and optimization reduce memory footprint
-- **Configurable Limits**: Memory usage can be capped and monitored
-- **Batch Processing**: Rooms are loaded in batches to avoid overwhelming the API
-
-## Technical Features
-
-### Server Features
-- WebSocket-based real-time communication
-- Room state management and synchronization
-- Player presence tracking
-- Chat and emote broadcasting
-- Builder queue management
-- P2P signaling for direct player connections
-- Automatic room cleanup
-- Connection state management
-
-### Client Features
-- **P2P Communication**
-  - Real-time peer-to-peer connections between players
-  - Automatic connection management
-  - Reliable message delivery
-  - Connection state synchronization
-
-- **Room System**
-  - Dynamic room state updates
-  - Player presence tracking
-  - Automatic room joining/leaving
-  - Room detail management
-  - Exit system for navigation
-
-- **Blockchain Integration**
-  - Hive blockchain operations for game state
-  - Custom JSON operations for game actions
-  - Account metadata management
-  - Real-time blockchain stream processing
-
-- **Security**
-  - Hive Keychain integration for secure operations
-  - Permission-based access control
-  - Builder role management
-  - Queue system for content creation
-
-### Security & Performance Improvements
-
-#### Input Validation & Security
-- **CommandParser Security**:
-  - Length limits (500 chars total, 100 for commands, 400 for args)
-  - Character validation (alphanumeric, spaces, basic punctuation)
-  - Injection pattern detection (blocks script tags, javascript: URLs, etc.)
-  - Rate limiting (100ms between commands)
-  - Input sanitization and validation
-
-#### Optimistic Movement System
-- **Instant Response**: No waiting for blockchain confirmation
-- **No Double Movement**: Prevents the duplicate movement bug
-- **Better UX**: Smooth, responsive movement experience
-- **Error Handling**: Graceful fallback if blockchain fails
-
-#### Real-time Communication
-- **Chat Functionality**: Players can communicate in the same room
-- **Real-time Updates**: Player join/leave notifications work properly
-- **Proper Cleanup**: Socket connections are properly managed during login/logout
-- **Room-based Chat**: Chat channels are properly joined when entering rooms
-
-## Development
+## 🔧 Development
 
 ### Running Tests
 ```bash
-# Server tests
-cd leaf_server
+# All tests (125 tests, runs in under 4 seconds)
 npm test
 
-# Client tests
-cd leaf
-npm test
+# Specific test file
+npm test -- --testNamePattern="App Component"
+
+# Watch mode
+npm test -- --watch
 ```
 
 ### Building for Production
 ```bash
-# Server build
-cd leaf_server
-npm run build
-
-# Client build
-cd leaf
 npm run build
 ```
 
 ### Development Tools
+- **Memory Monitor**: Real-time cache and memory usage tracking
+- **Debug Commands**: Cache statistics and management
+- **Hot Reloading**: Automatic reload on code changes
 
-#### Memory Monitor
-Development tool for monitoring:
-- **Cache statistics**: Size, hit rate, memory usage
-- **Browser memory**: Real-time memory usage tracking
-- **Cache management**: Manual cache clearing
-- **Visual indicators**: Color-coded warnings for high memory usage
+## 📱 Mobile Support
 
-#### Debug Commands
-```javascript
-// Get cache statistics
-const stats = gameState.getHiveClient().getCacheStats();
-console.log(stats);
+Leaf includes comprehensive mobile support:
+- **Responsive Design**: Optimized for screens ≤700px
+- **Mobile Keychain Integration**: URL scheme fallbacks and API integration
+- **Touch-Friendly UI**: Larger touch targets and mobile-optimized layouts
+- **PWA Support**: Basic progressive web app functionality
+- **Accessibility**: ARIA attributes, keyboard navigation, screen reader support
 
-// Clear cache
-gameState.getHiveClient().clearCache();
+See [MOBILE_ROADMAP.md](MOBILE_ROADMAP.md) for detailed mobile development plans.
 
-// Check if bulk data is loaded
-const isLoaded = gameState.getHiveClient().isBulkDataLoaded();
-```
+## ⏰ Time-Based Events
 
-## Contributing
+Leaf includes a blockchain-based time events system that uses the Hive blockchain as a heartbeat mechanism:
+- **Ferry System**: Transportation between locations with 6 phases
+- **Market Cycles**: Trading opportunities that appear and disappear
+- **Weather Systems**: Dynamic environmental changes
+- **Custom Events**: User-defined time-based events
 
-We welcome contributions to both the Leaf framework and Ego Death game! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct, development process, and how to contribute to the project.
+See [TIME_EVENTS_README.md](TIME_EVENTS_README.md) for technical details.
 
-## License
+## 🔒 Security Features
+
+- **Input Validation**: Length limits, character validation, injection detection
+- **Rate Limiting**: 100ms between commands to prevent spam
+- **Permission-Based Access**: Builder roles and queue management
+- **Hive Keychain Integration**: Secure blockchain operations
+
+## 📚 Documentation
+
+- **[DOCUMENTATION.md](DOCUMENTATION.md)** - Complete documentation index and overview
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development guidelines and contribution process
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history and recent changes
+- **[MOBILE_ROADMAP.md](MOBILE_ROADMAP.md)** - Mobile development plans and features
+- **[TIME_EVENTS_README.md](TIME_EVENTS_README.md)** - Time-based events system documentation
+
+## 🤝 Contributing
+
+We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct, development process, and how to contribute to the project.
+
+## 📄 License
 
 This project is licensed under the Creative Commons Attribution 4.0 International License - see the [LICENSE](LICENSE) file for details.

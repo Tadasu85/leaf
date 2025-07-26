@@ -125,11 +125,24 @@ Follow the conventional commits format:
 ## Testing
 
 - Write tests for all new features
-- Maintain existing tests
+- Maintain existing tests (125 tests currently passing)
 - Run tests before submitting changes:
   ```bash
+  # All tests (runs in under 4 seconds)
   npm test
+  
+  # Specific test file
+  npm test -- --testNamePattern="Component Name"
+  
+  # Watch mode for development
+  npm test -- --watch
   ```
+
+### Test Guidelines
+- **Test Coverage**: Aim for comprehensive coverage of new features
+- **Performance**: Tests should run quickly (avoid infinite loops or memory leaks)
+- **Mocking**: Use simplified mocks to avoid complex dependencies
+- **Isolation**: Each test should be independent and not affect others
 
 ## Project Structure
 
