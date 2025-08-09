@@ -1,0 +1,13 @@
+{
+  "name": "vsc-gamekernel",
+  "version": "0.0.1",
+  "private": true,
+  "description": "VSC GameKernel contract for Leaf (spike)",
+  "scripts": {
+    "build": "asc assembly/index.ts --target release",
+    "build:debug": "asc assembly/index.ts --target debug"
+  },
+  "devDependencies": {
+    "assemblyscript": "^0.27.0"
+  }
+}
