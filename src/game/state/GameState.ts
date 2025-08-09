@@ -13,6 +13,8 @@ import config from '../../config';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
+import { VSCAdapter } from '../verbs/VSCAdapter';
+import type { VerbRuntime, VerbResult, Effect } from '../verbs/VerbRuntime';
 
 export class GameState extends EventEmitter {
   private player: Player | null = null;
@@ -33,11 +35,23 @@ export class GameState extends EventEmitter {
   private hasReceivedInitialPlayerList: boolean = false;
   private timeEventRooms: Map<string, TimeEventConfig> = new Map();
   private disconnectDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  // Programmability runtime
+  private verbRuntime: VerbRuntime | null = null;
+  private vscUnsubscribe: (() => void) | null = null;
 
   constructor(hiveClient: HiveClient, socketManager?: SocketManager) {
     super();
     this.hiveClient = hiveClient;
     this.socketManager = socketManager || new SocketManager(this);
+    // Initialize verb runtime if configured
+    if (config.runtime === 'vsc') {
+      try {
+        this.verbRuntime = new VSCAdapter();
+      } catch (e) {
+        logger.error('[GameState] Failed to initialize VSCAdapter', e);
+        this.verbRuntime = null;
+      }
+    }
     
     // Listen for time events from the blockchain
     this.hiveClient.on('timeEventDetected', this.handleTimeEvent.bind(this));
@@ -639,6 +653,89 @@ export class GameState extends EventEmitter {
     
     // Clear present players when changing rooms - they will be updated by socket server
     this.emit('chatChannelUpdate', { players: [] });
+
+    // Manage VSC subscriptions and trigger onEnter
+    this.manageVerbRuntimeForRoom();
+  }
+
+  private getCurrentRoomId(): string | null {
+    const room = this.currentRoom;
+    return room ? `${room.author}/${room.permlink}` : null;
+  }
+
+  private manageVerbRuntimeForRoom(): void {
+    if (!this.verbRuntime) return;
+    // Unsubscribe previous
+    if (this.vscUnsubscribe) {
+      try { this.vscUnsubscribe(); } catch {}
+      this.vscUnsubscribe = null;
+    }
+    const roomId = this.getCurrentRoomId();
+    const playerName = this.player?.username;
+    if (!roomId || !playerName) return;
+    // Subscribe to room events
+    this.vscUnsubscribe = this.verbRuntime.subscribe(roomId, {
+      onVerbOutput: (lines: string[]) => {
+        lines.forEach(line => this.addOutputMessage(line, false));
+      },
+      onRoomEffect: (effects: Effect[]) => {
+        this.applyEffects(effects);
+      }
+    });
+    // Fire onEnter
+    this.verbRuntime.onEnter(roomId, playerName)
+      .then(result => this.renderVerbResult(result))
+      .catch(err => logger.error('[GameState] onEnter error', err));
+  }
+
+  private renderVerbResult(result: VerbResult | null | undefined): void {
+    if (!result) return;
+    if (Array.isArray(result.output)) {
+      result.output.forEach(line => this.addOutputMessage(line, false));
+    }
+    if (Array.isArray(result.effects)) {
+      this.applyEffects(result.effects);
+    }
+  }
+
+  private applyEffects(effects: Effect[]): void {
+    if (!this.currentRoom) return;
+    for (const eff of effects) {
+      switch (eff.type) {
+        case 'SetDetail': {
+          const details = this.currentRoom.details || {};
+          details[eff.key] = eff.value;
+          this.currentRoom.details = details;
+          break;
+        }
+        case 'ClearDetail': {
+          if (this.currentRoom.details && eff.key in this.currentRoom.details) {
+            const { [eff.key]: _removed, ...rest } = this.currentRoom.details;
+            this.currentRoom.details = rest;
+          }
+          break;
+        }
+        case 'SetExit': {
+          this.currentRoom.exits = {
+            ...this.currentRoom.exits,
+            [eff.direction]: eff.permlink
+          };
+          break;
+        }
+        case 'Broadcast': {
+          this.addOutputMessage(eff.text, false);
+          break;
+        }
+        case 'GiveItem':
+        case 'MovePlayer':
+          // Reserved for future; ignore in MVP
+          break;
+        default:
+          break;
+      }
+    }
+    // Notify UI of updates after applying effects
+    this.emit('roomStateChanged', this.currentRoom);
   }
 
   public setGameMap(gameMap: GameMap): void {
@@ -684,6 +781,14 @@ export class GameState extends EventEmitter {
       username: this.player.username,
       message
     });
+
+    // Invoke verb runtime hook
+    const roomId = this.getCurrentRoomId();
+    if (this.verbRuntime && roomId) {
+      this.verbRuntime.onSay(roomId, this.player.username, message)
+        .then(res => this.renderVerbResult(res))
+        .catch(err => logger.error('[GameState] onSay error', err));
+    }
   }
 
   public emote(emote: string): void {
@@ -705,6 +810,29 @@ export class GameState extends EventEmitter {
       username: this.player.username,
       emote
     });
+
+    // Invoke verb runtime hook
+    const roomId = this.getCurrentRoomId();
+    if (this.verbRuntime && roomId) {
+      this.verbRuntime.onEmote(roomId, this.player.username, emote)
+        .then(res => this.renderVerbResult(res))
+        .catch(err => logger.error('[GameState] onEmote error', err));
+    }
+  }
+
+  // Forward unknown commands to verb runtime; return true if handled
+  public async handleUnknownCommand(text: string): Promise<boolean> {
+    if (!this.verbRuntime || !this.player || !this.currentRoom) return false;
+    const roomId = this.getCurrentRoomId();
+    if (!roomId) return false;
+    try {
+      const res = await this.verbRuntime.onCommand(roomId, this.player.username, text);
+      this.renderVerbResult(res);
+      return true;
+    } catch (e) {
+      logger.error('[GameState] onCommand error', e);
+      return false;
+    }
   }
 
   public help(): void {
@@ -860,6 +988,11 @@ export class GameState extends EventEmitter {
     if (this.socketManager) {
       this.socketManager.destroy();
       this.socketManager = null;
+    }
+    // Clean up verb runtime subscription
+    if (this.vscUnsubscribe) {
+      try { this.vscUnsubscribe(); } catch {}
+      this.vscUnsubscribe = null;
     }
     
     // Remove all event listeners from this EventEmitter

@@ -22,6 +22,7 @@ Welcome to the Leaf framework documentation! This index will help you find the i
 - **Real-time Communication**: WebSocket-based signaling server
 - **State Management**: React hooks architecture with GameState class
 - **Performance**: Bulk data loading with LRU caching
+ - **Programmability**: VSC-backed verb runtime (see docs/programmability.md)
 
 ### Technical Features
 - **Bulk Loading**: 20-50x faster room transitions

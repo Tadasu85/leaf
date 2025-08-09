@@ -426,7 +426,11 @@ export function useGame(client: Client, keychain: any) {
     
     const command = commandParser.parse(text, currentRoomExits);
     if (!command) {
-      gameState.addOutputMessage('Invalid command. Type "help" for a list of commands.', true);
+      // Try verb runtime for unknown commands before erroring out
+      const handled = await gameState.handleUnknownCommand(text);
+      if (!handled) {
+        gameState.addOutputMessage('Invalid command. Type "help" for a list of commands.', true);
+      }
       return;
     }
     
@@ -536,7 +540,11 @@ export function useGame(client: Client, keychain: any) {
         break;
       default:
         logger.debug('Processing default case, command type:', command.type);
-        gameState.addOutputMessage('Unknown command. Type "help" for a list of commands.', true);
+        // Fallback to verb runtime
+        const handled = await gameState.handleUnknownCommand(text);
+        if (!handled) {
+          gameState.addOutputMessage('Unknown command. Type "help" for a list of commands.', true);
+        }
     }
   }, [gameState, player, currentRoom, commandParser]);
 

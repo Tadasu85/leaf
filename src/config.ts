@@ -37,6 +37,15 @@ export interface Config {
   admins: string[];
   /** Array of builder usernames with room creation permissions */
   builders: string[];
+  /** Programmability runtime type */
+  runtime?: 'vsc';
+  /** VSC configuration for verb runtime */
+  vsc?: {
+    rpcUrl: string;
+    wsUrl: string;
+    contractAddress: string;
+    network: 'testnet' | 'mainnet';
+  };
 }
 
 /**
@@ -66,6 +75,13 @@ const config: Config = {
       : 'http://localhost:4001'),
   admins: ['hive-109456'],
   builders: ['raymonjohnstone'],
+  runtime: 'vsc',
+  vsc: {
+    rpcUrl: process.env.REACT_APP_VSC_RPC_URL || 'https://vsc-testnet.example/rpc',
+    wsUrl: process.env.REACT_APP_VSC_WS_URL || 'wss://vsc-testnet.example/ws',
+    contractAddress: process.env.REACT_APP_VSC_CONTRACT || 'vsc.contract.address',
+    network: (process.env.REACT_APP_VSC_NETWORK as 'testnet' | 'mainnet') || 'testnet'
+  }
 };
 
 export default config; 
