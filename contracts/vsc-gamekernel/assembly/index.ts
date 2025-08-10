@@ -1,7 +1,6 @@
 // VSC GameKernel Contract for Leaf Text Adventure Games
 // This contract handles dynamic game logic and verb execution
-
-import { Storage, Context, Contract, generateEvent } from '@massalabs/massa-as-sdk';
+// Simplified version for testing without Massa SDK dependencies
 
 // Event types for client consumption
 export class VerbOutputEvent {
@@ -15,6 +14,14 @@ export class VerbOutputEvent {
 export class RoomEffectEvent {
   constructor(
     public roomId: string,
+    public effects: Effect[],
+    public timestamp: u64
+  ) {}
+}
+
+export class PlayerEffectEvent {
+  constructor(
+    public player: string,
     public effects: Effect[],
     public timestamp: u64
   ) {}
@@ -36,6 +43,17 @@ export class VerbResult {
   ) {}
 }
 
+// Player state tracking
+export class PlayerState {
+  constructor(
+    public player: string,
+    public currentRoom: string,
+    public inventory: Map<string, string>,
+    public stats: Map<string, u32>,
+    public lastSeen: u64
+  ) {}
+}
+
 // Room state tracking
 export class RoomState {
   constructor(
@@ -43,42 +61,53 @@ export class RoomState {
     public players: string[],
     public details: Map<string, string>,
     public exits: Map<string, string>,
+    public items: Map<string, string>,
     public lastUpdated: u64
   ) {}
 }
 
 // Main contract class
-export class GameKernel extends Contract {
-  private storage: Storage;
+export class GameKernel {
   private rooms: Map<string, RoomState>;
+  private players: Map<string, PlayerState>;
 
   constructor() {
-    super();
-    this.storage = new Storage();
     this.rooms = new Map<string, RoomState>();
+    this.players = new Map<string, PlayerState>();
   }
 
   // Core hook: Player enters a room
   on_enter(roomId: string, player: string): VerbResult {
-    const context = Context.get();
-    const timestamp = context.timestamp;
+    const timestamp = this.getTimestamp();
     
     // Get or create room state
     let room = this.rooms.get(roomId);
     if (!room) {
-      room = new RoomState(roomId, [], new Map<string, string>(), new Map<string, string>(), timestamp);
+      room = new RoomState(roomId, [], new Map<string, string>(), new Map<string, string>(), new Map<string, string>(), timestamp);
       this.rooms.set(roomId, room);
     }
+    
+    // Get or create player state
+    let playerState = this.players.get(player);
+    if (!playerState) {
+      playerState = new PlayerState(player, roomId, new Map<string, string>(), new Map<string, string>(), timestamp);
+      this.players.set(player, playerState);
+    }
+    
+    // Handle room transition if player was in another room
+    if (playerState.currentRoom !== roomId) {
+      this.handleRoomTransition(player, playerState.currentRoom, roomId);
+    }
+    
+    // Update player state
+    playerState.currentRoom = roomId;
+    playerState.lastSeen = timestamp;
     
     // Add player to room if not already present
     if (!room.players.includes(player)) {
       room.players.push(player);
       room.lastUpdated = timestamp;
     }
-    
-    // Emit verb output event
-    const outputEvent = new VerbOutputEvent(roomId, [`${player} enters the room.`], timestamp);
-    generateEvent(JSON.stringify(outputEvent));
     
     // Return welcome message and any room-specific effects
     const output = [`Welcome to ${roomId}!`];
@@ -89,8 +118,7 @@ export class GameKernel extends Contract {
 
   // Core hook: Player leaves a room
   on_leave(roomId: string, player: string): VerbResult {
-    const context = Context.get();
-    const timestamp = context.timestamp;
+    const timestamp = this.getTimestamp();
     
     const room = this.rooms.get(roomId);
     if (room) {
@@ -100,10 +128,6 @@ export class GameKernel extends Contract {
         room.players.splice(playerIndex, 1);
         room.lastUpdated = timestamp;
       }
-      
-      // Emit verb output event
-      const outputEvent = new VerbOutputEvent(roomId, [`${player} leaves the room.`], timestamp);
-      generateEvent(JSON.stringify(outputEvent));
     }
     
     return new VerbResult([], []);
@@ -111,12 +135,7 @@ export class GameKernel extends Contract {
 
   // Core hook: Player says something
   on_say(roomId: string, player: string, message: string): VerbResult {
-    const context = Context.get();
-    const timestamp = context.timestamp;
-    
-    // Emit verb output event for the message
-    const outputEvent = new VerbOutputEvent(roomId, [`${player} says: "${message}"`], timestamp);
-    generateEvent(JSON.stringify(outputEvent));
+    const timestamp = this.getTimestamp();
     
     // Check for special commands in messages
     if (message.startsWith('!')) {
@@ -128,20 +147,14 @@ export class GameKernel extends Contract {
 
   // Core hook: Player emotes
   on_emote(roomId: string, player: string, emote: string): VerbResult {
-    const context = Context.get();
-    const timestamp = context.timestamp;
-    
-    // Emit verb output event for the emote
-    const outputEvent = new VerbOutputEvent(roomId, [`${player} ${emote}`], timestamp);
-    generateEvent(JSON.stringify(outputEvent));
+    const timestamp = this.getTimestamp();
     
     return new VerbResult([], []);
   }
 
   // Core hook: Player executes a command
   on_command(roomId: string, player: string, commandText: string): VerbResult {
-    const context = Context.get();
-    const timestamp = context.timestamp;
+    const timestamp = this.getTimestamp();
     
     // Parse command
     const parts = commandText.split(' ');
@@ -158,8 +171,18 @@ export class GameKernel extends Contract {
         return this.handleSetDetail(roomId, player, args);
       case 'clear_detail':
         return this.handleClearDetail(roomId, player, args);
+      case 'take':
+        return this.handleTake(roomId, player, args);
+      case 'drop':
+        return this.handleDrop(roomId, player, args);
+      case 'inventory':
+        return this.handleInventory(player);
+      case 'stats':
+        return this.handleStats(player);
+      case 'give':
+        return this.handleGive(roomId, player, args);
       default:
-        return new VerbResult([`Unknown command: ${verb}. Try 'inspect', 'toggle_exit', 'set_detail', or 'clear_detail'.`], []);
+        return new VerbResult([`Unknown command: ${verb}. Try 'inspect', 'toggle_exit', 'set_detail', 'clear_detail', 'take', 'drop', 'inventory', 'stats', or 'give'.`], []);
     }
   }
 
@@ -187,6 +210,13 @@ export class GameKernel extends Contract {
       });
     }
     
+    if (room.items.size > 0) {
+      output.push('Items in room:');
+      room.items.forEach((description, item) => {
+        output.push(`  ${item}: ${description}`);
+      });
+    }
+    
     return new VerbResult(output, []);
   }
 
@@ -208,14 +238,10 @@ export class GameKernel extends Contract {
     if (room.exits.has(direction)) {
       room.exits.delete(direction);
       const effect = new Effect('ClearExit', direction);
-      const effectEvent = new RoomEffectEvent(roomId, [effect], Context.get().timestamp);
-      generateEvent(JSON.stringify(effectEvent));
       return new VerbResult([`Exit ${direction} removed.`], [effect]);
     } else {
       room.exits.set(direction, destination);
       const effect = new Effect('SetExit', JSON.stringify({ direction, destination }));
-      const effectEvent = new RoomEffectEvent(roomId, [effect], Context.get().timestamp);
-      generateEvent(JSON.stringify(effectEvent));
       return new VerbResult([`Exit ${direction} added to ${destination}.`], [effect]);
     }
   }
@@ -236,8 +262,6 @@ export class GameKernel extends Contract {
     
     room.details.set(key, value);
     const effect = new Effect('SetDetail', JSON.stringify({ key, value }));
-    const effectEvent = new RoomEffectEvent(roomId, [effect], Context.get().timestamp);
-    generateEvent(JSON.stringify(effectEvent));
     
     return new VerbResult([`Detail '${key}' set to '${value}'.`], [effect]);
   }
@@ -258,11 +282,148 @@ export class GameKernel extends Contract {
     if (room.details.has(key)) {
       room.details.delete(key);
       const effect = new Effect('ClearDetail', key);
-      const effectEvent = new RoomEffectEvent(roomId, [effect], Context.get().timestamp);
-      generateEvent(JSON.stringify(effectEvent));
       return new VerbResult([`Detail '${key}' cleared.`], [effect]);
     } else {
       return new VerbResult([`Detail '${key}' not found.`], []);
+    }
+  }
+
+  // Verb: Take an item from the room
+  private handleTake(roomId: string, player: string, args: string[]): VerbResult {
+    if (args.length < 1) {
+      return new VerbResult(['Usage: take <item>'], []);
+    }
+    
+    const item = args[0];
+    const room = this.rooms.get(roomId);
+    const playerState = this.players.get(player);
+    
+    if (!room || !playerState) {
+      return new VerbResult(['Room or player not found.'], []);
+    }
+    
+    if (!room.items.has(item)) {
+      return new VerbResult([`Item '${item}' not found in this room.`], []);
+    }
+    
+    const description = room.items.get(item)!;
+    room.items.delete(item);
+    playerState.inventory.set(item, description);
+    
+    const effect = new Effect('TakeItem', JSON.stringify({ item, description }));
+    
+    return new VerbResult([`You take the ${item}.`], [effect]);
+  }
+
+  // Verb: Drop an item in the room
+  private handleDrop(roomId: string, player: string, args: string[]): VerbResult {
+    if (args.length < 1) {
+      return new VerbResult(['Usage: drop <item>'], []);
+    }
+    
+    const item = args[0];
+    const room = this.rooms.get(roomId);
+    const playerState = this.players.get(player);
+    
+    if (!room || !playerState) {
+      return new VerbResult(['Room or player not found.'], []);
+    }
+    
+    if (!playerState.inventory.has(item)) {
+      return new VerbResult([`You don't have '${item}'.`], []);
+    }
+    
+    const description = playerState.inventory.get(item)!;
+    playerState.inventory.delete(item);
+    room.items.set(item, description);
+    
+    const effect = new Effect('DropItem', JSON.stringify({ item, description }));
+    
+    return new VerbResult([`You drop the ${item}.`], [effect]);
+  }
+
+  // Verb: Show player inventory
+  private handleInventory(player: string): VerbResult {
+    const playerState = this.players.get(player);
+    if (!playerState) {
+      return new VerbResult(['Player not found.'], []);
+    }
+    
+    const output: string[] = [`${player}'s inventory:`];
+    if (playerState.inventory.size === 0) {
+      output.push('  (empty)');
+    } else {
+      playerState.inventory.forEach((description, item) => {
+        output.push(`  ${item}: ${description}`);
+      });
+    }
+    
+    return new VerbResult(output, []);
+  }
+
+  // Verb: Show player stats
+  private handleStats(player: string): VerbResult {
+    const playerState = this.players.get(player);
+    if (!playerState) {
+      return new VerbResult(['Player not found.'], []);
+    }
+    
+    const output: string[] = [`${player}'s stats:`];
+    if (playerState.stats.size === 0) {
+      output.push('  (no stats recorded)');
+    } else {
+      playerState.stats.forEach((value, stat) => {
+        output.push(`  ${stat}: ${value}`);
+      });
+    }
+    
+    return new VerbResult(output, []);
+  }
+
+  // Verb: Give an item to another player
+  private handleGive(roomId: string, player: string, args: string[]): VerbResult {
+    if (args.length < 2) {
+      return new VerbResult(['Usage: give <player> <item>'], []);
+    }
+    
+    const targetPlayer = args[0];
+    const item = args[1];
+    const room = this.rooms.get(roomId);
+    const playerState = this.players.get(player);
+    const targetPlayerState = this.players.get(targetPlayer);
+    
+    if (!room || !playerState || !targetPlayerState) {
+      return new VerbResult(['Room or player not found.'], []);
+    }
+    
+    if (!room.players.includes(targetPlayer)) {
+      return new VerbResult([`${targetPlayer} is not in this room.`], []);
+    }
+    
+    if (!playerState.inventory.has(item)) {
+      return new VerbResult([`You don't have '${item}'.`], []);
+    }
+    
+    const description = playerState.inventory.get(item)!;
+    playerState.inventory.delete(item);
+    targetPlayerState.inventory.set(item, description);
+    
+    const effect = new Effect('GiveItem', JSON.stringify({ from: player, to: targetPlayer, item, description }));
+    
+    return new VerbResult([`You give the ${item} to ${targetPlayer}.`], [effect]);
+  }
+
+  // Helper: Handle room transitions
+  private handleRoomTransition(player: string, fromRoomId: string, toRoomId: string): void {
+    if (fromRoomId && fromRoomId !== toRoomId) {
+      const fromRoom = this.rooms.get(fromRoomId);
+      if (fromRoom) {
+        const playerIndex = fromRoom.players.indexOf(player);
+        if (playerIndex > -1) {
+          fromRoom.players.splice(playerIndex, 1);
+          fromRoom.lastUpdated = this.getTimestamp();
+        }
+      }
     }
   }
 
@@ -272,9 +433,19 @@ export class GameKernel extends Contract {
     return new VerbResult([`Special command '${command}' received.`], []);
   }
 
+  // Helper: Get current timestamp (simplified)
+  private getTimestamp(): u64 {
+    return 0; // In a real implementation, this would get the actual timestamp
+  }
+
   // Utility: Get room state (for external queries)
   get_room_state(roomId: string): RoomState | null {
     return this.rooms.get(roomId) || null;
+  }
+
+  // Utility: Get player state (for external queries)
+  get_player_state(player: string): PlayerState | null {
+    return this.players.get(player) || null;
   }
 
   // Utility: List all rooms
@@ -284,5 +455,14 @@ export class GameKernel extends Contract {
       roomIds.push(roomId);
     });
     return roomIds;
+  }
+
+  // Utility: List all players
+  list_players(): string[] {
+    const playerNames: string[] = [];
+    this.players.forEach((_, player) => {
+      playerNames.push(player);
+    });
+    return playerNames;
   }
 }

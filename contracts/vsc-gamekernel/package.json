@@ -1,27 +1,24 @@
 {
   "name": "vsc-gamekernel",
   "version": "0.0.1",
-  "description": "VSC smart contract for Leaf's verb runtime",
+  "description": "VSC smart contract for Leaf's verb runtime using Massa AssemblyScript",
   "type": "module",
-  "main": "contract-example.ts",
+  "main": "leaf-vsc-adapter.js",
   "scripts": {
-    "test": "ts-node --esm test-vsc.ts",
-    "build": "tsc",
-    "dev": "ts-node --esm contract-example.ts"
+    "test": "node test-leaf-vsc-integration.js",
+    "build": "asc assembly/index.ts --outFile dist/index.wasm --bindings esm",
+    "dev": "asc assembly/index.ts --outFile dist/index.wasm --bindings esm --watch",
+    "test:simple": "node simple-test-fixed.js",
+    "clean": "rm -rf dist node_modules package-lock.json"
   },
   "dependencies": {
-    "@hiveio/dhive": "^1.2.8",
-    "@vsc.eco/client": "^0.0.7",
-    "dag-jose-utils": "^4.0.0",
-    "dids": "^5.0.2",
-    "key-did-provider-ed25519": "^4.0.2",
-    "key-did-resolver": "^4.0.0",
-    "keychain-sdk": "^0.6.1"
+    "@hiveio/dhive": "^1.2.8"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "ts-node": "^10.9.0",
-    "typescript": "^5.0.0"
+    "@massalabs/massa-as-sdk": "^2.0.0",
+    "@massalabs/as-types": "^2.0.0",
+    "assemblyscript": "^0.27.0"
   },
   "keywords": [
     "vsc",
@@ -29,7 +26,9 @@
     "blockchain",
     "smart-contract",
     "game",
-    "leaf"
+    "leaf",
+    "massa",
+    "assemblyscript"
   ],
   "author": "Leaf Team",
   "license": "MIT"
