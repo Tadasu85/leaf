@@ -1,13 +1,36 @@
 {
   "name": "vsc-gamekernel",
   "version": "0.0.1",
-  "private": true,
-  "description": "VSC GameKernel contract for Leaf (spike)",
+  "description": "VSC smart contract for Leaf's verb runtime",
+  "type": "module",
+  "main": "contract-example.ts",
   "scripts": {
-    "build": "asc assembly/index.ts --target release",
-    "build:debug": "asc assembly/index.ts --target debug"
+    "test": "ts-node --esm test-vsc.ts",
+    "build": "tsc",
+    "dev": "ts-node --esm contract-example.ts"
+  },
+  "dependencies": {
+    "@hiveio/dhive": "^1.2.8",
+    "@vsc.eco/client": "^0.0.7",
+    "dag-jose-utils": "^4.0.0",
+    "dids": "^5.0.2",
+    "key-did-provider-ed25519": "^4.0.2",
+    "key-did-resolver": "^4.0.0",
+    "keychain-sdk": "^0.6.1"
   },
   "devDependencies": {
-    "assemblyscript": "^0.27.0"
-  }
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "vsc",
+    "hive",
+    "blockchain",
+    "smart-contract",
+    "game",
+    "leaf"
+  ],
+  "author": "Leaf Team",
+  "license": "MIT"
 }

@@ -47,6 +47,9 @@ export class GameState extends EventEmitter {
     if (config.runtime === 'vsc') {
       try {
         this.verbRuntime = new VSCAdapter();
+        if (!this.verbRuntime.isReady()) {
+          logger.warn('[GameState] VSC runtime not fully configured; continuing without it');
+        }
       } catch (e) {
         logger.error('[GameState] Failed to initialize VSCAdapter', e);
         this.verbRuntime = null;
@@ -281,6 +284,11 @@ export class GameState extends EventEmitter {
       this.isInitialConnection = false;
       
       // Room will be displayed when we receive the initial player list from the signaling server
+
+      // Notify about programmability availability
+      if (this.verbRuntime && !this.verbRuntime.isReady()) {
+        this.addOutputMessage('Note: Programmable verbs are currently unavailable. The runtime is not yet configured.', true);
+      }
       
     } catch (error) {
       this.isLoggingIn = false;
@@ -664,7 +672,7 @@ export class GameState extends EventEmitter {
   }
 
   private manageVerbRuntimeForRoom(): void {
-    if (!this.verbRuntime) return;
+    if (!this.verbRuntime || !this.verbRuntime.isReady()) return;
     // Unsubscribe previous
     if (this.vscUnsubscribe) {
       try { this.vscUnsubscribe(); } catch {}
@@ -784,7 +792,7 @@ export class GameState extends EventEmitter {
 
     // Invoke verb runtime hook
     const roomId = this.getCurrentRoomId();
-    if (this.verbRuntime && roomId) {
+    if (this.verbRuntime && this.verbRuntime.isReady() && roomId) {
       this.verbRuntime.onSay(roomId, this.player.username, message)
         .then(res => this.renderVerbResult(res))
         .catch(err => logger.error('[GameState] onSay error', err));
@@ -813,7 +821,7 @@ export class GameState extends EventEmitter {
 
     // Invoke verb runtime hook
     const roomId = this.getCurrentRoomId();
-    if (this.verbRuntime && roomId) {
+    if (this.verbRuntime && this.verbRuntime.isReady() && roomId) {
       this.verbRuntime.onEmote(roomId, this.player.username, emote)
         .then(res => this.renderVerbResult(res))
         .catch(err => logger.error('[GameState] onEmote error', err));
@@ -822,7 +830,7 @@ export class GameState extends EventEmitter {
 
   // Forward unknown commands to verb runtime; return true if handled
   public async handleUnknownCommand(text: string): Promise<boolean> {
-    if (!this.verbRuntime || !this.player || !this.currentRoom) return false;
+    if (!this.verbRuntime || !this.verbRuntime.isReady() || !this.player || !this.currentRoom) return false;
     const roomId = this.getCurrentRoomId();
     if (!roomId) return false;
     try {

@@ -77,10 +77,10 @@ const config: Config = {
   builders: ['raymonjohnstone'],
   runtime: 'vsc',
   vsc: {
-    rpcUrl: process.env.REACT_APP_VSC_RPC_URL || 'https://vsc-testnet.example/rpc',
-    wsUrl: process.env.REACT_APP_VSC_WS_URL || 'wss://vsc-testnet.example/ws',
-    contractAddress: process.env.REACT_APP_VSC_CONTRACT || 'vsc.contract.address',
-    network: (process.env.REACT_APP_VSC_NETWORK as 'testnet' | 'mainnet') || 'testnet'
+    rpcUrl: process.env.REACT_APP_VSC_RPC_URL || 'https://vsc.hive-engine.com/rpc',
+    wsUrl: process.env.REACT_APP_VSC_WS_URL || 'wss://vsc.hive-engine.com/ws',
+    contractAddress: process.env.REACT_APP_VSC_CONTRACT || '',
+    network: (process.env.REACT_APP_VSC_NETWORK as 'testnet' | 'mainnet') || 'mainnet'
   }
 };
 

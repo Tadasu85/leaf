@@ -14,6 +14,7 @@ export interface VerbResult {
 }
 
 export interface VerbRuntime {
+  isReady(): boolean;
   onEnter(roomId: string, player: string): Promise<VerbResult>;
   onLeave(roomId: string, player: string): Promise<VerbResult>;
   onSay(roomId: string, player: string, message: string): Promise<VerbResult>;

@@ -132,6 +132,19 @@ vsc: {
 runtime: 'vsc'; // fixed to VSC (no fallback)
 ```
 
+### Environment Variables
+
+To use the VSC verb runtime, set these environment variables in your `.env` file:
+
+```bash
+REACT_APP_VSC_RPC_URL=https://vsc.hive-engine.com/rpc
+REACT_APP_VSC_WS_URL=wss://vsc.hive-engine.com/ws
+REACT_APP_VSC_CONTRACT=your_contract_address_here
+REACT_APP_VSC_NETWORK=mainnet
+```
+
+**Important**: You must deploy the `contracts/vsc-gamekernel` contract to VSC and provide the resulting contract address in `REACT_APP_VSC_CONTRACT`.
+
 ## Deployment (for forks)
 
 1) Contract (VSC)

@@ -5,9 +5,14 @@ import { VerbRuntime, VerbResult, Effect } from './VerbRuntime';
 // Minimal VSC client stub for the spike; replace with real RPC/WS integration
 export class VSCAdapter implements VerbRuntime {
   private ws: WebSocket | null = null;
+  private isWsOpen = false;
   private subscriptions: Map<string, { onVerbOutput: (lines: string[]) => void; onRoomEffect: (effects: Effect[]) => void }> = new Map();
 
   constructor() {}
+
+  isReady(): boolean {
+    return Boolean(config.vsc && config.vsc.rpcUrl && config.vsc.wsUrl && config.vsc.contractAddress);
+  }
 
   async onEnter(roomId: string, player: string): Promise<VerbResult> {
     logger.debug('[VSCAdapter] onEnter', { roomId, player });
@@ -40,7 +45,9 @@ export class VSCAdapter implements VerbRuntime {
   ): () => void {
     this.ensureWs();
     this.subscriptions.set(roomId, handlers);
-    // In a real adapter, we'd send a subscribe message here
+    if (this.isWsOpen) {
+      this.sendSubscribe(roomId);
+    }
     return () => {
       this.subscriptions.delete(roomId);
       if (this.subscriptions.size === 0) {
@@ -51,18 +58,83 @@ export class VSCAdapter implements VerbRuntime {
 
   // Private helpers
   private async invoke(method: string, params: Record<string, unknown>): Promise<VerbResult> {
-    // TODO: Replace with real VSC RPC call (signed via Keychain RC)
-    void method; void params;
-    return { output: [], effects: [] };
+    try {
+      const payload = {
+        jsonrpc: '2.0',
+        id: `${Date.now()}:${Math.random()}`,
+        method: 'contract_invoke',
+        params: {
+          contract: config.vsc?.contractAddress,
+          entry: method,
+          args: params
+          // NOTE: In a full implementation, include caller identity/signature (Hive Keychain RC)
+        }
+      };
+      const res = await fetch(config.vsc!.rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        logger.warn('[VSCAdapter] RPC non-OK', res.status, res.statusText);
+        return { output: [], effects: [] };
+      }
+      const data = await res.json().catch(() => null as any);
+      const result = data?.result || {};
+      const output = Array.isArray(result.output) ? result.output as string[] : [];
+      
+      // Convert VSC Effect format to our Effect format
+      const vscEffects = Array.isArray(result.effects) ? result.effects : [];
+      const effects: Effect[] = vscEffects.map((vscEffect: any) => {
+        if (vscEffect.type && vscEffect.data) {
+          // Handle different effect types based on the contract's Effect structure
+          switch (vscEffect.type) {
+            case 'SetDetail':
+              try {
+                const data = JSON.parse(vscEffect.data);
+                return { type: 'SetDetail', key: data.key, value: data.value };
+              } catch {
+                return { type: 'SetDetail', key: vscEffect.data, value: '' };
+              }
+            case 'ClearDetail':
+              return { type: 'ClearDetail', key: vscEffect.data };
+            case 'SetExit':
+              try {
+                const data = JSON.parse(vscEffect.data);
+                return { type: 'SetExit', direction: data.direction, permlink: data.destination };
+              } catch {
+                return { type: 'SetExit', direction: vscEffect.data, permlink: '' };
+              }
+            case 'ClearExit':
+              return { type: 'ClearDetail', key: vscEffect.data }; // Reuse ClearDetail for exits
+            case 'Broadcast':
+              return { type: 'Broadcast', text: vscEffect.data };
+            default:
+              return { type: 'Broadcast', text: `Effect: ${vscEffect.type} - ${vscEffect.data}` };
+          }
+        }
+        return { type: 'Broadcast', text: 'Unknown effect' };
+      });
+      
+      return { output, effects };
+    } catch (e) {
+      logger.error('[VSCAdapter] RPC invoke failed', e);
+      return { output: [], effects: [] };
+    }
   }
 
   private ensureWs() {
     if (this.ws) return;
     try {
       if (!('WebSocket' in window)) return;
-      this.ws = new WebSocket(config.vsc.wsUrl);
+      this.ws = new WebSocket(config.vsc!.wsUrl);
       this.ws.onopen = () => {
         logger.debug('[VSCAdapter] WS connected');
+        this.isWsOpen = true;
+        // Re-subscribe to all current rooms
+        this.subscriptions.forEach((_handlers, roomId) => {
+          this.sendSubscribe(roomId);
+        });
       };
       this.ws.onmessage = (ev) => {
         try {
@@ -82,6 +154,7 @@ export class VSCAdapter implements VerbRuntime {
       this.ws.onclose = () => {
         logger.debug('[VSCAdapter] WS closed');
         this.ws = null;
+        this.isWsOpen = false;
       };
       this.ws.onerror = (e) => {
         logger.error('[VSCAdapter] WS error', e);
@@ -96,6 +169,21 @@ export class VSCAdapter implements VerbRuntime {
       this.ws?.close();
     } catch {}
     this.ws = null;
+    this.isWsOpen = false;
+  }
+
+  private sendSubscribe(roomId: string) {
+    if (!this.ws || !this.isWsOpen) return;
+    try {
+      const msg = {
+        type: 'subscribe',
+        contract: config.vsc?.contractAddress,
+        roomId
+      };
+      this.ws.send(JSON.stringify(msg));
+    } catch (e) {
+      logger.error('[VSCAdapter] sendSubscribe failed', e);
+    }
   }
 }
 
