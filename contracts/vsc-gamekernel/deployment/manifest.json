@@ -1,0 +1,12 @@
+{
+  "name": "leaf-game-kernel-v1",
+  "version": "0.0.1",
+  "description": "Leaf Game VSC Integration",
+  "type": "vsc-contract",
+  "wasm": "index.wasm",
+  "bindings": "index.js",
+  "entrypoint": "GameKernel",
+  "network": "testnet",
+  "author": "Leaf Team",
+  "license": "MIT"
+}

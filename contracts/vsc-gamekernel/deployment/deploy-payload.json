@@ -1,0 +1,6 @@
+{
+  "name": "leaf-game-kernel-v1",
+  "version": "0.0.1",
+  "description": "Leaf Game VSC Integration",
+  "network": "testnet"
+}

@@ -4,8 +4,11 @@ export type Effect =
   | { type: 'SetDetail'; key: string; value: string }
   | { type: 'ClearDetail'; key: string }
   | { type: 'SetExit'; direction: string; permlink: string }
+  | { type: 'ClearExit'; direction: string }
+  | { type: 'TakeItem'; item: string; description: string }
+  | { type: 'DropItem'; item: string; description: string }
+  | { type: 'GiveItem'; from: string; to: string; item: string; description: string }
   | { type: 'Broadcast'; text: string }
-  | { type: 'GiveItem'; toPlayer: string; itemId: string }
   | { type: 'MovePlayer'; player: string; permlink: string };
 
 export interface VerbResult {
@@ -25,7 +28,14 @@ export interface VerbRuntime {
     handlers: {
       onVerbOutput(lines: string[]): void;
       onRoomEffect(effects: Effect[]): void;
+      onPlayerEffect?: (effects: Effect[]): void;
     }
+  ): () => void; // unsubscribe
+  
+  // Subscribe to player-specific events
+  subscribeToPlayer?(
+    player: string,
+    handlers: { onPlayerEffect(effects: Effect[]): void }
   ): () => void; // unsubscribe
 }
 

@@ -6,7 +6,14 @@ import { VerbRuntime, VerbResult, Effect } from './VerbRuntime';
 export class VSCAdapter implements VerbRuntime {
   private ws: WebSocket | null = null;
   private isWsOpen = false;
-  private subscriptions: Map<string, { onVerbOutput: (lines: string[]) => void; onRoomEffect: (effects: Effect[]) => void }> = new Map();
+  private subscriptions: Map<string, { 
+    onVerbOutput: (lines: string[]) => void; 
+    onRoomEffect: (effects: Effect[]) => void;
+    onPlayerEffect?: (effects: Effect[]) => void;
+  }> = new Map();
+  private playerSubscriptions: Map<string, { 
+    onPlayerEffect: (effects: Effect[]) => void;
+  }> = new Map();
 
   constructor() {}
 
@@ -41,7 +48,11 @@ export class VSCAdapter implements VerbRuntime {
 
   subscribe(
     roomId: string,
-    handlers: { onVerbOutput(lines: string[]): void; onRoomEffect(effects: Effect[]): void }
+    handlers: { 
+      onVerbOutput(lines: string[]): void; 
+      onRoomEffect(effects: Effect[]): void;
+      onPlayerEffect?: (effects: Effect[]) => void;
+    }
   ): () => void {
     this.ensureWs();
     this.subscriptions.set(roomId, handlers);
@@ -53,6 +64,21 @@ export class VSCAdapter implements VerbRuntime {
       if (this.subscriptions.size === 0) {
         this.teardownWs();
       }
+    };
+  }
+
+  // Subscribe to player-specific events
+  subscribeToPlayer(
+    player: string,
+    handlers: { onPlayerEffect(effects: Effect[]): void }
+  ): () => void {
+    this.ensureWs();
+    this.playerSubscriptions.set(player, handlers);
+    if (this.isWsOpen) {
+      this.sendPlayerSubscribe(player);
+    }
+    return () => {
+      this.playerSubscriptions.delete(player);
     };
   }
 
@@ -103,10 +129,31 @@ export class VSCAdapter implements VerbRuntime {
                 const data = JSON.parse(vscEffect.data);
                 return { type: 'SetExit', direction: data.direction, permlink: data.destination };
               } catch {
-                return { type: 'SetExit', direction: vscEffect.data, permlink: '' };
+                return { type: 'SetExit', direction: data.direction, permlink: data.destination };
               }
             case 'ClearExit':
-              return { type: 'ClearDetail', key: vscEffect.data }; // Reuse ClearDetail for exits
+              return { type: 'ClearExit', direction: vscEffect.data };
+            case 'TakeItem':
+              try {
+                const data = JSON.parse(vscEffect.data);
+                return { type: 'TakeItem', item: data.item, description: data.description };
+              } catch {
+                return { type: 'TakeItem', item: vscEffect.data, description: '' };
+              }
+            case 'DropItem':
+              try {
+                const data = JSON.parse(vscEffect.data);
+                return { type: 'DropItem', item: data.item, description: data.description };
+              } catch {
+                return { type: 'DropItem', item: vscEffect.data, description: '' };
+              }
+            case 'GiveItem':
+              try {
+                const data = JSON.parse(vscEffect.data);
+                return { type: 'GiveItem', from: data.from, to: data.to, item: data.item, description: data.description };
+              } catch {
+                return { type: 'GiveItem', from: '', to: '', item: vscEffect.data, description: '' };
+              }
             case 'Broadcast':
               return { type: 'Broadcast', text: vscEffect.data };
             default:
@@ -135,17 +182,34 @@ export class VSCAdapter implements VerbRuntime {
         this.subscriptions.forEach((_handlers, roomId) => {
           this.sendSubscribe(roomId);
         });
+        // Re-subscribe to all current players
+        this.playerSubscriptions.forEach((_handlers, player) => {
+          this.sendPlayerSubscribe(player);
+        });
       };
       this.ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data as string);
-          const { roomId, type } = msg || {};
-          const sub = roomId ? this.subscriptions.get(roomId) : null;
-          if (!sub) return;
-          if (type === 'VerbOutputEvent' && Array.isArray(msg.lines)) {
-            sub.onVerbOutput(msg.lines);
-          } else if (type === 'RoomEffectEvent' && Array.isArray(msg.effects)) {
-            sub.onRoomEffect(msg.effects as Effect[]);
+          const { roomId, player, type } = msg || {};
+          
+          // Handle room-based events
+          if (roomId) {
+            const sub = this.subscriptions.get(roomId);
+            if (sub) {
+              if (type === 'VerbOutputEvent' && Array.isArray(msg.lines)) {
+                sub.onVerbOutput(msg.lines);
+              } else if (type === 'RoomEffectEvent' && Array.isArray(msg.effects)) {
+                sub.onRoomEffect(msg.effects as Effect[]);
+              }
+            }
+          }
+          
+          // Handle player-based events
+          if (player) {
+            const playerSub = this.playerSubscriptions.get(player);
+            if (playerSub && type === 'PlayerEffectEvent' && Array.isArray(msg.effects)) {
+              playerSub.onPlayerEffect(msg.effects as Effect[]);
+            }
           }
         } catch (e) {
           logger.error('[VSCAdapter] WS message parse error', e);
@@ -183,6 +247,20 @@ export class VSCAdapter implements VerbRuntime {
       this.ws.send(JSON.stringify(msg));
     } catch (e) {
       logger.error('[VSCAdapter] sendSubscribe failed', e);
+    }
+  }
+
+  private sendPlayerSubscribe(player: string) {
+    if (!this.ws || !this.isWsOpen) return;
+    try {
+      const msg = {
+        type: 'subscribe_player',
+        contract: config.vsc?.contractAddress,
+        player
+      };
+      this.ws.send(JSON.stringify(msg));
+    } catch (e) {
+      logger.error('[VSCAdapter] sendPlayerSubscribe failed', e);
     }
   }
 }

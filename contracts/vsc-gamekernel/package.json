@@ -3,26 +3,26 @@
   "version": "0.0.1",
   "description": "VSC smart contract for Leaf's verb runtime using Massa AssemblyScript",
   "type": "module",
-  "main": "leaf-vsc-adapter.js",
+  "main": "core/leaf-vsc-adapter.js",
   "scripts": {
-    "test": "node test-leaf-vsc-integration.js",
-    "build": "asc assembly/index.ts --outFile dist/index.wasm --bindings esm",
-    "dev": "asc assembly/index.ts --outFile dist/index.wasm --bindings esm --watch",
-    "test:simple": "node simple-test-fixed.js",
-    "clean": "rm -rf dist node_modules package-lock.json"
+    "test": "node tests/test-leaf-vsc-integration.js",
+    "test:simple": "node tests/test-simple-integration.js",
+    "build": "asc core/assembly/index.ts --outFile dist/index.wasm --bindings esm",
+    "dev": "asc core/assembly/index.ts --outFile dist/index.wasm --bindings esm --watch",
+    "clean": "rm -rf dist node_modules package-lock.json",
+    "install:clean": "npm install --no-package-lock",
+    "organize": "mkdir -p core working tests docs dist"
   },
   "dependencies": {
-    "@hiveio/dhive": "^1.2.8"
+    "axios": "^1.11.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@massalabs/massa-as-sdk": "^2.0.0",
     "@massalabs/as-types": "^2.0.0",
+    "@massalabs/massa-as-sdk": "^2.0.0",
     "assemblyscript": "^0.27.0"
   },
   "keywords": [
     "vsc",
-    "hive",
     "blockchain",
     "smart-contract",
     "game",

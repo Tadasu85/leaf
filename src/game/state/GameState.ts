@@ -13,7 +13,7 @@ import config from '../../config';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
-import { VSCAdapter } from '../verbs/VSCAdapter';
+import { SimpleVSCAdapter } from '../verbs/SimpleVSCAdapter';
 import type { VerbRuntime, VerbResult, Effect } from '../verbs/VerbRuntime';
 
 export class GameState extends EventEmitter {
@@ -46,12 +46,14 @@ export class GameState extends EventEmitter {
     // Initialize verb runtime if configured
     if (config.runtime === 'vsc') {
       try {
-        this.verbRuntime = new VSCAdapter();
+        this.verbRuntime = new SimpleVSCAdapter();
         if (!this.verbRuntime.isReady()) {
           logger.warn('[GameState] VSC runtime not fully configured; continuing without it');
+        } else {
+          logger.info('[GameState] Simple VSC runtime initialized successfully');
         }
       } catch (e) {
-        logger.error('[GameState] Failed to initialize VSCAdapter', e);
+        logger.error('[GameState] Failed to initialize SimpleVSCAdapter', e);
         this.verbRuntime = null;
       }
     }

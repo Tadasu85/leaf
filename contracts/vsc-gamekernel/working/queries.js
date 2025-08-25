@@ -1,0 +1,9 @@
+export const submitTxQuery = `
+  mutation SubmitTransactionV1($tx: String!, $sig: String!) {
+    submitTransactionV1(tx: $tx, sig: $sig) {
+      id
+      status
+      error
+    }
+  }
+`
