@@ -251,7 +251,14 @@ export class GameState extends EventEmitter {
       // Load the player's current room using bulk data (skip display during login)
       // Admin users don't have a location, so skip room loading
       if (this.player.location) {
-        await this.loadRoom(this.player.location, true); // Skip display during login
+        await this.loadRoom(this.player.location, true);
+        // If the last known location is no longer in the game map (e.g. move_to op fell
+        // outside account history window, or room was deregistered), fall back to the
+        // starting room. This is in-memory only — no blockchain write occurs.
+        if (!this.currentRoom && lastLocation) {
+          this.player.location = config.game.startRoom;
+          await this.loadRoom(this.player.location, true);
+        }
       }
       
       // Emit player changed event
