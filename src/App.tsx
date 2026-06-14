@@ -510,7 +510,7 @@ function App() {
       console.warn = originalWarn;
       console.error = originalError;
     };
-  }, []);
+  }, [addToDebugLogs]);
 
   return (
     <ErrorBoundary

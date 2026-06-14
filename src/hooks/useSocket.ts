@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState, useMemo } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { GameState } from '../game/state/GameState';
 import logger from '../utils/Logger';
 
