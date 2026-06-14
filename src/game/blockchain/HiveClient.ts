@@ -132,7 +132,13 @@ export class HiveClient extends EventEmitter {
       return this.loadRoomDataLegacy(location);
     }
 
-    return this.bulkLoader.getRoomData(location);
+    const result = await this.bulkLoader.getRoomData(location);
+    if (!result) {
+      // Room not in game map (e.g. starting room not registered, or stale move_to location)
+      // Fall back to direct blockchain fetch
+      return this.loadRoomDataLegacy(location);
+    }
+    return result;
   }
 
   /**
