@@ -183,7 +183,7 @@ function App() {
     const baseGreeting = [
       "If you've arrived here by accident and do not have a Hive account. ",
       "Please make your way to https://ecency.com/ to create an account.",
-      "Otherwise you may proceed with a login command by typing 'login' 'your hive username'"
+      "Otherwise you may proceed by typing 'login <username>', 'connect <username>', or just '<username>'"
     ];
     
     if (isMobileDevice) {
@@ -314,8 +314,18 @@ function App() {
   }, [gameState]);
 
   const handleTextEnteredWrapper = useCallback(async (text: string) => {
-    if (text.startsWith('login ')) {
-      const username = text.split(' ')[1];
+    const keyword = !isSignedIn && text.match(/^(login|connect)(\s+\S+)?$/i);
+    if (keyword && !keyword[2]) {
+      addErrorMessage(`Please provide a username: ${keyword[1].toLowerCase()} <username>`);
+      return;
+    }
+    const loginMatch = !isSignedIn && (
+      text.match(/^login\s+(\S+)$/i) ||
+      text.match(/^connect\s+(\S+)$/i) ||
+      text.match(/^(\S+)$/)
+    );
+    if (loginMatch) {
+      const username = loginMatch[1];
       if (!username) {
         addErrorMessage('Please provide a username: login <username>');
         return;
@@ -441,7 +451,7 @@ function App() {
         handleGlobalError(error instanceof Error ? error : new Error(String(error)), 'Command failed');
       }
     }
-  }, [keychain, updateUserProfile, login, gameState, isBuilder, addErrorMessage, addInfoMessage, handleCommand, handleGlobalError]);
+  }, [keychain, updateUserProfile, login, gameState, isBuilder, isSignedIn, addErrorMessage, addInfoMessage, handleCommand, handleGlobalError]);
 
   const handleSignOut = useCallback(() => {
     setUsername(null);
