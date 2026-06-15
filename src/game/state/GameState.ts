@@ -722,12 +722,8 @@ export class GameState extends EventEmitter {
       // Mark that we've received the initial player list
       if (!this.hasReceivedInitialPlayerList) {
         this.hasReceivedInitialPlayerList = true;
-        logger.debug('[GameState] Initial player list received, now displaying room');
-        // Display the room now that we have the player list
-        this.displayRoom();
-      } else if (oldPlayers.length === 0 && players.length > 0 && !this.isLoggingIn) {
-        // For subsequent updates, refresh the room display to show existing players
-        logger.debug('[GameState] Player list updated, refreshing room display');
+      } else if (!this.isLoggingIn && players.filter(p => p !== this.player?.username).length > oldPlayers.filter(p => p !== this.player?.username).length) {
+        logger.debug('[GameState] Other players found on socket connect, refreshing room display');
         this.refreshRoomDisplay();
       }
     }
