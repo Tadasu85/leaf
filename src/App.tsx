@@ -182,20 +182,20 @@ function App() {
     
     const baseGreeting = [
       "If you've arrived here by accident and do not have a Hive account. ",
-      "Please make your way to https://ecency.com/ to create an account.",
+      `Please make your way to [ecency.com/signup](https://ecency.com/signup/free?referral=${config.game.account}) or [hivedapps.com](https://hivedapps.com/) to create an account.`,
       "Otherwise you may proceed by typing 'login <username>', 'connect <username>', or just '<username>'"
     ];
     
     if (isMobileDevice) {
       return [
         ...baseGreeting,
-        "You will need the Hive Keychain app installed on your mobile device and your account added.",
+        "You will need the [Hive Keychain](https://hive-keychain.com/) app installed on your mobile device and your account added.",
         "If this is successful you will see your username in the top right."
       ];
     } else {
       return [
         ...baseGreeting,
-        "You will also need the hive keychain extension installed and the account added.",
+        "You will also need the [Hive Keychain](https://hive-keychain.com/) extension installed and your account added.",
         "If this is successful you will see your username in the top right."
       ];
     }
