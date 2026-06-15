@@ -36,6 +36,12 @@ interface BuildRequest {
   timestamp: number;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;
+  timeEvent?: {
+    type: string;
+    intervalBlocks: number;
+    startBlock?: number;
+    phases: any[];
+  } | null;
 }
 
 const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onClose, username, buildApprovalQueue, onError }) => {
@@ -88,14 +94,31 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
       const currentGameData = currentMetadata.egodeathgamedata || {};
       const currentRooms = currentGameData.rooms_authors_exits || {};
 
+      // Get current block number so time-event rooms start their schedule from approval
+      let approvalBlock = 0;
+      try {
+        approvalBlock = await client.blockchain.getCurrentBlockNum();
+      } catch (error) {
+        logger.warn('[Queue Modal] Could not fetch current block number for startBlock:', error);
+      }
+
+      // Build the new room entry — include time-event config if the builder specified one
+      const newRoomEntry: any = {
+        author: request.newRoom.author,
+        exits: request.exits.fromNewRoom
+      };
+
+      if (request.timeEvent) {
+        newRoomEntry.timeEvent = {
+          ...request.timeEvent,
+          startBlock: request.timeEvent.startBlock || approvalBlock
+        };
+      }
+
       // Create updated rooms object - add the new room with proper exits
       const updatedRooms = {
         ...currentRooms,
-        // Add new room with exits from the connection info
-        [request.newRoom.permlink]: {
-          author: request.newRoom.author,
-          exits: request.exits.fromNewRoom
-        },
+        [request.newRoom.permlink]: newRoomEntry,
         // Update the current room's exits to point to the new room
         [request.room.permlink]: {
           author: currentRooms[request.room.permlink]?.author || request.room.author,

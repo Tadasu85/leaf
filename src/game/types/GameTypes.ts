@@ -14,10 +14,11 @@ export interface Player {
 export interface GameMap {
   [key: string]: {
     author: string;
-    permlink: string;
-    title: string;
-    description: string;
+    permlink?: string;
+    title?: string;
+    description?: string;
     exits: Record<string, string>;
+    timeEvent?: StoredTimeEventConfig;
   };
 }
 
@@ -42,13 +43,17 @@ export interface RoomData {
   timeEventConfig?: TimeEventConfig;
 }
 
-// New types for blockchain-based time events
-export interface TimeEventConfig {
+// Stored in blockchain (game account metadata) — no runtime state
+export interface StoredTimeEventConfig {
   type: 'ferry' | 'market' | 'weather' | 'custom';
-  intervalBlocks: number; // How many blocks between changes
-  lastChangeBlock: number; // Last block when the event changed
-  currentPhase: number; // Current phase/state of the event
+  intervalBlocks: number;
+  startBlock: number; // Block at which the phase schedule begins (defaults to approval block)
   phases: TimeEventPhase[];
+}
+
+// Runtime representation — adds currentPhase computed from block number
+export interface TimeEventConfig extends StoredTimeEventConfig {
+  currentPhase: number;
 }
 
 export interface TimeEventPhase {
@@ -56,13 +61,12 @@ export interface TimeEventPhase {
   name: string;
   description: string;
   exits: Record<string, string>;
-  duration: number; // Duration in blocks
+  duration?: number; // Optional per-phase override; if absent, intervalBlocks is used
 }
 
 export interface BlockchainTimeEvent {
   type: 'timeEvent';
   roomPermlink: string;
-  author: string;
   currentBlock: number;
   eventType: string;
   phase: number;

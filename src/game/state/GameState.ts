@@ -1,12 +1,11 @@
 import { EventEmitter } from 'events';
-import { 
-  Player, 
-  GameMap, 
-  Location, 
+import {
+  Player,
+  GameMap,
+  Location,
   GameOutputMessage,
   RoomData,
   TimeEventConfig,
-  TimeEventPhase,
   BlockchainTimeEvent
 } from '../types/GameTypes';
 import config from '../../config';
@@ -29,7 +28,6 @@ export class GameState extends EventEmitter {
   private isProcessingMovement: boolean = false;
   private isBulkDataLoaded: boolean = false;
   private lastOptimisticRoomKey: string | null = null;
-  private isInitialConnection: boolean = false;
   private hasReceivedInitialPlayerList: boolean = false;
   private timeEventRooms: Map<string, TimeEventConfig> = new Map();
   private disconnectDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -90,86 +88,6 @@ export class GameState extends EventEmitter {
     this.timeEventRooms.delete(roomPermlink);
     this.hiveClient.unregisterTimeEventRoom(roomPermlink);
     logger.debug(`Unregistered time event room in GameState: ${roomPermlink}`);
-  }
-
-  /**
-   * Create a ferry room with time-based changing exits
-   */
-  public createFerryRoom(
-    roomPermlink: string,
-    title: string,
-    description: string,
-    intervalBlocks: number = 100, // Default: change every 100 blocks (~5 minutes)
-    startPhase: number = 0
-  ): void {
-    const ferryPhases: TimeEventPhase[] = [
-      {
-        phase: 0,
-        name: "Docked at Port A",
-        description: "The ferry is docked at Port A, ready to depart.",
-        exits: {
-          "north": "port-a-permlink",
-          "board": "ferry-interior-permlink"
-        },
-        duration: intervalBlocks
-      },
-      {
-        phase: 1,
-        name: "Departing Port A",
-        description: "The ferry is departing from Port A, heading towards Port B.",
-        exits: {
-          "board": "ferry-interior-permlink"
-        },
-        duration: intervalBlocks
-      },
-      {
-        phase: 2,
-        name: "At Sea",
-        description: "The ferry is sailing across the open water.",
-        exits: {
-          "board": "ferry-interior-permlink"
-        },
-        duration: intervalBlocks
-      },
-      {
-        phase: 3,
-        name: "Arriving at Port B",
-        description: "The ferry is approaching Port B.",
-        exits: {
-          "board": "ferry-interior-permlink"
-        },
-        duration: intervalBlocks
-      },
-      {
-        phase: 4,
-        name: "Docked at Port B",
-        description: "The ferry is docked at Port B, ready to depart.",
-        exits: {
-          "south": "port-b-permlink",
-          "board": "ferry-interior-permlink"
-        },
-        duration: intervalBlocks
-      },
-      {
-        phase: 5,
-        name: "Departing Port B",
-        description: "The ferry is departing from Port B, heading towards Port A.",
-        exits: {
-          "board": "ferry-interior-permlink"
-        },
-        duration: intervalBlocks
-      }
-    ];
-
-    const timeEventConfig: TimeEventConfig = {
-      type: 'ferry',
-      intervalBlocks,
-      lastChangeBlock: 0, // Will be set when first block is processed
-      currentPhase: startPhase,
-      phases: ferryPhases
-    };
-
-    this.registerTimeEventRoom(roomPermlink, timeEventConfig);
   }
 
   /**
@@ -266,13 +184,7 @@ export class GameState extends EventEmitter {
       
       // Mark login as complete
       this.isLoggingIn = false;
-      
-      // Set initial connection flag
-      this.isInitialConnection = true;
-      
-      // Clear the initial connection flag immediately - no delay needed since signaling server issues are fixed
-      this.isInitialConnection = false;
-      
+
       // Room will be displayed when we receive the initial player list from the signaling server
       
     } catch (error) {
@@ -353,11 +265,6 @@ export class GameState extends EventEmitter {
 
     // During login, be more strict about suppressing displays
     if (this.isLoggingIn) {
-      return;
-    }
-
-    // During initial connection after login, suppress socket-triggered displays
-    if (this.isInitialConnection) {
       return;
     }
 
@@ -796,11 +703,6 @@ export class GameState extends EventEmitter {
     return this.isLoggingIn;
   }
 
-  // Method to check if in initial connection phase
-  public getIsInitialConnection(): boolean {
-    return this.isInitialConnection;
-  }
-
   // Method to update room players (called by socket events)
   public updateRoomPlayers(players: string[]): void {
     if (this.currentRoom) {
@@ -883,7 +785,6 @@ export class GameState extends EventEmitter {
     this.isProcessingMovement = false;
     this.isBulkDataLoaded = false;
     this.hasNotifiedChatOffline = false;
-    this.isInitialConnection = false;
     this.hasReceivedInitialPlayerList = false;
     this.lastDisplayedRoom = null;
     this.lastOptimisticRoomKey = null;

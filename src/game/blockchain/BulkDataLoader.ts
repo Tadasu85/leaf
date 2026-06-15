@@ -1,5 +1,5 @@
 import { Client } from '@hiveio/dhive';
-import { GameMap, RoomData, Location } from '../types/GameTypes';
+import { GameMap, RoomData, Location, TimeEventConfig } from '../types/GameTypes';
 import config from '../../config';
 import logger from '../../utils/Logger';
 
@@ -21,6 +21,7 @@ export class BulkDataLoader {
   private client: Client;
   private roomCache: Map<string, CachedRoomData> = new Map();
   private gameMap: GameMap = {};
+  private timeEventRooms: Map<string, TimeEventConfig> = new Map();
   private maxCacheSize: number;
   private enableCompression: boolean;
   private loadRoomDetails: boolean;
@@ -53,6 +54,17 @@ export class BulkDataLoader {
       }
 
       this.gameMap = parsedGameInfo.egodeathgamedata.rooms_authors_exits;
+
+      // Discover time-event rooms from the game map
+      this.timeEventRooms.clear();
+      for (const [permlink, roomInfo] of Object.entries(this.gameMap)) {
+        if (roomInfo.timeEvent) {
+          this.timeEventRooms.set(permlink, {
+            ...roomInfo.timeEvent,
+            currentPhase: 0 // Initialised to 0; HiveClient will compute correct phase from block number
+          });
+        }
+      }
 
       // Only load essential rooms (starting room and nearby) for immediate access
       await this.loadEssentialRooms();
@@ -342,5 +354,12 @@ export class BulkDataLoader {
    */
   getGameMap(): GameMap {
     return this.gameMap;
+  }
+
+  /**
+   * Get time-event rooms discovered during bulk load
+   */
+  getTimeEventRooms(): Map<string, TimeEventConfig> {
+    return this.timeEventRooms;
   }
 } 

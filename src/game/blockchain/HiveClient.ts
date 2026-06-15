@@ -60,47 +60,37 @@ export class HiveClient extends EventEmitter {
   }
 
   /**
-   * Process time-based events for a specific block
+   * Compute the current phase for a time-event room deterministically from block number.
+   * Every client at the same block number will compute the same phase.
    */
-  private async processTimeEvents(blockNumber: number): Promise<void> {
-    for (const [roomPermlink, config] of this.timeEventRooms.entries()) {
-      // Initialize lastChangeBlock if it's 0 (first time)
-      if (config.lastChangeBlock === 0) {
-        const newConfig: TimeEventConfig = {
-          ...config,
-          lastChangeBlock: blockNumber
-        };
-        this.timeEventRooms.set(roomPermlink, newConfig);
-        logger.debug(`Initialized time event for room ${roomPermlink} at block ${blockNumber}`);
-        continue;
-      }
-      
-      const blocksSinceLastChange = blockNumber - config.lastChangeBlock;
-      
-      if (blocksSinceLastChange >= config.intervalBlocks) {
-        // Time to change the event
-        const nextPhase = (config.currentPhase + 1) % config.phases.length;
-        const newConfig: TimeEventConfig = {
-          ...config,
-          lastChangeBlock: blockNumber,
-          currentPhase: nextPhase
-        };
-        
-        this.timeEventRooms.set(roomPermlink, newConfig);
-        
-        // Emit time event
+  private computePhase(config: TimeEventConfig, blockNumber: number): number {
+    if (blockNumber < config.startBlock || config.startBlock === 0) return 0;
+    return Math.floor((blockNumber - config.startBlock) / config.intervalBlocks) % config.phases.length;
+  }
+
+  /**
+   * Process time-based events for a specific block.
+   * Phase is derived purely from block number — no mutable state needed.
+   */
+  private processTimeEvents(blockNumber: number): void {
+    for (const [roomPermlink, timeConfig] of this.timeEventRooms.entries()) {
+      const newPhase = this.computePhase(timeConfig, blockNumber);
+
+      if (newPhase !== timeConfig.currentPhase) {
+        const updatedConfig: TimeEventConfig = { ...timeConfig, currentPhase: newPhase };
+        this.timeEventRooms.set(roomPermlink, updatedConfig);
+
         const timeEvent: BlockchainTimeEvent = {
           type: 'timeEvent',
           roomPermlink,
-          author: config.phases[nextPhase]?.name || 'Unknown',
           currentBlock: blockNumber,
-          eventType: config.type,
-          phase: nextPhase,
+          eventType: updatedConfig.type,
+          phase: newPhase,
           timestamp: new Date().toISOString()
         };
-        
+
         this.emit('timeEventDetected', timeEvent);
-        logger.debug(`Time event triggered for room ${roomPermlink}: phase ${nextPhase}`);
+        logger.debug(`Time event phase change for room ${roomPermlink}: ${timeConfig.currentPhase} → ${newPhase}`);
       }
     }
   }
@@ -116,6 +106,28 @@ export class HiveClient extends EventEmitter {
     try {
       await this.bulkLoader.loadAllGameData();
       this.isBulkDataLoaded = true;
+
+      // Auto-register time-event rooms discovered during bulk load
+      const discovered = this.bulkLoader.getTimeEventRooms();
+      if (discovered.size > 0) {
+        try {
+          const currentBlock = await this.client.blockchain.getCurrentBlockNum();
+          this.lastProcessedBlock = currentBlock;
+
+          for (const [permlink, timeConfig] of discovered.entries()) {
+            const initialPhase = this.computePhase(timeConfig, currentBlock);
+            this.timeEventRooms.set(permlink, { ...timeConfig, currentPhase: initialPhase });
+            logger.debug(`Registered time-event room ${permlink}, initial phase ${initialPhase} at block ${currentBlock}`);
+          }
+        } catch (error) {
+          // Non-fatal — phases will be corrected once block streaming begins
+          logger.warn('[HiveClient] Could not fetch current block for time-event initialisation:', error);
+          for (const [permlink, timeConfig] of discovered.entries()) {
+            this.timeEventRooms.set(permlink, timeConfig);
+          }
+        }
+      }
+
       return this.bulkLoader.getGameMap();
     } catch (error) {
       logger.error('Error loading game data:', error);
@@ -382,7 +394,7 @@ export class HiveClient extends EventEmitter {
         // Process time events for each new block
         if (operation.block_num && operation.block_num > this.lastProcessedBlock) {
           this.lastProcessedBlock = operation.block_num;
-          await this.processTimeEvents(operation.block_num);
+          this.processTimeEvents(operation.block_num);
         }
         
         // Check if this is a custom_json operation for our game

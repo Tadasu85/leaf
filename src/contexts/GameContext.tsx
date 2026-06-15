@@ -9,6 +9,7 @@ import {
 } from '../game/types/GameTypes';
 import { useClients } from '../hooks/useClients';
 import { useGame } from '../hooks/useGame';
+import { useBuildApprovalQueue } from '../hooks/useBuildApprovalQueue';
 
 // Game state types
 interface GameContextState {
@@ -74,6 +75,7 @@ interface GameProviderProps {
 export function GameProvider({ children }: GameProviderProps) {
   const { client, keychain } = useClients();
   const game = useGame(client, keychain);
+  const { buildApprovalQueue } = useBuildApprovalQueue(client);
 
   // Provide all the expected context fields from useGame
   const contextValue: GameContextType = {
@@ -118,7 +120,7 @@ export function GameProvider({ children }: GameProviderProps) {
     
     // Utility actions
     clearError: () => {},
-    buildApprovalQueue: game.buildApprovalQueue,
+    buildApprovalQueue,
   };
 
   return (

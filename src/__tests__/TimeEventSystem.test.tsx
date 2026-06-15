@@ -1,9 +1,7 @@
-import { HiveClient } from '../game/blockchain/HiveClient';
 import { GameState } from '../game/state/GameState';
-import { TimeEventConfig, TimeEventPhase, BlockchainTimeEvent } from '../game/types/GameTypes';
+import { TimeEventConfig, BlockchainTimeEvent } from '../game/types/GameTypes';
 import { EventEmitter } from 'events';
 
-// Mock HiveClient as an EventEmitter
 class MockHiveClient extends EventEmitter {
   getTimeEventConfig = jest.fn();
   registerTimeEventRoom = jest.fn();
@@ -14,6 +12,19 @@ class MockHiveClient extends EventEmitter {
   database = { call: jest.fn() };
 }
 
+const makeConfig = (overrides: Partial<TimeEventConfig> = {}): TimeEventConfig => ({
+  type: 'ferry',
+  intervalBlocks: 10,
+  startBlock: 1000,
+  currentPhase: 0,
+  phases: [
+    { phase: 0, name: 'Phase A', description: 'Test', exits: { north: 'port-a' } },
+    { phase: 1, name: 'Phase B', description: 'Test', exits: {} },
+    { phase: 2, name: 'Phase C', description: 'Test', exits: { south: 'port-b' } }
+  ],
+  ...overrides
+});
+
 describe('Time Event System', () => {
   let hiveClient: any;
   let gameState: GameState;
@@ -21,177 +32,133 @@ describe('Time Event System', () => {
   beforeEach(() => {
     hiveClient = new MockHiveClient();
     gameState = new GameState(hiveClient);
-    // Mock the getCurrentRoom method
     gameState.getCurrentRoom = jest.fn();
   });
 
-  test('should register a ferry room with time-based events', () => {
-    const roomPermlink = 'test-ferry';
-    const title = 'Test Ferry';
-    const description = 'A test ferry room';
-    const intervalBlocks = 50;
-
-    // Mock the getTimeEventConfig to return a config
-    const mockConfig: TimeEventConfig = {
-      type: 'ferry',
-      intervalBlocks: 50,
-      lastChangeBlock: 0,
-      currentPhase: 0,
-      phases: [
-        { phase: 0, name: 'Phase 1', description: 'Test', exits: {}, duration: 50 },
-        { phase: 1, name: 'Phase 2', description: 'Test', exits: {}, duration: 50 },
-        { phase: 2, name: 'Phase 3', description: 'Test', exits: {}, duration: 50 },
-        { phase: 3, name: 'Phase 4', description: 'Test', exits: {}, duration: 50 },
-        { phase: 4, name: 'Phase 5', description: 'Test', exits: {}, duration: 50 },
-        { phase: 5, name: 'Phase 6', description: 'Test', exits: {}, duration: 50 }
-      ]
-    };
-    hiveClient.getTimeEventConfig.mockReturnValue(mockConfig);
-
-    gameState.createFerryRoom(roomPermlink, title, description, intervalBlocks, 0);
-
-    // Verify the room is registered
-    expect(hiveClient.registerTimeEventRoom).toHaveBeenCalledWith(roomPermlink, expect.objectContaining({
-      type: 'ferry',
-      intervalBlocks: 50,
-      currentPhase: 0
-    }));
-    
-    const config = hiveClient.getTimeEventConfig(roomPermlink);
-    expect(config).toBeDefined();
-    expect(config.type).toBe('ferry');
-    expect(config.intervalBlocks).toBe(intervalBlocks);
-    expect(config.phases).toHaveLength(6); // 6 phases for ferry
+  test('registerTimeEventRoom delegates to hiveClient', () => {
+    const config = makeConfig();
+    gameState.registerTimeEventRoom('test-room', config);
+    expect(hiveClient.registerTimeEventRoom).toHaveBeenCalledWith('test-room', config);
   });
 
-  test('should handle time event phase changes', () => {
-    const roomPermlink = 'test-ferry';
-    gameState.createFerryRoom(roomPermlink, 'Test Ferry', 'A test ferry', 10, 0);
+  test('unregisterTimeEventRoom delegates to hiveClient', () => {
+    gameState.unregisterTimeEventRoom('test-room');
+    expect(hiveClient.unregisterTimeEventRoom).toHaveBeenCalledWith('test-room');
+  });
 
-    // Mock the getTimeEventConfig to return a config with updated phase
-    const mockConfig: TimeEventConfig = {
-      type: 'ferry',
-      intervalBlocks: 10,
-      lastChangeBlock: 100,
-      currentPhase: 1,
-      phases: [
-        { phase: 0, name: 'Phase 1', description: 'Test', exits: {}, duration: 10 },
-        { phase: 1, name: 'Phase 2', description: 'Test', exits: {}, duration: 10 }
-      ]
+  test('handles timeEventDetected when player is in the affected room', () => {
+    const roomPermlink = 'ferry-dock';
+    const config = makeConfig({ currentPhase: 1 });
+    hiveClient.getTimeEventConfig.mockReturnValue(config);
+    // Populate GameState's own timeEventRooms map so handleTimeEvent can find the config
+    gameState.registerTimeEventRoom(roomPermlink, config);
+
+    const mockRoom = {
+      id: roomPermlink,
+      title: 'Ferry Dock',
+      description: 'The dock.',
+      author: 'test-author',
+      permlink: roomPermlink,
+      exits: {},
+      players: []
     };
-    hiveClient.getTimeEventConfig.mockReturnValue(mockConfig);
+    (gameState.getCurrentRoom as jest.Mock).mockReturnValue(mockRoom);
+    // Wire the internal currentRoom so handleTimeEvent can find it
+    (gameState as any).currentRoom = mockRoom;
 
-    // Simulate a time event
-    const mockTimeEvent: BlockchainTimeEvent = {
+    const outputMessages: string[] = [];
+    gameState.on('output', (msg: any) => outputMessages.push(msg.output));
+
+    const timeEvent: BlockchainTimeEvent = {
       type: 'timeEvent',
       roomPermlink,
-      author: 'Test Ferry',
-      currentBlock: 100,
+      currentBlock: 1010,
       eventType: 'ferry',
       phase: 1,
       timestamp: new Date().toISOString()
     };
 
-    // Trigger the time event
-    hiveClient.emit('timeEventDetected', mockTimeEvent);
+    hiveClient.emit('timeEventDetected', timeEvent);
 
-    // Verify the event was processed
-    const config = hiveClient.getTimeEventConfig(roomPermlink);
-    expect(config.currentPhase).toBe(1);
+    // Should have output the phase name as a bold header (prefixed with newline)
+    expect(outputMessages).toContain('\nPhase B');
   });
 
-  test('should apply dynamic exits for time-based rooms', async () => {
-    const roomPermlink = 'test-ferry';
-    gameState.createFerryRoom(roomPermlink, 'Test Ferry', 'A test ferry', 10, 0);
+  test('ignores timeEventDetected for a room the player is not in', () => {
+    const config = makeConfig({ currentPhase: 1 });
+    hiveClient.getTimeEventConfig.mockReturnValue(config);
 
-    // Mock room data with time-based properties
+    // Player is in a different room
+    (gameState as any).currentRoom = {
+      permlink: 'some-other-room',
+      author: 'test-author',
+      title: 'Other Room',
+      description: 'Not the ferry.',
+      exits: {},
+      players: []
+    };
+
+    const outputMessages: string[] = [];
+    gameState.on('output', (msg: any) => outputMessages.push(msg.output));
+
+    const timeEvent: BlockchainTimeEvent = {
+      type: 'timeEvent',
+      roomPermlink: 'ferry-dock',
+      currentBlock: 1010,
+      eventType: 'ferry',
+      phase: 1,
+      timestamp: new Date().toISOString()
+    };
+
+    hiveClient.emit('timeEventDetected', timeEvent);
+    expect(outputMessages).toHaveLength(0);
+  });
+
+  test('loadRoom applies exits from the current time-event phase', async () => {
+    const roomPermlink = 'ferry-dock';
+    const config = makeConfig({ currentPhase: 2 }); // Phase C has south exit
+
     const mockRoomData = {
       id: roomPermlink,
-      title: 'Test Ferry',
-      description: 'A test ferry room',
+      title: 'Ferry Dock',
+      description: 'The dock.',
       author: 'test-author',
       permlink: roomPermlink,
-      exits: {},
-      players: [],
-      isTimeBased: true,
-      timeEventConfig: {
-        type: 'ferry',
-        intervalBlocks: 10,
-        lastChangeBlock: 0,
-        currentPhase: 0,
-        phases: [
-          { phase: 0, name: 'Phase 1', description: 'Test', exits: { north: 'port-a' }, duration: 10 }
-        ]
-      }
+      exits: {}
     };
 
-    // Mock the getRoomData method
     hiveClient.getRoomData.mockResolvedValue(mockRoomData);
+    hiveClient.getTimeEventConfig.mockReturnValue(config);
+    hiveClient.getRoomDetails = jest.fn().mockResolvedValue({});
 
-    // Mock the getTimeEventConfig method
-    hiveClient.getTimeEventConfig.mockReturnValue(mockRoomData.timeEventConfig);
+    await gameState.loadRoom({ author: 'test-author', permlink: roomPermlink }, true);
 
-    // Load the room
-    await gameState.loadRoom({ author: 'test-author', permlink: roomPermlink });
-
-    // Make getCurrentRoom return the loaded room
-    (gameState.getCurrentRoom as jest.Mock).mockReturnValue(mockRoomData);
-
-    // Verify the room has time-based properties
-    const currentRoom = gameState.getCurrentRoom();
-    expect(currentRoom).toBeDefined();
-    expect(currentRoom?.isTimeBased).toBe(true);
-    expect(currentRoom?.timeEventConfig).toBeDefined();
+    const room = (gameState as any).currentRoom;
+    expect(room.isTimeBased).toBe(true);
+    expect(room.exits).toEqual({ south: 'port-b' });
   });
 
-  test('should cycle through ferry phases correctly', () => {
-    const roomPermlink = 'test-ferry';
-    gameState.createFerryRoom(roomPermlink, 'Test Ferry', 'A test ferry', 10, 0);
+  test('phase 0 is used when block is before startBlock', async () => {
+    const roomPermlink = 'ferry-dock';
+    // currentPhase 0 — block stream has not reached startBlock yet
+    const config = makeConfig({ currentPhase: 0 });
 
-    // Mock the getTimeEventConfig to return a config starting at phase 0
-    const initialConfig: TimeEventConfig = {
-      type: 'ferry',
-      intervalBlocks: 10,
-      lastChangeBlock: 0,
-      currentPhase: 0,
-      phases: [
-        { phase: 0, name: 'Phase 1', description: 'Test', exits: {}, duration: 10 },
-        { phase: 1, name: 'Phase 2', description: 'Test', exits: {}, duration: 10 },
-        { phase: 2, name: 'Phase 3', description: 'Test', exits: {}, duration: 10 },
-        { phase: 3, name: 'Phase 4', description: 'Test', exits: {}, duration: 10 },
-        { phase: 4, name: 'Phase 5', description: 'Test', exits: {}, duration: 10 },
-        { phase: 5, name: 'Phase 6', description: 'Test', exits: {}, duration: 10 }
-      ]
+    const mockRoomData = {
+      id: roomPermlink,
+      title: 'Ferry Dock',
+      description: 'The dock.',
+      author: 'test-author',
+      permlink: roomPermlink,
+      exits: {}
     };
-    hiveClient.getTimeEventConfig.mockReturnValue(initialConfig);
 
-    const config = hiveClient.getTimeEventConfig(roomPermlink);
-    expect(config.currentPhase).toBe(0);
+    hiveClient.getRoomData.mockResolvedValue(mockRoomData);
+    hiveClient.getTimeEventConfig.mockReturnValue(config);
+    hiveClient.getRoomDetails = jest.fn().mockResolvedValue({});
 
-    // Simulate multiple phase changes
-    for (let i = 1; i <= 6; i++) {
-      const mockTimeEvent: BlockchainTimeEvent = {
-        type: 'timeEvent',
-        roomPermlink,
-        author: 'Test Ferry',
-        currentBlock: 100 + i * 10,
-        eventType: 'ferry',
-        phase: i % 6, // Cycle through phases 0-5
-        timestamp: new Date().toISOString()
-      };
+    await gameState.loadRoom({ author: 'test-author', permlink: roomPermlink }, true);
 
-      hiveClient.emit('timeEventDetected', mockTimeEvent);
-    }
-
-    // Mock the final config to show we're back to phase 0
-    const finalConfig: TimeEventConfig = {
-      ...initialConfig,
-      currentPhase: 0
-    };
-    hiveClient.getTimeEventConfig.mockReturnValue(finalConfig);
-
-    // Verify we're back to phase 0 after cycling through all phases
-    const resultConfig = hiveClient.getTimeEventConfig(roomPermlink);
-    expect(resultConfig.currentPhase).toBe(0);
+    const room = (gameState as any).currentRoom;
+    expect(room.exits).toEqual({ north: 'port-a' }); // Phase A exits
   });
-}); 
+});

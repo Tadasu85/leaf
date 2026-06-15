@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Client } from '@hiveio/dhive';
-import { KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { GameState } from '../game/state/GameState';
 import { HiveClient } from '../game/blockchain/HiveClient';
 import { CommandParser } from '../game/commands/CommandParser';
@@ -14,7 +13,6 @@ import {
 import { useUserProfile } from './useUserProfile';
 import { useRoomState } from './useRoomState';
 import { useGameData } from './useGameData';
-import config from '../config';
 import logger from '../utils/Logger';
 
 export function useGame(client: Client, keychain: any) {
@@ -176,240 +174,6 @@ export function useGame(client: Client, keychain: any) {
     return roomStateRef.current.hasRoomDataChanged(newData);
   }, []);
 
-  // Build approval queue from blockchain data
-  const buildApprovalQueue = useCallback(async (): Promise<any[]> => {
-    try {
-      logger.info('[Build Queue] Starting queue build...');
-      
-      // Get current game data
-      const gameAccount = await client.database.getAccounts([config.game.account]);
-      if (!gameAccount || !gameAccount[0]) {
-        logger.error('[Build Queue] Failed to fetch game account data');
-        return [];
-      }
-
-      const currentMetadata = JSON.parse(gameAccount[0].posting_json_metadata);
-      const existingRooms = currentMetadata.egodeathgamedata?.rooms_authors_exits || {};
-      logger.debug('[Build Queue] Existing rooms:', Object.keys(existingRooms));
-      
-      // Get builders list from community
-      const communityDetailsArray = await client.hivemind.getCommunity({ 
-        name: config.game.account, 
-        observer: ''
-      });
-      const communityDetails = Array.isArray(communityDetailsArray) ? communityDetailsArray[0] : communityDetailsArray;
-      
-      if (!communityDetails || !communityDetails.team) {
-        logger.error('[Build Queue] Failed to fetch community team data');
-        return [];
-      }
-
-      const builders = communityDetails.team
-        .filter(member => member[2] === "Builder")
-        .map(member => member[0]);
-
-      logger.debug('[Build Queue] Found builders:', builders);
-
-      // Get recent posts from builders
-      const pendingRooms = [];
-      
-      for (const builder of builders) {
-        try {
-          logger.debug(`[Build Queue] Checking posts for builder: ${builder}`);
-          
-          // Get recent account history for this builder to find their posts
-          const accountHistory = await client.database.getAccountHistory(builder, -1, 50);
-          
-          // Filter for recent posts (not comments)
-          const recentPosts = accountHistory
-            .filter(([, op]) => op.op[0] === 'comment' && !op.op[1].parent_author)
-            .slice(0, 20); // Get the 20 most recent posts
-          
-          logger.debug(`[Build Queue] Found ${recentPosts.length} recent posts for ${builder}`);
-          
-          // Get full post content for each post
-          for (const [, op] of recentPosts) {
-            try {
-              const postData = op.op[1];
-              const content = await client.database.call('get_content', [
-                postData.author,
-                postData.permlink
-              ]);
-              
-              if (content && content.json_metadata) {
-                try {
-                  const metadata = JSON.parse(content.json_metadata);
-                                logger.debug(`[Build Queue] Checking post: ${content.permlink}`);
-              logger.debug(`[Build Queue] Metadata app: ${metadata.app}, type: ${metadata.type}`);
-              logger.debug(`[Build Queue] Already in game: ${!!existingRooms[content.permlink]}`);
-                  
-                  if ((metadata.app === config.game.idName || metadata.app === 'leaf') && 
-                      (!metadata.type || metadata.type === 'room') && 
-                      !existingRooms[content.permlink]) {
-                    
-                    // Check if this room has been rejected by looking for rejection comments
-                    let isRejected = false;
-                    let rejectionReason = '';
-                    
-                    try {
-                      const comments = await client.database.call('get_content_replies', [builder, content.permlink]);
-                      const adminComments = comments?.filter((comment: any) => comment.author === config.game.account) || [];
-                      
-                      for (const comment of adminComments) {
-                        if (comment.body.startsWith('Rejected:')) {
-                          isRejected = true;
-                          rejectionReason = comment.body.substring(9).trim(); // Remove "Rejected: " prefix
-                          logger.debug(`[Build Queue] Room ${content.permlink} has been rejected: ${rejectionReason}`);
-                          break;
-                        }
-                      }
-                    } catch (error) {
-                      logger.error('[Build Queue] Error checking rejection comments:', error);
-                    }
-                    
-                    if (!isRejected) {
-                      logger.debug(`[Build Queue] Adding to queue: ${content.permlink}`);
-                      
-                      // Extract connection information from metadata
-                      const connection = metadata.connection || {};
-                      
-                      pendingRooms.push({
-                        id: `${builder}-${content.permlink}-${content.created}`,
-                        username: builder,
-                        room: connection.fromRoom || {
-                          author: builder,
-                          permlink: content.permlink
-                        },
-                        newRoom: {
-                          author: builder,
-                          permlink: content.permlink
-                        },
-                        title: content.title,
-                        body: content.body,
-                        timestamp: new Date(content.created).getTime(),
-                        status: 'pending',
-                        exits: {
-                          fromNewRoom: connection.exitFromNewRoom ? { [connection.exitFromNewRoom]: connection.fromRoom?.permlink || '' } : {},
-                          fromCurrentRoom: connection.exitToNewRoom ? { [connection.exitToNewRoom]: content.permlink } : {}
-                        }
-                      });
-                    } else {
-                      logger.debug(`[Build Queue] Skipping rejected room ${content.permlink}: ${rejectionReason}`);
-                    }
-                  } else {
-                    logger.debug(`[Build Queue] Skipping post ${content.permlink}: app=${metadata.app}, type=${metadata.type}, inGame=${!!existingRooms[content.permlink]}`);
-                  }
-                        } catch (error) {
-          logger.error('[Build Queue] Error parsing post metadata:', error);
-        }
-              }
-            } catch (error) {
-              logger.error('[Build Queue] Error fetching post content:', error);
-            }
-          }
-        } catch (error) {
-          logger.error(`[Build Queue] Error fetching posts for builder ${builder}:`, error);
-        }
-      }
-
-      logger.debug('[Build Queue] Final pending rooms:', pendingRooms);
-      return pendingRooms;
-    } catch (error) {
-      logger.error('[Build Queue] Error building approval queue:', error);
-      return [];
-    }
-  }, [client]);
-
-  // Move player logic (blockchain move)
-  const movePlayer = useCallback(async (options?: {
-    newlocation?: {
-      permlink: string,
-      author: string
-    }
-  }) => {
-    if (!player?.username) {
-      if (gameState) gameState.addOutputMessage('You must be logged in to move.', true);
-      return;
-    }
-    
-    logger.debug('Starting move operation:', {
-      player: player.username,
-      currentLocation: player.location,
-      newLocation: options?.newlocation
-    });
-    
-    try {
-      // Admin users don't have a location, so they can't move
-      if (!player.location) {
-        if (gameState) gameState.addOutputMessage('Admin users cannot move to locations.', true);
-        return;
-      }
-      
-      let movedPlayer = {
-        "Location": options?.newlocation ?? { "permlink": "genesis-scaffold-precipice", "author": player.location.author }
-      };
-      
-      // Optimistic UI update: update local player location and room immediately
-      if (gameState) {
-        const optimisticLocation = movedPlayer.Location;
-        // Update player location
-        if (gameState.getPlayer()) {
-          gameState.getPlayer()!.location = optimisticLocation;
-        }
-        // Get cached room data and update current room
-        const cachedRoom = await gameState.getHiveClient().getRoomData(optimisticLocation);
-        if (cachedRoom) {
-          // Set as current room and display immediately
-          (gameState as any).setCurrentRoom(cachedRoom); // setCurrentRoom is private, so we use a cast
-          // Set the lastOptimisticRoomKey to suppress the second display
-          (gameState as any).lastOptimisticRoomKey = `${cachedRoom.author}/${cachedRoom.permlink}-${JSON.stringify(cachedRoom.players || [])}`;
-          gameState.displayRoom();
-          // Immediately join the chat channel for the new room
-          if (typeof window !== 'undefined' && (window as any).joinChatChannel) {
-            (window as any).joinChatChannel(`${cachedRoom.author}/${cachedRoom.permlink}`);
-          }
-        }
-      }
-      
-      logger.debug('Prepared move data:', movedPlayer);
-      
-      const broadcastData = {
-        "username": player.username,
-        "operations": [
-          [
-            "custom_json",
-            {
-              "required_auths": [],
-              "required_posting_auths": [player.username],
-              "id": config.game.idName,
-              "json": JSON.stringify({
-                "move_to": movedPlayer
-              })
-            }
-          ]
-        ],
-        'method': KeychainKeyTypes.posting
-      } as unknown as Broadcast;
-      
-      logger.debug('Broadcasting move operation...');
-      const result = await keychain.broadcast(broadcastData);
-      
-      if (!result || !result.success || !result.result || !result.result.id) {
-        logger.warn('Broadcast failed:', result);
-        if (gameState) gameState.addOutputMessage('Move failed. Please check your Keychain and try again.', true);
-        return;
-      }
-      
-      logger.debug('Broadcast successful, blockchain listener will handle the move completion');
-      
-      // The blockchain listener will handle the move completion automatically
-      // No need for loading state since data is already cached
-      
-    } catch (error) {
-      logger.error('Move operation failed:', error);
-      if (gameState) gameState.addOutputMessage('Move failed. Please check your Keychain and try again.', true);
-    }
-  }, [player, keychain, gameState]);
 
   // Command handler logic
   const handleCommand = useCallback(async (text: string) => {
@@ -488,7 +252,7 @@ export function useGame(client: Client, keychain: any) {
         break;
       case 'describe':
         logger.debug('Processing describe command');
-        await gameState.setShortDescription(command.args[0]);
+        await gameState.setDescription(command.args[0]);
         break;
       case 'describeshort':
         logger.debug('Processing describeshort command');
@@ -571,7 +335,5 @@ export function useGame(client: Client, keychain: any) {
     
     // Command handling
     handleCommand,
-    movePlayer,
-    buildApprovalQueue
   };
 } 
