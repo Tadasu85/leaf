@@ -67,10 +67,7 @@ export function useSocket(gameState: GameState | null) {
             logger.debug('[useSocket] Comparing channel IDs:', { currentChannelId, receivedChannelId: data.channelId });
             if (currentChannelId === data.channelId && data.players) {
               logger.debug('[useSocket] Updating room players:', data.players);
-              // Update the room's player list with online players
               gameStateRef.current?.updateRoomPlayers(data.players);
-              // DO NOT display room - this should only come from blockchain movement
-              // The signaling server is only for chat and player presence
             }
           }
         } else {

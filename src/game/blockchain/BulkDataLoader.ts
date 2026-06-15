@@ -1,6 +1,7 @@
 import { Client } from '@hiveio/dhive';
 import { GameMap, RoomData, Location } from '../types/GameTypes';
 import config from '../../config';
+import logger from '../../utils/Logger';
 
 interface CachedRoomData {
   data: RoomData;
@@ -135,7 +136,8 @@ export class BulkDataLoader {
     try {
       const content = await this.client.database.call('get_content', [author, permlink]);
       
-      if (!content || !content.id) {
+      if (!content || !content.author) {
+        logger.warn(`[BulkDataLoader] get_content returned no usable data for ${author}/${permlink}`);
         return;
       }
 
@@ -174,6 +176,7 @@ export class BulkDataLoader {
       this.addToCache(cacheKey, processedData);
       
     } catch (error) {
+      logger.error(`[BulkDataLoader] Exception loading room ${author}/${permlink}:`, error);
     }
   }
 
@@ -195,9 +198,13 @@ export class BulkDataLoader {
     if (this.gameMap[location.permlink]) {
       await this.loadRoomData(location.author, location.permlink, this.gameMap[location.permlink]);
       const cached = this.roomCache.get(cacheKey);
+      if (!cached) {
+        logger.error(`[BulkDataLoader] Failed to load ${cacheKey} from blockchain`);
+      }
       return cached ? (this.enableCompression ? this.decompressRoomData(cached.data) : cached.data) : null;
     }
 
+    logger.error(`[BulkDataLoader] ${cacheKey} not in game map and not in cache`);
     return null;
   }
 

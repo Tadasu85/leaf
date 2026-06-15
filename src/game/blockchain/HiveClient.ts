@@ -151,7 +151,8 @@ export class HiveClient extends EventEmitter {
         location.permlink
       ]);
 
-      if (!content || !content.id) {
+      if (!content || !content.author) {
+        logger.warn(`[HiveClient] loadRoomDataLegacy: get_content returned no usable data for ${location.author}/${location.permlink}`);
         return null;
       }
 

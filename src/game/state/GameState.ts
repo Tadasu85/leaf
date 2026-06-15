@@ -286,10 +286,10 @@ export class GameState extends EventEmitter {
 
   async loadRoom(location: Location, skipDisplay: boolean = false): Promise<void> {
     try {
-      // Use bulk data loader for efficient room loading
       const room = await this.hiveClient.getRoomData(location);
-      
+
       if (!room) {
+        logger.error(`[GameState] getRoomData returned null for ${location.author}/${location.permlink}`);
         this.addOutputMessage('Room not found', true);
         return;
       }
