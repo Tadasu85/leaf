@@ -448,9 +448,16 @@ export class HiveClient extends EventEmitter {
   public async getProfileImage(username: string): Promise<string | null> {
     try {
       const accounts = await this.client.database.call('get_accounts', [[username]]);
-      if (accounts && accounts[0] && accounts[0].json_metadata) {
-        const metadata = JSON.parse(accounts[0].json_metadata);
-        return metadata.profile?.profile_image || null;
+      if (accounts && accounts[0]) {
+        const account = accounts[0];
+        const sources = [account.posting_json_metadata, account.json_metadata];
+        for (const raw of sources) {
+          if (!raw) continue;
+          try {
+            const image = JSON.parse(raw).profile?.profile_image;
+            if (image) return image;
+          } catch {}
+        }
       }
     } catch (error) {
       logger.error('[HiveClient Debug] Error fetching profile image:', error);

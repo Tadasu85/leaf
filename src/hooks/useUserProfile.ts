@@ -94,14 +94,15 @@ export function useUserProfile(gameState: GameState | null, player: any, client:
       const accounts = await client.database.call('get_accounts', [[username]]);
       let playerData = {};
       
-      if (accounts && accounts[0] && accounts[0].json_metadata) {
-        try {
-          const metadata = JSON.parse(accounts[0].json_metadata);
-          if (metadata.egodeathplayer) {
-            playerData = metadata.egodeathplayer;
-          }
-        } catch (error) {
-          logger.error('[UpdateUserProfile Debug] Error parsing account metadata:', error);
+      if (accounts && accounts[0]) {
+        const account = accounts[0];
+        const sources = [account.posting_json_metadata, account.json_metadata];
+        for (const raw of sources) {
+          if (!raw) continue;
+          try {
+            const data = JSON.parse(raw).egodeathplayer;
+            if (data) { playerData = data; break; }
+          } catch {}
         }
       }
       
