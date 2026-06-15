@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { GameState } from '../game/state/GameState';
 import logger from '../utils/Logger';
+import { conjugateEmoteForOthers } from '../utils/conjugate';
 
 interface PlayerEvent {
   username: string;
@@ -135,10 +136,9 @@ export function useSocket(gameState: GameState | null) {
     };
 
     const handleEmote = (data: { username: string; emote: string; channelId: string }) => {
-      // Display emote from other players
       const currentUser = gameStateRef.current?.getPlayer()?.username;
       if (gameStateRef.current && data.username !== currentUser) {
-        gameStateRef.current.addOutputMessage(`${data.username} ${data.emote}`, false);
+        gameStateRef.current.addOutputMessage(`${data.username} ${conjugateEmoteForOthers(data.emote)}`, false);
       }
     };
 

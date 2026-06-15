@@ -12,6 +12,7 @@ import config from '../../config';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
+import { conjugateEmoteForSender } from '../../utils/conjugate';
 
 export class GameState extends EventEmitter {
   private player: Player | null = null;
@@ -612,8 +613,7 @@ export class GameState extends EventEmitter {
       return;
     }
 
-    // Display local emote
-    this.addOutputMessage(`You ${emote}`, false);
+    this.addOutputMessage(`You ${conjugateEmoteForSender(emote)}`, false);
 
     // Send to signaling server if socket manager is available
     if (this.socketManager && typeof this.socketManager.sendEmote === 'function') {
