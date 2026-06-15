@@ -185,7 +185,13 @@ export class GameState extends EventEmitter {
       // Mark login as complete
       this.isLoggingIn = false;
 
-      // Room will be displayed when we receive the initial player list from the signaling server
+      // Display the room immediately. Mark hasReceivedInitialPlayerList so the guard
+      // in displayRoom() doesn't suppress it while waiting for a socket event.
+      // updateRoomPlayers() will still refresh the display if other players are present.
+      if (this.player?.location && this.currentRoom) {
+        this.hasReceivedInitialPlayerList = true;
+        this.displayRoom();
+      }
       
     } catch (error) {
       this.isLoggingIn = false;
