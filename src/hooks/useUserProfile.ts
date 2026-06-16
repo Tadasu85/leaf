@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { UserProfileJSON } from '../game/types/GameTypes';
 import { GameState } from '../game/state/GameState';
-import { HiveClient } from '../game/blockchain/HiveClient';
 import { Client } from '@hiveio/dhive';
 import config from '../config';
 import logger from '../utils/Logger';
@@ -85,30 +84,28 @@ export function useUserProfile(gameState: GameState | null, player: any, client:
       gameState.setBuilderStatus(isUserBuilder);
     }
 
-    // Fetch Hive profile data including player descriptions
+    // Fetch Hive profile data — single get_accounts call for both profile image and player data
     try {
-      const hiveClient = new HiveClient();
-      const profileImage = await hiveClient.getProfileImage(username);
-      
-      // Get full account data to access json_metadata
       const accounts = await client.database.call('get_accounts', [[username]]);
+      let profileImage: string | undefined;
       let playerData = {};
-      
+
       if (accounts && accounts[0]) {
         const account = accounts[0];
         const sources = [account.posting_json_metadata, account.json_metadata];
         for (const raw of sources) {
           if (!raw) continue;
           try {
-            const data = JSON.parse(raw).egodeathplayer;
-            if (data) { playerData = data; break; }
+            const parsed = JSON.parse(raw);
+            if (!profileImage) profileImage = parsed.profile?.profile_image || undefined;
+            if (!Object.keys(playerData).length && parsed.egodeathplayer) playerData = parsed.egodeathplayer;
           } catch {}
         }
       }
-      
-      setUserProfileJSON((prev) => ({ 
-        ...prev, 
-        profile_image: profileImage || undefined,
+
+      setUserProfileJSON((prev) => ({
+        ...prev,
+        profile_image: profileImage,
         egodeathplayer: playerData
       }));
     } catch (error) {

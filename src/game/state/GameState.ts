@@ -124,13 +124,14 @@ export class GameState extends EventEmitter {
     let lastKnownTimestamp: string | null = null;
 
     try {
-      // First, verify the account exists
-      const accounts = await this.hiveClient.database.call('get_accounts', [[username]]);
+      const [accounts, accountHistory] = await Promise.all([
+        this.hiveClient.database.call('get_accounts', [[username]]),
+        this.hiveClient.database.getAccountHistory(username, -1, 100)
+      ]);
+
       if (!accounts || accounts.length === 0 || !accounts[0]) {
         throw new Error(`Account '${username}' not found on Hive blockchain`);
       }
-
-      const accountHistory = await this.hiveClient.database.getAccountHistory(username, -1, 100);
       
       // Look for the most recent move_to operation
       // Instead of relying on order, find the operation with the most recent timestamp
@@ -164,8 +165,8 @@ export class GameState extends EventEmitter {
         characterDescription: ''
       };
 
-      // Load player descriptions from blockchain
-      await this.loadPlayerDescriptions();
+      // Load player descriptions from already-fetched account data
+      await this.loadPlayerDescriptions(accounts[0]);
 
       // Load the player's current room using bulk data (skip display during login)
       // Admin users don't have a location, so skip room loading
@@ -490,13 +491,13 @@ export class GameState extends EventEmitter {
     }
   }
 
-  private async loadPlayerDescriptions(): Promise<void> {
+  private async loadPlayerDescriptions(account?: any): Promise<void> {
     if (!this.player) return;
 
     try {
-      const accounts = await this.hiveClient.database.call('get_accounts', [[this.player.username]]);
-      if (accounts && accounts[0] && accounts[0].posting_json_metadata) {
-        const metadata = JSON.parse(accounts[0].posting_json_metadata);
+      const resolved = account || (await this.hiveClient.database.call('get_accounts', [[this.player.username]]))?.[0];
+      if (resolved?.posting_json_metadata) {
+        const metadata = JSON.parse(resolved.posting_json_metadata);
         if (metadata.egodeathplayer?.Description) {
           this.player.characterDescription = metadata.egodeathplayer.Description;
           this.emit('playerChanged', this.player);
