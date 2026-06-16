@@ -179,6 +179,10 @@ export class SocketManager extends EventEmitter {
         this.socket?.emit('keepalive');
       },
 
+      builderGranted: (data: { username: string }) => {
+        this.emit('builderGranted', data);
+      },
+
       error: (error: any) => {
         logger.error('[SocketManager] Socket error:', error);
         this.connectionStatus = 'error';
@@ -310,6 +314,12 @@ export class SocketManager extends EventEmitter {
 
   isConnected(): boolean {
     return this.connectionStatus === 'connected';
+  }
+
+  claimBuilder(): void {
+    if (this.socket && this.connectionStatus === 'connected') {
+      this.socket.emit('claimBuilder');
+    }
   }
 
   emitEvent(eventName: string, data: any): void {

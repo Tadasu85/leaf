@@ -445,6 +445,59 @@ export class HiveClient extends EventEmitter {
 
 
 
+  public async getBuilderProgress(username: string): Promise<{
+    uniqueRooms: number;
+    totalSeconds: number;
+    explorerMet: boolean;
+    chroniclerMet: boolean;
+  }> {
+    const EXPLORER_THRESHOLD = 25;
+    const CHRONICLER_THRESHOLD = 5 * 3600;
+    const MAX_DWELL = 3600;
+
+    const moves: { timestamp: string; author: string; permlink: string }[] = [];
+    let from = -1;
+    const limit = 1000;
+
+    for (let page = 0; page < 5; page++) {
+      const history = (await this.database.getAccountHistory(username, from, limit)) as [number, any][];
+      if (!history || !history.length) break;
+
+      for (const [, op] of history) {
+        if (op.op[0] === 'custom_json' && op.op[1]['id'] === config.game.idName) {
+          try {
+            const json = JSON.parse(op.op[1]['json']);
+            if (json.move_to?.Location) {
+              moves.push({ timestamp: op.timestamp, ...json.move_to.Location });
+            }
+          } catch { /* malformed op */ }
+        }
+      }
+
+      if (history.length < limit) break;
+      const earliest = history[0];
+      if (!earliest || earliest[0] === 0) break;
+      from = earliest[0] - 1;
+    }
+
+    moves.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+    const uniqueRooms = new Set(moves.map(m => `${m.author}/${m.permlink}`)).size;
+
+    let totalSeconds = 0;
+    for (let i = 0; i < moves.length - 1; i++) {
+      const dwell = (Date.parse(moves[i + 1].timestamp) - Date.parse(moves[i].timestamp)) / 1000;
+      totalSeconds += Math.min(dwell, MAX_DWELL);
+    }
+
+    return {
+      uniqueRooms,
+      totalSeconds,
+      explorerMet: uniqueRooms >= EXPLORER_THRESHOLD,
+      chroniclerMet: totalSeconds >= CHRONICLER_THRESHOLD
+    };
+  }
+
   public async getProfileImage(username: string): Promise<string | null> {
     try {
       const accounts = await this.client.database.call('get_accounts', [[username]]);

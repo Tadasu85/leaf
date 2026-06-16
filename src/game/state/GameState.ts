@@ -194,7 +194,10 @@ export class GameState extends EventEmitter {
         this.hasReceivedInitialPlayerList = true;
         this.displayRoom();
       }
-      
+
+      // Async builder eligibility check — does not block login
+      this.checkBuilderEligibility(username);
+
     } catch (error) {
       this.isLoggingIn = false;
       logger.error('[Login Debug] Error during login:', error);
@@ -643,6 +646,19 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('help - Show this help message', false);
   }
 
+  private async checkBuilderEligibility(username: string): Promise<void> {
+    if (this.player?.isBuilder) return;
+    try {
+      const progress = await this.hiveClient.getBuilderProgress(username);
+      logger.debug(`[Builder] ${username} progress — rooms: ${progress.uniqueRooms}, hours: ${(progress.totalSeconds / 3600).toFixed(1)}`);
+      if (progress.explorerMet && progress.chroniclerMet && this.socketManager?.isConnected()) {
+        this.socketManager.claimBuilder();
+      }
+    } catch (error) {
+      logger.error('[Builder] Error checking builder eligibility:', error);
+    }
+  }
+
   // Add method to update builder status
   public setBuilderStatus(isBuilder: boolean): void {
     if (this.player) {
@@ -664,6 +680,14 @@ export class GameState extends EventEmitter {
         }
       });
       
+      socketManager.on('builderGranted', (data: { username: string }) => {
+        if (this.player && this.player.username === data.username && !this.player.isBuilder) {
+          this.player.isBuilder = true;
+          this.emit('playerChanged', this.player);
+          this.addOutputMessage('*Something shifts in the fabric of this world. You sense it now — the power to shape it is yours. You are a Builder.*', false);
+        }
+      });
+
       socketManager.on('connectionStatusChanged', (data: { status: string; error?: string }) => {
         if (data.status === 'failed') {
           if (this.disconnectDebounceTimer) {
