@@ -9,11 +9,16 @@ interface TextInputBoxProps {
 const MAX_INPUT_LENGTH = 500;
 const ALLOWED_CHARACTERS = /^[a-zA-Z0-9\s\-_.,!?'"@#$%&*()+=<>[\]{}|\\/:;]*$/;
 
+const HISTORY_MAX = 25;
+
 function TextInputBox({ onEnterPressed, isLoading = false }: TextInputBoxProps) {
   const [inputText, setInputText] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isValid, setIsValid] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const history = useRef<string[]>([]);
+  const historyIndex = useRef<number>(-1);
+  const draft = useRef<string>('');
 
   // Focus the input when loading state changes from true to false
   useEffect(() => {
@@ -62,9 +67,37 @@ function TextInputBox({ onEnterPressed, isLoading = false }: TextInputBoxProps) 
   };
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (history.current.length === 0) return;
+      if (historyIndex.current === -1) draft.current = inputText;
+      const next = Math.min(historyIndex.current + 1, history.current.length - 1);
+      historyIndex.current = next;
+      const entry = history.current[history.current.length - 1 - next];
+      setInputText(entry);
+      setIsValid(true);
+      setErrorMessage('');
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (historyIndex.current === -1) return;
+      const next = historyIndex.current - 1;
+      historyIndex.current = next;
+      const entry = next === -1 ? draft.current : history.current[history.current.length - 1 - next];
+      setInputText(entry);
+      setIsValid(true);
+      setErrorMessage('');
+      return;
+    }
+
     if (event.key === 'Enter' && !isLoading && isValid) {
       const text = inputText.trim();
       if (text) {
+        history.current = [...history.current, text].slice(-HISTORY_MAX);
+        historyIndex.current = -1;
+        draft.current = '';
         onEnterPressed(text);
         setInputText('');
         setErrorMessage('');
