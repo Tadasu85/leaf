@@ -78,28 +78,28 @@ export class BulkDataLoader {
   }
 
   /**
-   * Load only essential rooms (starting room and immediate neighbors) for faster initial load
+   * Load starting room and its immediate exits in parallel
    */
   private async loadEssentialRooms(): Promise<void> {
-    const roomEntries = Object.entries(this.gameMap);
-    
-    // Load starting room first
-    const startingRoom = roomEntries.find(([permlink]) => 
-      permlink === config.game.startRoom.permlink
-    );
-    
-    if (startingRoom) {
-      await this.loadRoomData(startingRoom[1].author, startingRoom[0], startingRoom[1]);
-    }
-    
-    // Load a few nearby rooms (up to 10) for immediate navigation
-    const nearbyRooms = roomEntries.slice(0, 10);
-    
-    for (const [permlink, roomInfo] of nearbyRooms) {
-      if (permlink !== config.game.startRoom.permlink) {
-        await this.loadRoomData(roomInfo.author, permlink, roomInfo);
+    const startPermlink = config.game.startRoom.permlink;
+    const startRoomInfo = this.gameMap[startPermlink];
+    if (!startRoomInfo) return;
+
+    const toLoad: Array<[string, string, any]> = [
+      [startRoomInfo.author, startPermlink, startRoomInfo]
+    ];
+
+    // Add actual exit destinations, not arbitrary slice
+    for (const exitPermlink of Object.values(startRoomInfo.exits)) {
+      const roomInfo = this.gameMap[exitPermlink];
+      if (roomInfo) {
+        toLoad.push([roomInfo.author, exitPermlink, roomInfo]);
       }
     }
+
+    await Promise.allSettled(
+      toLoad.map(([author, permlink, info]) => this.loadRoomData(author, permlink, info))
+    );
   }
 
   /**
