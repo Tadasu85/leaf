@@ -243,9 +243,11 @@ export class GameState extends EventEmitter {
       }
       
       this.setCurrentRoom(roomCopy);
-      
+
       // Only display room if not skipped
       if (!skipDisplay) {
+        // Don't wait for socket player list on movement — display immediately
+        this.hasReceivedInitialPlayerList = true;
         this.displayRoom();
       }
     } catch (error) {
