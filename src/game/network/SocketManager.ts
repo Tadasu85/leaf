@@ -34,7 +34,12 @@ export class SocketManager extends EventEmitter {
     }
 
     logger.debug('[SocketManager] Attempting to connect:', { username, location });
-    
+
+    if (this.isConnecting) {
+      logger.debug('[SocketManager] Already connecting, ignoring duplicate connect call');
+      return;
+    }
+
     if (this.socket) {
       logger.debug('[SocketManager] Disconnecting existing socket');
       this.cleanupSocket();
@@ -48,7 +53,7 @@ export class SocketManager extends EventEmitter {
       logger.debug('[SocketManager] Creating new socket connection to:', config.signalingServer);
       this.socket = io(config.signalingServer, {
         query: { username },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // polling fallback for server cold starts
         autoConnect: true,
         timeout: 10000, // 10 second timeout
         reconnection: false, // We'll handle reconnection manually
