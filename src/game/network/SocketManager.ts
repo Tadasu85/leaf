@@ -45,6 +45,8 @@ export class SocketManager extends EventEmitter {
       this.cleanupSocket();
     }
 
+    // Reset channel so the reconnect effect re-joins the room on the new socket
+    this.currentChannelId = null;
     this.isConnecting = true;
     this.username = username;
     this.location = location;
