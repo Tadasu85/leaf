@@ -195,6 +195,9 @@ export class GameState extends EventEmitter {
         this.displayRoom();
       }
 
+      // Start block stream for time-based room events
+      this.hiveClient.startBlockStream();
+
       // Async builder eligibility check — does not block login
       this.checkBuilderEligibility(username);
 
@@ -794,6 +797,9 @@ export class GameState extends EventEmitter {
       this.disconnectDebounceTimer = null;
     }
     
+    // Stop block stream
+    this.hiveClient.stopMoveListener();
+
     // Clean up socket manager
     if (this.socketManager) {
       this.socketManager.destroy();

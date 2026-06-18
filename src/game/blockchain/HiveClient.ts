@@ -272,8 +272,8 @@ export class HiveClient extends EventEmitter {
       throw new Error('Failed to fetch account data');
     }
 
-    const currentMetadata = JSON.parse(accounts[0].json_metadata || '{}');
-    
+    const currentMetadata = JSON.parse(accounts[0].posting_json_metadata || '{}');
+
     // Update the egodeathplayer section
     const updatedMetadata = {
       ...currentMetadata,
@@ -287,8 +287,8 @@ export class HiveClient extends EventEmitter {
       'account_update2',
       {
         account: username,
-        json_metadata: JSON.stringify(updatedMetadata),
-        posting_json_metadata: accounts[0].posting_json_metadata || ''
+        json_metadata: accounts[0].json_metadata || '',
+        posting_json_metadata: JSON.stringify(updatedMetadata)
       }
     ];
 
@@ -308,8 +308,8 @@ export class HiveClient extends EventEmitter {
       throw new Error('Failed to fetch account data');
     }
 
-    const currentMetadata = JSON.parse(accounts[0].json_metadata || '{}');
-    
+    const currentMetadata = JSON.parse(accounts[0].posting_json_metadata || '{}');
+
     // Update the egodeathplayer section
     const updatedMetadata = {
       ...currentMetadata,
@@ -323,8 +323,8 @@ export class HiveClient extends EventEmitter {
       'account_update2',
       {
         account: username,
-        json_metadata: JSON.stringify(updatedMetadata),
-        posting_json_metadata: accounts[0].posting_json_metadata || ''
+        json_metadata: accounts[0].json_metadata || '',
+        posting_json_metadata: JSON.stringify(updatedMetadata)
       }
     ];
 
@@ -368,7 +368,7 @@ export class HiveClient extends EventEmitter {
     await this.keychain.broadcast(broadcastData);
   }
 
-  public async startMoveListener(username: string, startFromBlock?: number): Promise<void> {
+  public async startBlockStream(startFromBlock?: number): Promise<void> {
     if (this.isListening) {
       this.stopMoveListener();
     }
@@ -377,47 +377,23 @@ export class HiveClient extends EventEmitter {
 
     try {
       const currentBlock = startFromBlock || await this.client.blockchain.getCurrentBlockNum();
-      // getOperations returns an async iterator
       const operations = this.client.blockchain.getOperations(currentBlock);
-      this.processOperationsAsyncIterator(username, operations);
+      this.processOperationsAsyncIterator(operations);
     } catch (error) {
-      logger.error('[HiveClient Debug] Error starting operations stream:', error);
+      logger.error('[HiveClient Debug] Error starting block stream:', error);
       this.isListening = false;
     }
   }
 
-  private async processOperationsAsyncIterator(username: string, operations: AsyncGenerator<any, void, unknown>): Promise<void> {
+  private async processOperationsAsyncIterator(operations: AsyncGenerator<any, void, unknown>): Promise<void> {
     try {
       for await (const operation of operations) {
         if (!this.isListening) break;
-        
+
         // Process time events for each new block
         if (operation.block_num && operation.block_num > this.lastProcessedBlock) {
           this.lastProcessedBlock = operation.block_num;
           this.processTimeEvents(operation.block_num);
-        }
-        
-        // Check if this is a custom_json operation for our game
-        if (operation.op[0] === 'custom_json' && operation.op[1].id === config.game.idName) {
-          try {
-            const jsonData = JSON.parse(operation.op[1].json);
-            if (jsonData.move_to?.Location) {
-              // CRITICAL FIX: Only process operations for the specific user
-              // Check if the operation's required_posting_auths contains our username
-              const requiredPostingAuths = operation.op[1].required_posting_auths || [];
-              if (requiredPostingAuths.includes(username)) {
-                // Emit event for the new move operation
-                this.emit('moveDetected', {
-                  username,
-                  location: jsonData.move_to.Location,
-                  transactionId: operation.trx_id,
-                  timestamp: operation.timestamp
-                });
-              }
-            }
-          } catch (error) {
-            logger.error('[HiveClient Debug] Error parsing move operation:', error);
-          }
         }
       }
     } catch (error) {
@@ -425,7 +401,7 @@ export class HiveClient extends EventEmitter {
       // Restart the stream after a delay
       setTimeout(() => {
         if (this.isListening) {
-          this.startMoveListener(username);
+          this.startBlockStream();
         }
       }, 5000);
     }

@@ -198,41 +198,7 @@ export function useGame(client: Client, keychain: any) {
     
     switch (command.type) {
       case 'move':
-        logger.debug('Processing move command');
-        const direction = command.args[0];
-        
-        logger.debug('Attempting to move:', {
-          direction,
-          currentRoomPermlink,
-          playerLocation: player?.location,
-          currentRoomExits
-        });
-        
-        if (!currentRoomPermlink) {
-          gameState.addOutputMessage('Cannot determine current location.', true);
-          return;
-        }
-        
-        // Look up the exit in the current room
-        if (!currentRoomExits || !currentRoomExits[direction]) {
-          logger.debug('Exit not found:', {
-            currentRoomPermlink,
-            direction,
-            availableExits: currentRoomExits ? Object.keys(currentRoomExits) : 'none'
-          });
-          gameState.addOutputMessage(`You cannot go ${direction}.`, true);
-          return;
-        }
-        
-        const targetPermlink = currentRoomExits[direction];
-        logger.debug('Found exit, moving to:', {
-          direction,
-          targetPermlink,
-          currentAuthor: player?.location?.author
-        });
-        
-        // Use the gameState's move method (same as App.tsx version)
-        gameState.move(direction);
+        gameState.move(command.args[0]);
         break;
       case 'say':
         logger.debug('Processing say command');

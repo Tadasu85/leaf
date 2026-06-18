@@ -142,36 +142,6 @@ export function useSocket(gameState: GameState | null) {
       }
     };
 
-    const handleRoomUpdate = (data: any) => {
-      // Handle room update from RoomService
-      const currentRoom = gameStateRef.current?.getCurrentRoom();
-      if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
-        // Update the room's player list with online players
-        gameStateRef.current?.updateRoomPlayers(data.players);
-      }
-    };
-
-    const handleRoomState = (data: any) => {
-      // Handle room state response from RoomService
-      const currentRoom = gameStateRef.current?.getCurrentRoom();
-      if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
-        // Update the room's player list with online players
-        gameStateRef.current?.updateRoomPlayers(data.players);
-      }
-    };
-
-    const handleRoomPlayerLeft = (data: any) => {
-      // Handle player left event from RoomService
-      const currentRoom = gameStateRef.current?.getCurrentRoom();
-      if (currentRoom && data.room === `${currentRoom.author}/${currentRoom.permlink}` && data.players) {
-        // Update the room's player list with online players
-        gameStateRef.current?.updateRoomPlayers(data.players);
-        
-        // Display leave notification
-        gameStateRef.current?.notifyPlayerLeft(data.username);
-      }
-    };
-
     const handleKeepalive = () => {
       logger.debug('[useSocket] Received keepalive event');
       // The SocketManager will automatically respond to keepalive
@@ -189,9 +159,6 @@ export function useSocket(gameState: GameState | null) {
     socketManager.on('chat', handleChat);
     socketManager.on('chatMessage', handleChatMessage);
     socketManager.on('emote', handleEmote);
-    socketManager.on('roomUpdate', handleRoomUpdate);
-    socketManager.on('roomState', handleRoomState);
-    socketManager.on('roomPlayerLeft', handleRoomPlayerLeft);
     socketManager.on('keepalive', handleKeepalive);
     logger.debug('[useSocket] Event listeners registered');
 
@@ -206,9 +173,6 @@ export function useSocket(gameState: GameState | null) {
       socketManager.off('chat', handleChat);
       socketManager.off('chatMessage', handleChatMessage);
       socketManager.off('emote', handleEmote);
-      socketManager.off('roomUpdate', handleRoomUpdate);
-      socketManager.off('roomState', handleRoomState);
-      socketManager.off('roomPlayerLeft', handleRoomPlayerLeft);
       socketManager.off('keepalive', handleKeepalive);
     };
 

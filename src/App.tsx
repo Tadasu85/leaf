@@ -479,8 +479,10 @@ function App() {
     });
   }, []);
 
-  // Override console.log for mobile debugging
+  // Override console.log for mobile debugging (development only)
   useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+
     const originalLog = console.log;
     const originalDebug = console.debug;
     const originalInfo = console.info;
