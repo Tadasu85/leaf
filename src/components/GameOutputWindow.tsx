@@ -43,7 +43,10 @@ function GameOutputWindow({
             key={message.id}
             className={`game-output-window__message${message.bold ? ' game-output-window__message--bold' : ''}`}
           >
-            <ReactMarkdown components={{ a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" /> }}>{processedText}</ReactMarkdown>
+            <ReactMarkdown components={{
+              a: ({node, ...props}) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+              img: ({alt}) => <span>{alt}</span>
+            }}>{processedText}</ReactMarkdown>
           </div>
         );
       })}
