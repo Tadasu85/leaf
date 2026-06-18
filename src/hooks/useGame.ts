@@ -185,7 +185,6 @@ export function useGame(client: Client, keychain: any) {
     
     // Get current room exits for command validation
     // Admin users don't have a location, so they can't use movement commands
-    const currentRoomPermlink = player?.location?.permlink;
     const currentRoomExits = currentRoom?.exits;
     
     const command = commandParser.parse(text, currentRoomExits);
