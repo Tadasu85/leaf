@@ -34,39 +34,53 @@ The ferry room demonstrates this system with 6 phases:
 
 ### For Builders
 
-1. Click the "Time Events" button in the sidebar (requires builder permissions)
-2. Create new ferry rooms with custom configurations:
-   - **Room Permlink**: The unique identifier for the room
-   - **Title**: Display name for the ferry
-   - **Description**: Description of the ferry
-   - **Interval Blocks**: How many blocks between phase changes (default: 100 blocks ≈ 5 minutes)
-   - **Start Phase**: Which phase to begin with (0-5)
+Time-event rooms are configured via the **Build** button in the sidebar (requires builder permissions). When creating a room, enable the "Time Event" option and fill in:
+- **Interval Blocks**: How many blocks between phase changes (default: 100 blocks ≈ 5 minutes)
+- **Phases**: Each phase has a name, description, and set of exits
+
+The `startBlock` is set automatically at admin approval time — no manual configuration needed. Once approved, the room becomes live and all clients derive its current phase deterministically from the blockchain.
 
 ### For Developers
 
 #### Creating Custom Time Events
 
-```typescript
-// Register a room for time-based events
-const timeEventConfig: TimeEventConfig = {
-  type: 'ferry', // or 'market', 'weather', 'custom'
-  intervalBlocks: 100, // Change every 100 blocks
-  lastChangeBlock: 0, // Will be set automatically
-  currentPhase: 0,
-  phases: [
-    {
-      phase: 0,
-      name: "Phase 1",
-      description: "Description for phase 1",
-      exits: { "north": "destination-1", "south": "destination-2" },
-      duration: 100
-    },
-    // ... more phases
-  ]
-};
+Time-event rooms are fully data-driven — no code changes required. Add a `timeEvent` field to the room's entry in the game account's `posting_json_metadata`:
 
-gameState.registerTimeEventRoom('my-room-permlink', timeEventConfig);
+```json
+{
+  "my-room-permlink": {
+    "author": "builder-username",
+    "exits": {},
+    "timeEvent": {
+      "type": "ferry",
+      "intervalBlocks": 100,
+      "startBlock": 12345678,
+      "phases": [
+        {
+          "phase": 0,
+          "name": "Phase 1",
+          "description": "Description for phase 1",
+          "exits": { "north": "destination-permlink" }
+        },
+        {
+          "phase": 1,
+          "name": "Phase 2",
+          "description": "Description for phase 2",
+          "exits": {}
+        }
+      ]
+    }
+  }
+}
 ```
+
+`startBlock` is written automatically at admin approval time. The client computes the current phase as:
+
+```
+currentPhase = floor((currentBlock - startBlock) / intervalBlocks) % numPhases
+```
+
+Every client at the same block number arrives at the same phase — no server coordination needed.
 
 #### Listening for Time Events
 

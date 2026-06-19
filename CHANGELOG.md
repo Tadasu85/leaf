@@ -5,44 +5,31 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Comprehensive test suite with 125 passing tests
-- Memory monitoring and cache management tools
-- Bulk data loading architecture for improved performance
-- Real-time chat and emote system
-- Builder queue management system
-- Time-based events using blockchain heartbeat
-- Mobile-responsive design with PWA support
-- Security improvements with input validation and rate limiting
+- **ServerStatusNotifier**: Unobtrusive top-right card that appears when the signaling server is cold-starting (Render free tier). Shows after 5 seconds of connecting, fades out automatically when connected — uses existing `chat-status` UI classes to match the design system
+- **Time-based events system**: Rooms whose exits change based on Hive block number. Phase is computed deterministically on every client from `startBlock` and `intervalBlocks` — no server coordination. Fully data-driven via game account metadata, no code changes needed to add new time-event rooms
 
 ### Changed
-- **BREAKING**: Completely rewrote test suite to fix infinite loops and memory issues
-- Updated useSocket hook dependency management to prevent infinite re-renders
-- Improved useGameData hook to remove circular dependencies
-- Enhanced README with comprehensive technical documentation
-- Optimized bulk loading system for instant room transitions
-- Improved mobile detection and keychain integration
+- **Dependency upgrade (June 2026)**: React 19, TypeScript 6, Node 24, Express 5, Socket.IO 4.8, Jest 30, and all associated tooling across both repos
+- Removed deprecated `useGameState` hook (consolidated into `useGame`)
+- Removed unused `@tanstack/react-query` dependency
 
 ### Fixed
-- **CRITICAL**: Fixed infinite loop in useSocket hook causing memory leaks
-- **CRITICAL**: Resolved circular dependencies in useGameData hook
-- Fixed test suite hanging and running out of memory
-- Resolved autofocus test issues in TextInputBox component
-- Fixed room title display after look command
-- Corrected test assertions for room data verification
-- Fixed mobile keychain integration issues
-- Resolved WebSocket connection cleanup problems
+- **SocketManager**: Now correctly emits `'connecting'` status when `connect()` is called, so UI can react immediately
+- **SocketManager**: Added `connect_error` handler for initial connection failures (covers Render cold-start scenario where server hasn't responded yet)
+- **SocketManager**: Raised `maxReconnectAttempts` from 5 to 10 (~161 second retry window vs ~31 seconds — enough to outlast any Render cold start)
+- **SocketManager**: `attemptReconnect()` now guards against double-scheduling when both `connect_error` and `disconnect` fire
+- **Login room display**: `displayRoom()` now called directly in `login()` rather than waiting on a socket event that never arrived
+- **Hive API compatibility**: `get_content` no longer returns an `id` field — fixed all references to use `content.author` instead
+- Fixed trust proxy configuration on Render (production server)
 
 ### Performance
 - **20-50x faster room transitions** with bulk loading system
 - **Reduced API calls** by 90% through upfront data loading
 - **Improved memory management** with LRU caching
-- **Faster test execution** (under 4 seconds vs previous hanging)
 
 ### Security
-- Added comprehensive input validation and sanitization
-- Implemented rate limiting for commands (100ms between commands)
-- Added injection pattern detection and blocking
-- Enhanced permission-based access control
+- Input validation with length limits, character allowlists, and injection detection
+- Rate limiting: 100ms between commands client-side; 100 req/15min and 10 connections/min server-side
 
 ## [0.1.0] - 2024-07-26
 

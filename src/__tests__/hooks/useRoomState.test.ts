@@ -18,12 +18,12 @@ const roomA: LegacyRoomData = {
   players: ['alice'],
   details: { stalactites: 'Sharp and icy.' },
   exits: {},
-  author: 'auth',
+  author: 'author',
   permlink: 'cave-room',
 };
 
 const gameJSONWithExits: GameJSON = {
-  'cave-room': { exits: { north: 'auth/forest-room' } },
+  'cave-room': { author: 'author', exits: { north: 'author/forest-room' } },
 };
 
 describe('useRoomState', () => {

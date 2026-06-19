@@ -26,7 +26,7 @@ Before you begin, ensure you have the following installed:
 - Node Version Manager (NVM)
   - Ubuntu: NVM version 0.39.0+
   - Windows: NVM version 1.2.1+
-- Node.js 22.0+ (via NVM)
+- Node.js 24.0+ (via NVM)
 - NPM 10.5.1+
 
 ### Initial Setup
@@ -51,7 +51,7 @@ Before you begin, ensure you have the following installed:
 
 ### Ubuntu Setup
 - Install NVM version 0.39.0 or later
-- Install Node.js 22.0 using NVM
+- Install Node.js 24.0 using NVM
 - Install NPM 10.5.1 or later
 - Install Hive Keychain browser extension
 - Ensure you have your Hive keys installed in Keychain (minimum Active key required)
@@ -67,8 +67,8 @@ Before you begin, ensure you have the following installed:
    ```
 3. Install Node.js via NVM:
    ```bash
-   nvm install 22
-   nvm use 22
+   nvm install 24
+   nvm use 24
    ```
 4. Install Hive Keychain browser extension
 5. Configure Hive keys in Keychain
@@ -148,21 +148,30 @@ Follow the conventional commits format:
 
 ```
 leaf/
-├── src/               # Source code
-│   ├── components/    # React components
-│   ├── App.tsx       # Main application
-│   └── index.tsx     # Entry point
-├── public/           # Static files
-├── package.json      # Dependencies and scripts
-└── tsconfig.json    # TypeScript configuration
+├── src/
+│   ├── components/      # React UI components
+│   ├── hooks/           # Custom React hooks (useGame, useSocket, etc.)
+│   ├── game/            # Core game logic
+│   │   ├── state/       # GameState class
+│   │   ├── blockchain/  # HiveClient, BulkDataLoader
+│   │   ├── commands/    # CommandParser
+│   │   ├── network/     # SocketManager
+│   │   └── types/       # TypeScript interfaces
+│   ├── contexts/        # React context providers
+│   ├── utils/           # Logger, helpers
+│   ├── App.tsx          # Root component
+│   └── index.tsx        # Entry point
+├── public/              # Static files
+├── package.json         # Dependencies and scripts
+└── tsconfig.json        # TypeScript configuration
 ```
 
 ### Key Technologies
-- React 18
-- TypeScript
+- React 19
+- TypeScript 6
 - @hiveio/dhive
 - keychain-sdk
-- react-query
+- Socket.IO client
 - Jest for testing
 
 ## Questions or Problems?

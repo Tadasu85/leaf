@@ -16,7 +16,7 @@ This hook consolidates the following previous hooks:
 import { useGame } from './hooks/useGame';
 
 function MyComponent() {
-  const { client } = useClients();
+  const { client, keychain } = useClients();
   
   const {
     // Game State
@@ -26,6 +26,7 @@ function MyComponent() {
     player,
     currentRoom,
     login,
+    isLoginComplete,
     
     // Room State
     roomData,
@@ -35,17 +36,15 @@ function MyComponent() {
     updateGameJSON,
     hasRoomDataChanged,
     
-    // Game Data
-    fetchGameData,
-    checkIfUserIsBuilder,
-    
     // User State
     userProfileJSON,
-    setUserProfileJSON,
     isBuilder,
     isAdmin,
-    updateUserProfile
-  } = useGame(client);
+    updateUserProfile,
+
+    // Command handling
+    handleCommand,
+  } = useGame(client, keychain);
 }
 ```
 
@@ -74,16 +73,16 @@ const {
   player,
   currentRoom,
   login,
+  isLoginComplete,
   roomData,
   updateRoomData,
   updateGameJSON,
   isLoadedGame,
-  fetchGameData,
-  checkIfUserIsBuilder,
   isBuilder,
   isAdmin,
-  updateUserProfile
-} = useGame(client);
+  updateUserProfile,
+  handleCommand,
+} = useGame(client, keychain);
 ```
 
 ## State Management

@@ -20,7 +20,7 @@ Ego Death is the first game built using the Leaf framework. In this text-based a
 
 ### Prerequisites
 - [Hive Keychain](https://hive-keychain.com/) browser extension
-- Node.js 22+ and npm
+- Node.js 24+ and npm
 - A Hive account (create one at [Ecency](https://ecency.com/))
 
 ### Installation
@@ -120,14 +120,12 @@ npm run build
 
 ## 📱 Mobile Support
 
-Leaf includes comprehensive mobile support:
-- **Responsive Design**: Optimized for screens ≤700px
-- **Mobile Keychain Integration**: URL scheme fallbacks and API integration
-- **Touch-Friendly UI**: Larger touch targets and mobile-optimized layouts
-- **PWA Support**: Basic progressive web app functionality
-- **Accessibility**: ARIA attributes, keyboard navigation, screen reader support
+Leaf has basic mobile support in progress:
+- **Responsive Design**: Layout adapts for smaller screens
+- **Mobile Keychain Integration**: Detects mobile platform and adapts login flow
+- **Debug Panel**: On-device log viewer for mobile debugging
 
-See [MOBILE_ROADMAP.md](MOBILE_ROADMAP.md) for detailed mobile development plans.
+Full mobile optimisation (touch-friendly input, bottom nav, PWA, offline support) is planned. See [MOBILE_ROADMAP.md](MOBILE_ROADMAP.md) for details.
 
 ## ⏰ Time-Based Events
 
