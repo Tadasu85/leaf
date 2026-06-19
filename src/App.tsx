@@ -18,6 +18,7 @@ import EditRoomModal from './components/EditRoomModal';
 import { KeychainKeyTypes } from 'keychain-sdk';
 import config from './config';
 import { MemoryMonitor } from './components/MemoryMonitor';
+import { ServerStatusNotifier } from './components/ServerStatusNotifier';
 import GameErrorBoundary from './components/GameErrorBoundary';
 import ErrorBoundary from './components/ErrorBoundary';
 import logger from './utils/Logger';
@@ -710,7 +711,8 @@ function App() {
              handleGlobalError(error, 'Room editing error');
            }}
          />
-      <MemoryMonitor 
+      <ServerStatusNotifier connectionStatus={connectionStatus} isSignedIn={isSignedIn} />
+      <MemoryMonitor
         hiveClient={gameState?.getHiveClient() || null}
         isVisible={process.env.NODE_ENV === 'development'}
       />

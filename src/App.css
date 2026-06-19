@@ -208,6 +208,20 @@ body, html, #root, .app {
   100% { opacity: 1; }
 }
 
+.server-status-notifier {
+  position: fixed;
+  top: 90px;
+  right: 16px;
+  z-index: 500;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 1.5s ease;
+}
+
+.server-status-notifier--fading {
+  opacity: 0;
+}
+
 .game-output-window {
   background: #fff;
   border-radius: 16px;

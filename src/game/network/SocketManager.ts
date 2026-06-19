@@ -14,7 +14,7 @@ export class SocketManager extends EventEmitter {
   
   // Memory leak prevention
   private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
+  private maxReconnectAttempts: number = 10;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private isDestroyed: boolean = false;
   private eventListeners: Map<string, (...args: any[]) => void> = new Map();
@@ -48,8 +48,10 @@ export class SocketManager extends EventEmitter {
     // Reset channel so the reconnect effect re-joins the room on the new socket
     this.currentChannelId = null;
     this.isConnecting = true;
+    this.connectionStatus = 'connecting';
     this.username = username;
     this.location = location;
+    this.emit('connectionStatusChanged', { status: 'connecting' });
 
     try {
       logger.debug('[SocketManager] Creating new socket connection to:', config.signalingServer);
@@ -181,6 +183,19 @@ export class SocketManager extends EventEmitter {
 
       builderGranted: (data: { username: string }) => {
         this.emit('builderGranted', data);
+      },
+
+      connect_error: (error: any) => {
+        logger.debug('[SocketManager] Connection error:', error?.message);
+        this.isConnecting = false;
+        if (!this.isDestroyed) {
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.attemptReconnect();
+          } else {
+            this.connectionStatus = 'failed';
+            this.emit('connectionStatusChanged', { status: 'failed', error: 'Max reconnection attempts reached' });
+          }
+        }
       },
 
       error: (error: any) => {
@@ -336,7 +351,7 @@ export class SocketManager extends EventEmitter {
   }
 
   private attemptReconnect(): void {
-    if (this.isDestroyed || this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (this.isDestroyed || this.reconnectAttempts >= this.maxReconnectAttempts || this.reconnectTimeout !== null) {
       return;
     }
 
