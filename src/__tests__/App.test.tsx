@@ -1,6 +1,5 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock all the complex hooks and dependencies to prevent infinite loops
 jest.mock('../hooks/useClients', () => ({
@@ -147,21 +146,7 @@ jest.mock('../game/blockchain/BulkDataLoader');
 jest.mock('../game/commands/CommandParser');
 jest.mock('../game/network/SocketManager');
 
-// Create a test wrapper with providers
-const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  });
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  );
-};
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => <>{children}</>;
 
 // Mock localStorage
 const localStorageMock = {
