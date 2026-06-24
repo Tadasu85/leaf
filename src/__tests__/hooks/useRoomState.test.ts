@@ -54,7 +54,7 @@ describe('useRoomState', () => {
       act(() => { result.current.updateGameJSON(gameJSONWithExits); });
       // Then set room data — exits come from the already-loaded gameJSON
       act(() => { result.current.updateRoomData({ ...roomA, exits: { south: 'other' } }); });
-      expect(result.current.roomData.exits).toEqual({ north: 'auth/forest-room' });
+      expect(result.current.roomData.exits).toEqual({ north: 'author/forest-room' });
     });
 
     it('exits are empty when permlink is not in gameJSON', () => {
@@ -83,7 +83,7 @@ describe('useRoomState', () => {
       act(() => {
         result.current.updateRoomData(prev => ({ ...prev, title: 'Changed' }));
       });
-      expect(result.current.roomData.exits).toEqual({ north: 'auth/forest-room' });
+      expect(result.current.roomData.exits).toEqual({ north: 'author/forest-room' });
     });
   });
 
@@ -101,7 +101,7 @@ describe('useRoomState', () => {
       // Room data must have the matching permlink
       act(() => { result.current.updateRoomData(roomA); });
       act(() => { result.current.updateGameJSON(gameJSONWithExits); });
-      expect(result.current.roomData.exits).toEqual({ north: 'auth/forest-room' });
+      expect(result.current.roomData.exits).toEqual({ north: 'author/forest-room' });
     });
 
     it('leaves roomData.exits empty when current permlink is not in new gameJSON', () => {
