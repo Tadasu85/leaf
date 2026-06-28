@@ -16,6 +16,7 @@ export class HiveClient extends EventEmitter {
   private isBulkDataLoaded: boolean = false;
   private timeEventRooms: Map<string, TimeEventConfig> = new Map();
   private lastProcessedBlock: number = 0;
+  private timeEventTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(keychain?: any) {
     super();
@@ -383,6 +384,24 @@ export class HiveClient extends EventEmitter {
       logger.error('[HiveClient Debug] Error starting block stream:', error);
       this.isListening = false;
     }
+
+    this.startTimeEventPoller();
+  }
+
+  private startTimeEventPoller(): void {
+    if (this.timeEventTimer) clearInterval(this.timeEventTimer);
+    this.timeEventTimer = setInterval(async () => {
+      if (!this.isListening || this.timeEventRooms.size === 0) return;
+      try {
+        const blockNum = await this.client.blockchain.getCurrentBlockNum();
+        if (blockNum > this.lastProcessedBlock) {
+          this.lastProcessedBlock = blockNum;
+          this.processTimeEvents(blockNum);
+        }
+      } catch (e) {
+        logger.warn('[HiveClient] Time event poller failed to fetch block number', e);
+      }
+    }, 10000); // poll every 10 seconds — fine-grained enough given intervalBlocks * 3s
   }
 
   private async processOperationsAsyncIterator(operations: AsyncGenerator<any, void, unknown>): Promise<void> {
@@ -409,6 +428,10 @@ export class HiveClient extends EventEmitter {
 
   public stopMoveListener(): void {
     this.isListening = false;
+    if (this.timeEventTimer) {
+      clearInterval(this.timeEventTimer);
+      this.timeEventTimer = null;
+    }
   }
 
   public getClient(): Client {
