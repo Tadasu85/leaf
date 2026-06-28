@@ -212,6 +212,9 @@ describe('GameState', () => {
 
     beforeEach(() => {
       gameState.registerTimeEventRoom('ferry-dock', timeEventConfig);
+      hiveClient.getTimeEventConfig.mockImplementation((permlink: string) =>
+        permlink === 'ferry-dock' ? timeEventConfig : null
+      );
       setRoom(gameState, { ...mockRoom, permlink: 'ferry-dock', author: 'auth', exits: {} });
       setPlayer(gameState);
       (gameState as any).hasReceivedInitialPlayerList = true;

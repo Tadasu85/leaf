@@ -49,8 +49,8 @@ export class GameState extends EventEmitter {
     logger.debug('Time event detected:', timeEvent);
     
     // Update the room's exits based on the new phase
-    const config = this.timeEventRooms.get(timeEvent.roomPermlink);
-    if (config && config.phases[timeEvent.phase]) {
+    const config = this.hiveClient.getTimeEventConfig(timeEvent.roomPermlink);
+    if (config && config.phases?.[timeEvent.phase]) {
       const phase = config.phases[timeEvent.phase];
       
       // Update the room data with new exits
@@ -239,7 +239,7 @@ export class GameState extends EventEmitter {
 
       // Check if this is a time-based room and apply dynamic exits
       const timeEventConfig = this.hiveClient.getTimeEventConfig(location.permlink);
-      if (timeEventConfig && timeEventConfig.phases[timeEventConfig.currentPhase]) {
+      if (timeEventConfig && timeEventConfig.phases?.[timeEventConfig.currentPhase]) {
         const currentPhase = timeEventConfig.phases[timeEventConfig.currentPhase];
         roomCopy.exits = currentPhase.exits;
         roomCopy.isTimeBased = true;
@@ -327,10 +327,11 @@ export class GameState extends EventEmitter {
     }
 
     try {
-      // Destinations in game map are just permlinks, use current room's author
-      const location: Location = { 
-        author: this.currentRoom.author, 
-        permlink: destination 
+      // Look up the destination author from the game map; fall back to current room's author
+      const destAuthor = this.gameMap[destination]?.author ?? this.currentRoom.author;
+      const location: Location = {
+        author: destAuthor,
+        permlink: destination
       };
 
       // OPTIMISTIC UPDATE: Update local state immediately for instant feedback
