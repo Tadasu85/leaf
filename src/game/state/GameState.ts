@@ -328,7 +328,7 @@ export class GameState extends EventEmitter {
 
     try {
       // Look up the destination author from the game map; fall back to current room's author
-      const destAuthor = this.gameMap[destination]?.author ?? this.currentRoom.author;
+      const destAuthor = this.hiveClient.getGameMap()[destination]?.author ?? this.currentRoom.author;
       const location: Location = {
         author: destAuthor,
         permlink: destination
