@@ -90,7 +90,13 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
 
       // Get current game JSON metadata
       const gameInfo = await client.database.getAccounts([config.game.account]);
-      const currentMetadata = JSON.parse(gameInfo[0].posting_json_metadata);
+      // Parse defensively: an empty string means no posting metadata yet
+      let currentMetadata: Record<string, any> = {};
+      try {
+        currentMetadata = JSON.parse(gameInfo[0].posting_json_metadata || '{}') || {};
+      } catch (error) {
+        throw new Error('Game account metadata is not valid JSON; refusing to overwrite it');
+      }
       const currentGameData = currentMetadata.egodeathgamedata || {};
       const currentRooms = currentGameData.rooms_authors_exits || {};
 
@@ -121,6 +127,8 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
         [request.newRoom.permlink]: newRoomEntry,
         // Update the current room's exits to point to the new room
         [request.room.permlink]: {
+          // Keep every existing field of the source room (e.g. its timeEvent)
+          ...(currentRooms[request.room.permlink] || {}),
           author: currentRooms[request.room.permlink]?.author || request.room.author,
           exits: {
             ...(currentRooms[request.room.permlink]?.exits || {}),
@@ -129,15 +137,13 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
         }
       };
 
-      // Create the complete updated metadata
+      // Merge into the existing metadata so the account's profile and any
+      // other keys survive. Previously this replaced the whole object.
       const updatedMetadata = {
+        ...currentMetadata,
         egodeathgamedata: {
+          ...currentGameData,
           rooms_authors_exits: updatedRooms
-        },
-        profile: {
-          collections: "",
-          topics: [],
-          version: 2
         }
       };
 

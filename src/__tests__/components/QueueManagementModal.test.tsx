@@ -168,6 +168,37 @@ describe('QueueManagementModal', () => {
     });
   });
 
+  it('keeps the profile, other keys and the source room timeEvent when approving', async () => {
+    const sourceTimeEvent = { type: 'ferry', intervalBlocks: 10, startBlock: 1, phases: [] };
+    mockGetAccounts.mockResolvedValue([{
+      posting_json_metadata: JSON.stringify({
+        profile: { name: 'Ego Death', about: 'A text adventure', profile_image: 'https://example.com/a.png' },
+        other_app: { keep: true },
+        egodeathgamedata: {
+          version: 3,
+          rooms_authors_exits: {
+            'current-room': { author: 'alice', exits: { east: 'somewhere' }, timeEvent: sourceTimeEvent }
+          }
+        }
+      })
+    }]);
+    const buildApprovalQueue = jest.fn().mockResolvedValue([pendingRequest]);
+    render(<QueueManagementModal {...defaultProps} buildApprovalQueue={buildApprovalQueue} />);
+    await waitFor(() => screen.getByRole('button', { name: /^approve$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^approve$/i }));
+    await waitFor(() => expect(mockBroadcast).toHaveBeenCalled());
+
+    const op = mockBroadcast.mock.calls[0][0].operations[0][1];
+    const written = JSON.parse(op.posting_json_metadata);
+    expect(written.profile).toEqual({ name: 'Ego Death', about: 'A text adventure', profile_image: 'https://example.com/a.png' });
+    expect(written.other_app).toEqual({ keep: true });
+    expect(written.egodeathgamedata.version).toBe(3);
+    const rooms = written.egodeathgamedata.rooms_authors_exits;
+    expect(rooms['current-room'].timeEvent).toEqual(sourceTimeEvent);
+    expect(rooms['current-room'].exits).toEqual({ east: 'somewhere', north: 'builder/new-forest' });
+    expect(rooms['new-forest'].author).toBe('builder');
+  });
+
   it('shows rejected status on a rejected request', async () => {
     const rejectedRequest = { ...pendingRequest, status: 'rejected' as const, rejectionReason: 'Out of scope.' };
     const buildApprovalQueue = jest.fn().mockResolvedValue([rejectedRequest]);

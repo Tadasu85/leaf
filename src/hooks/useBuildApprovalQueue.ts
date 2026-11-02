@@ -3,6 +3,24 @@ import { Client } from '@hiveio/dhive';
 import config from '../config';
 import logger from '../utils/Logger';
 
+const POSTS_PER_BUILDER = 50;
+
+/**
+ * Returns a builder's most recent top-level posts (newest first), excluding
+ * reblogs. Uses bridge.get_account_posts, falling back to
+ * condenser get_discussions_by_blog filtered to the builder's own posts.
+ */
+export async function fetchRecentPosts(client: Client, account: string, limit: number): Promise<any[]> {
+  try {
+    const posts = await client.call('bridge', 'get_account_posts', { sort: 'posts', account, limit, observer: '' });
+    if (Array.isArray(posts)) return posts;
+  } catch (error) {
+    logger.warn(`[Build Queue] bridge.get_account_posts failed for ${account}, falling back:`, error);
+  }
+  const blog = await client.database.call('get_discussions_by_blog', [{ tag: account, limit: Math.min(limit, 100) }]);
+  return (Array.isArray(blog) ? blog : []).filter((p: any) => p.author === account && !p.parent_author);
+}
+
 export function useBuildApprovalQueue(client: Client) {
   const buildApprovalQueue = useCallback(async (): Promise<any[]> => {
     try {
@@ -39,19 +57,18 @@ export function useBuildApprovalQueue(client: Client) {
 
       for (const builder of builders) {
         try {
-          const accountHistory = await client.database.getAccountHistory(builder, -1, 50);
-          const recentPosts = accountHistory
-            .filter(([, op]: any) => op.op[0] === 'comment' && !op.op[1].parent_author)
-            .slice(0, 20);
+          // Fetch the builder's recent top-level posts directly. The old approach
+          // scanned the last 50 account-history ops, so votes, moves and other
+          // activity could push room posts out of view.
+          const recentPosts = await fetchRecentPosts(client, builder, POSTS_PER_BUILDER);
 
-          for (const [, op] of recentPosts as any[]) {
+          for (const content of recentPosts) {
             try {
-              const postData = op.op[1];
-              const content = await client.database.call('get_content', [postData.author, postData.permlink]);
-
               if (content && content.json_metadata) {
                 try {
-                  const metadata = JSON.parse(content.json_metadata);
+                  const metadata = typeof content.json_metadata === 'string'
+                    ? JSON.parse(content.json_metadata)
+                    : content.json_metadata;
 
                   if (
                     (metadata.app === config.game.idName || metadata.app === 'leaf') &&
