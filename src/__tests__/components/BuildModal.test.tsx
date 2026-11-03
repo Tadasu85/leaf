@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import BuildModal from '../../components/BuildModal';
+import BuildModal, { parseExits } from '../../components/BuildModal';
 import { KeychainSDK } from 'keychain-sdk';
 
 jest.mock('keychain-sdk', () => ({
@@ -145,5 +145,46 @@ describe('BuildModal', () => {
     const exitInput = screen.getByLabelText(/exit from current room/i);
     fireEvent.change(exitInput, { target: { name: 'exitToNewRoom', value: 'north' } });
     expect((exitInput as HTMLInputElement).value).toBe('north');
+  });
+
+  it('sends phases with their exits for time-based rooms', async () => {
+    render(<BuildModal {...defaultProps} />);
+    fireEvent.change(screen.getByLabelText(/room name/i), { target: { name: 'roomName', value: 'Gondola' } });
+    fireEvent.change(screen.getByLabelText(/room description/i), { target: { name: 'description', value: 'A cable car.' } });
+    fireEvent.click(screen.getByLabelText(/enable time-based events/i));
+    fireEvent.change(screen.getByLabelText(/phase 0 name/i), { target: { value: 'At the top' } });
+    fireEvent.change(screen.getByLabelText(/phase 0 exits/i), { target: { value: 'out: summit\nDown: valley ' } });
+    fireEvent.change(screen.getByLabelText(/phase 1 name/i), { target: { value: 'Moving' } });
+    fireEvent.click(screen.getByRole('button', { name: /create room/i }));
+    await waitFor(() => expect(mockPost).toHaveBeenCalled());
+    const meta = JSON.parse(mockPost.mock.calls[0][0].json_metadata);
+    expect(meta.timeEvent.phases).toEqual([
+      { phase: 0, name: 'At the top', description: '', exits: { out: 'summit', down: 'valley' } },
+      { phase: 1, name: 'Moving', description: '', exits: {} },
+    ]);
+    expect(meta.timeEvent.startPhase).toBe(0);
+  });
+
+  it('lets builders add a third phase', async () => {
+    render(<BuildModal {...defaultProps} />);
+    fireEvent.click(screen.getByLabelText(/enable time-based events/i));
+    fireEvent.click(screen.getByRole('button', { name: /add phase/i }));
+    expect(screen.getByLabelText(/phase 2 name/i)).toBeInTheDocument();
+  });
+
+  it('rejects malformed exit lines', async () => {
+    render(<BuildModal {...defaultProps} />);
+    fireEvent.change(screen.getByLabelText(/room name/i), { target: { name: 'roomName', value: 'Gondola' } });
+    fireEvent.change(screen.getByLabelText(/room description/i), { target: { name: 'description', value: 'A cable car.' } });
+    fireEvent.click(screen.getByLabelText(/enable time-based events/i));
+    fireEvent.change(screen.getByLabelText(/phase 1 exits/i), { target: { value: 'just-a-room' } });
+    fireEvent.click(screen.getByRole('button', { name: /create room/i }));
+    await waitFor(() => expect(screen.getByText(/phase 2: exit "just-a-room"/i)).toBeInTheDocument());
+    expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  it('parseExits handles blank lines and bad lines', () => {
+    expect(parseExits('north: a\n\n south :b ')).toEqual({ exits: { north: 'a', south: 'b' } });
+    expect(parseExits('north:').error).toMatch(/north:/);
   });
 });

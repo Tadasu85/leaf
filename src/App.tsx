@@ -539,8 +539,9 @@ function App() {
           onSignOut={handleSignOut}
         />
         
-        {/* Debug Logs Toggle Button - Only show on mobile */}
-        {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
+        {/* Debug Logs Toggle Button - mobile, development builds only (logs are only captured in development) */}
+        {process.env.NODE_ENV === 'development' &&
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && (
           <button
             onClick={() => setShowDebugLogs(!showDebugLogs)}
             style={{

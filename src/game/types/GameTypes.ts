@@ -48,6 +48,7 @@ export interface StoredTimeEventConfig {
   type: 'ferry' | 'market' | 'weather' | 'custom';
   intervalBlocks: number;
   startBlock: number; // Block at which the phase schedule begins (defaults to approval block)
+  startPhase?: number; // Phase the schedule begins in at startBlock (default 0)
   phases: TimeEventPhase[];
 }
 

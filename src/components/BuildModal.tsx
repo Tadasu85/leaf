@@ -25,6 +25,34 @@ interface RoomFormData {
   startPhase: number;
 }
 
+interface PhaseFormData {
+  name: string;
+  description: string;
+  exits: string; // one "direction: room-permlink" per line
+}
+
+const defaultPhases = (): PhaseFormData[] => [
+  { name: 'Phase 1', description: '', exits: '' },
+  { name: 'Phase 2', description: '', exits: '' }
+];
+
+/** Parses "north: some-room" lines into an exits map. Returns an error message for bad lines. */
+export const parseExits = (text: string): { exits: Record<string, string>; error?: string } => {
+  const exits: Record<string, string> = {};
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const idx = line.indexOf(':');
+    const direction = idx === -1 ? '' : line.slice(0, idx).trim().toLowerCase();
+    const target = idx === -1 ? '' : line.slice(idx + 1).trim();
+    if (!direction || !target) {
+      return { exits, error: `Exit "${line}" should look like "north: room-permlink"` };
+    }
+    exits[direction] = target;
+  }
+  return { exits };
+};
+
 const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued, onError }) => {
   const [formData, setFormData] = useState<RoomFormData>({
     roomName: '',
@@ -35,6 +63,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     intervalBlocks: 100,
     startPhase: 0
   });
+  const [phases, setPhases] = useState<PhaseFormData[]>(defaultPhases());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +104,19 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     }));
   };
 
+  const updatePhase = (index: number, field: keyof PhaseFormData, value: string) => {
+    setPhases(prev => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
+  };
+
+  const addPhase = () => {
+    setPhases(prev => [...prev, { name: `Phase ${prev.length + 1}`, description: '', exits: '' }]);
+  };
+
+  const removePhase = (index: number) => {
+    setPhases(prev => (prev.length <= 2 ? prev : prev.filter((_, i) => i !== index)));
+    setFormData(prev => ({ ...prev, startPhase: Math.min(prev.startPhase, Math.max(phases.length - 2, 0)) }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -90,6 +132,27 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
       setError(errorMsg);
       if (onError) onError(errorMsg);
       return;
+    }
+
+    // Build the phase list for time-based rooms. Without phases the room can
+    // never change state, so they are required.
+    let builtPhases: { phase: number; name: string; description: string; exits: Record<string, string> }[] = [];
+    if (formData.isTimeBased) {
+      const fail = (msg: string) => {
+        setError(msg);
+        if (onError) onError(msg);
+      };
+      if (phases.length < 2) return fail('Time-based rooms need at least 2 phases');
+      if (formData.startPhase < 0 || formData.startPhase >= phases.length) {
+        return fail(`Start phase must be between 0 and ${phases.length - 1}`);
+      }
+      for (let i = 0; i < phases.length; i++) {
+        const p = phases[i]!;
+        if (!p.name.trim()) return fail(`Phase ${i + 1} needs a name`);
+        const { exits, error: exitError } = parseExits(p.exits);
+        if (exitError) return fail(`Phase ${i + 1}: ${exitError}`);
+        builtPhases.push({ phase: i, name: p.name.trim(), description: p.description.trim(), exits });
+      }
     }
 
     setIsSubmitting(true);
@@ -133,7 +196,8 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
             timeEvent: {
               type: 'ferry',
               intervalBlocks: formData.intervalBlocks,
-              startPhase: formData.startPhase
+              startPhase: formData.startPhase,
+              phases: builtPhases
             }
           })
         }),
@@ -163,6 +227,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           intervalBlocks: 100,
           startPhase: 0
         });
+        setPhases(defaultPhases());
         if (onBuildQueued) {
           onBuildQueued();
         }
@@ -192,6 +257,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
         intervalBlocks: 100,
         startPhase: 0
       });
+      setPhases(defaultPhases());
       setError(null);
     }
   }, [isOpen]);
@@ -334,11 +400,12 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
                       value={formData.startPhase}
                       onChange={handleNumberChange}
                       min="0"
+                      max={phases.length - 1}
                       placeholder="0"
                       disabled={isSubmitting}
                     />
                     <small style={{ color: '#6c757d', fontSize: '0.8rem' }}>
-                      Initial phase (0 = Docked at Port A)
+                      Phase the room is in when approved (0 = first phase)
                     </small>
                   </div>
                 </div>
@@ -350,9 +417,73 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
                   borderRadius: '4px',
                   fontSize: '0.85rem'
                 }}>
-                  <strong>Ferry Phases:</strong> Docked at Port A → Departing → At Sea → Arriving at Port B → 
-                  Docked at Port B → Departing → (cycle repeats)
+                  The room cycles through these phases in order, then repeats. Each phase replaces the room's
+                  exits. Write exits one per line, like <code>north: room-permlink</code>. Leave them empty for a
+                  phase with no way out.
                 </div>
+
+                {phases.map((phase, i) => (
+                  <fieldset
+                    key={i}
+                    style={{ marginTop: '1rem', padding: '0.75rem', border: '1px solid #dee2e6', borderRadius: '4px' }}
+                  >
+                    <legend style={{ fontSize: '0.9rem', padding: '0 0.25rem' }}>Phase {i}</legend>
+                    <div className="modal__form-group">
+                      <label className="modal__form-label" htmlFor={`phase-${i}-name`}>Phase {i} name:</label>
+                      <input
+                        className="modal__form-input"
+                        id={`phase-${i}-name`}
+                        value={phase.name}
+                        onChange={e => updatePhase(i, 'name', e.target.value)}
+                        maxLength={100}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="modal__form-group">
+                      <label className="modal__form-label" htmlFor={`phase-${i}-description`}>Phase {i} description:</label>
+                      <textarea
+                        className="modal__form-textarea"
+                        id={`phase-${i}-description`}
+                        value={phase.description}
+                        onChange={e => updatePhase(i, 'description', e.target.value)}
+                        rows={2}
+                        maxLength={500}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="modal__form-group">
+                      <label className="modal__form-label" htmlFor={`phase-${i}-exits`}>Phase {i} exits:</label>
+                      <textarea
+                        className="modal__form-textarea"
+                        id={`phase-${i}-exits`}
+                        value={phase.exits}
+                        onChange={e => updatePhase(i, 'exits', e.target.value)}
+                        rows={2}
+                        placeholder="north: room-permlink"
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    {phases.length > 2 && (
+                      <button
+                        type="button"
+                        className="modal__cancel-button"
+                        onClick={() => removePhase(i)}
+                        disabled={isSubmitting}
+                      >
+                        Remove phase {i}
+                      </button>
+                    )}
+                  </fieldset>
+                ))}
+                <button
+                  type="button"
+                  className="modal__cancel-button"
+                  style={{ marginTop: '0.75rem' }}
+                  onClick={addPhase}
+                  disabled={isSubmitting}
+                >
+                  Add phase
+                </button>
               </div>
             )}
 

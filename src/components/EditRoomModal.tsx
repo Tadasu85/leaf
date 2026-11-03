@@ -91,13 +91,9 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
         app: config.game.idName,
         type: 'room',
         format: 'markdown',
-        tags: ['ego-death'],
-        // Preserve any existing connection metadata if it exists
-        connection: {
-          fromRoom: null, // This will be preserved from the original post
-          exitToNewRoom: '',
-          exitFromNewRoom: ''
-        }
+        tags: ['ego-death']
+        // connection and timeEvent are left out on purpose: updatePost merges
+        // this over the post's existing metadata, so they are preserved.
       };
 
       // Submit the update using HiveClient

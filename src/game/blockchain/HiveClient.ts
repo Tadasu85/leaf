@@ -65,8 +65,11 @@ export class HiveClient extends EventEmitter {
    * Every client at the same block number will compute the same phase.
    */
   private computePhase(config: TimeEventConfig, blockNumber: number): number {
-    if (blockNumber < config.startBlock || config.startBlock === 0) return 0;
-    return Math.floor((blockNumber - config.startBlock) / config.intervalBlocks) % config.phases.length;
+    const phaseCount = Array.isArray(config.phases) ? config.phases.length : 0;
+    if (phaseCount === 0 || !(config.intervalBlocks > 0)) return 0;
+    const offset = Number.isInteger(config.startPhase) ? ((config.startPhase! % phaseCount) + phaseCount) % phaseCount : 0;
+    if (!config.startBlock || blockNumber < config.startBlock) return offset;
+    return (Math.floor((blockNumber - config.startBlock) / config.intervalBlocks) + offset) % phaseCount;
   }
 
   /**
@@ -345,6 +348,17 @@ export class HiveClient extends EventEmitter {
       throw new Error('Original post not found');
     }
 
+    // Merge the new metadata over the post's existing metadata so fields the
+    // caller doesn't send (connection, timeEvent, ...) are preserved.
+    let existingMetadata: Record<string, any> = {};
+    try {
+      const parsed = originalPost.json_metadata ? JSON.parse(originalPost.json_metadata) : {};
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) existingMetadata = parsed;
+    } catch {
+      logger.warn(`[HiveClient] updatePost: existing json_metadata for ${username}/${permlink} is not valid JSON; replacing it`);
+    }
+    const mergedMetadata = { ...existingMetadata, ...jsonMetadata };
+
     // Use comment operation to update the post (works even after payout)
     // Use the same parent author and permlink as the original post
     const operation: Operation = [
@@ -356,7 +370,7 @@ export class HiveClient extends EventEmitter {
         permlink: permlink,
         title: title,
         body: body,
-        json_metadata: JSON.stringify(jsonMetadata)
+        json_metadata: JSON.stringify(mergedMetadata)
       }
     ];
 
@@ -366,7 +380,10 @@ export class HiveClient extends EventEmitter {
       method: KeychainKeyTypes.posting
     } as unknown as Broadcast;
 
-    await this.keychain.broadcast(broadcastData);
+    const result = await this.keychain.broadcast(broadcastData) as { success?: boolean; message?: string } | undefined;
+    if (result && result.success === false) {
+      throw new Error(result.message || 'Failed to update the room');
+    }
   }
 
   public async startBlockStream(startFromBlock?: number): Promise<void> {
