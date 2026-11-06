@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import config from '../../config';
 import { GameState } from '../state/GameState';
 import logger from '../../utils/Logger';
+import { ChatAuth, ChatAuthPayload, isAuthError } from './ChatAuth';
 
 export class SocketManager extends EventEmitter {
   private socket: Socket | null = null;
@@ -19,15 +20,28 @@ export class SocketManager extends EventEmitter {
   private isDestroyed: boolean = false;
   private eventListeners: Map<string, (...args: any[]) => void> = new Map();
 
-  constructor(private gameState: GameState) {
+  // Chat login
+  private chatAuth: ChatAuth;
+  private connectGeneration: number = 0;
+  private lastAuthUsedToken: boolean = false;
+  private retriedWithSignature: boolean = false;
+
+  constructor(private gameState: GameState, chatAuth?: ChatAuth) {
     super();
+    this.chatAuth = chatAuth ?? new ChatAuth({
+      serverUrl: config.signalingServer,
+      signer: (username, message) => {
+        const hiveClient = this.gameState?.getHiveClient?.();
+        return hiveClient?.signMessage ? hiveClient.signMessage(username, message) : Promise.resolve(null);
+      }
+    });
     // Always emit the initial status
     setTimeout(() => {
       this.emit('connectionStatusChanged', { status: this.connectionStatus });
     }, 0);
   }
 
-  connect(username: string, location: { author: string; permlink: string }): void {
+  connect(username: string, location: { author: string; permlink: string }, forceSignature: boolean = false): void {
     if (this.isDestroyed) {
       logger.warn('[SocketManager] Cannot connect - SocketManager is destroyed');
       return;
@@ -49,14 +63,46 @@ export class SocketManager extends EventEmitter {
     this.currentChannelId = null;
     this.isConnecting = true;
     this.connectionStatus = 'connecting';
+    if (this.username !== username) this.retriedWithSignature = false;
     this.username = username;
     this.location = location;
     this.emit('connectionStatusChanged', { status: 'connecting' });
 
+    const generation = ++this.connectGeneration;
+    void this.openSocket(username, generation, forceSignature);
+  }
+
+  private async openSocket(username: string, generation: number, forceSignature: boolean): Promise<void> {
+    // Chat login: a stored session token, or a fresh Keychain signature.
+    let auth: ChatAuthPayload | undefined;
+    try {
+      const outcome = await this.chatAuth.prepare(username, forceSignature);
+      if (generation !== this.connectGeneration || this.isDestroyed) return; // superseded
+      if (outcome.kind === 'unreachable') {
+        logger.debug('[SocketManager] Chat server unreachable during login:', outcome.error);
+        this.isConnecting = false;
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.attemptReconnect();
+        } else {
+          this.connectionStatus = 'failed';
+          this.emit('connectionStatusChanged', { status: 'failed', error: 'Max reconnection attempts reached' });
+        }
+        return;
+      }
+      if (outcome.kind === 'auth') auth = outcome.payload;
+      // 'legacy' and 'cancelled' connect without credentials; the server decides.
+    } catch (error) {
+      logger.warn('[SocketManager] Chat login preparation failed:', error);
+      if (generation !== this.connectGeneration || this.isDestroyed) return;
+    }
+    this.lastAuthUsedToken = Boolean(auth?.sessionToken);
+
     try {
       logger.debug('[SocketManager] Creating new socket connection to:', config.signalingServer);
       this.socket = io(config.signalingServer, {
+        // query.username is kept so servers without chat login still work.
         query: { username },
+        ...(auth ? { auth: { ...auth } } : {}),
         transports: ['websocket', 'polling'], // polling fallback for server cold starts
         autoConnect: true,
         timeout: 10000, // 10 second timeout
@@ -185,9 +231,21 @@ export class SocketManager extends EventEmitter {
         this.emit('builderGranted', data);
       },
 
+      authenticated: (data: { username: string; sessionToken?: string }) => {
+        logger.debug('[SocketManager] Chat login accepted for', data.username);
+        this.retriedWithSignature = false;
+        if (data.sessionToken && data.username === this.username) {
+          this.chatAuth.storeToken(data.username, data.sessionToken);
+        }
+      },
+
       connect_error: (error: any) => {
         logger.debug('[SocketManager] Connection error:', error?.message);
         this.isConnecting = false;
+        if (isAuthError(error?.message) && !this.isDestroyed) {
+          this.handleAuthFailure(error.message);
+          return;
+        }
         if (!this.isDestroyed) {
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.attemptReconnect();
@@ -234,6 +292,7 @@ export class SocketManager extends EventEmitter {
 
   disconnect(): void {
     logger.debug('[SocketManager] Disconnecting socket manager');
+    this.connectGeneration++; // cancel any login still in progress
     this.cleanupSocket();
     this.isConnecting = false;
     this.connectionStatus = 'disconnected';
@@ -343,6 +402,33 @@ export class SocketManager extends EventEmitter {
     }
   }
 
+  /**
+   * The server refused the login. A stale session token gets one retry with a
+   * fresh Keychain signature; anything else stops here instead of prompting
+   * Keychain on every reconnect attempt.
+   */
+  private handleAuthFailure(message: string): void {
+    const username = this.username;
+    const location = this.location;
+    if (username) this.chatAuth.clearToken(username);
+    this.cleanupSocket();
+
+    if (this.lastAuthUsedToken && !this.retriedWithSignature && username && location) {
+      logger.info('[SocketManager] Chat session expired; asking Keychain to sign in again');
+      this.retriedWithSignature = true;
+      this.connect(username, location, true);
+      return;
+    }
+
+    logger.warn('[SocketManager] Chat login rejected:', message);
+    this.connectionStatus = 'failed';
+    const reason = message.replace(/^auth_failed:\s*/, '');
+    const friendly = reason === 'missing credentials'
+      ? 'Chat needs you to sign in with Keychain. Reload the page to try again.'
+      : `Chat login failed (${reason}). Reload the page to try again.`;
+    this.emit('connectionStatusChanged', { status: 'failed', error: friendly });
+  }
+
   private getChannelId(): string {
     if (this.location) {
       return `${this.location.author}/${this.location.permlink}`;
@@ -361,6 +447,7 @@ export class SocketManager extends EventEmitter {
     logger.debug(`[SocketManager] Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
     
     this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null;
       if (this.username && this.location && !this.isConnecting && !this.isDestroyed) {
         logger.debug('[SocketManager] Executing reconnect attempt');
         this.connect(this.username, this.location);

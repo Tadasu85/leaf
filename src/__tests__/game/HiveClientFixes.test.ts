@@ -64,3 +64,28 @@ describe('HiveClient.updatePost', () => {
     ).rejects.toThrow('User cancelled');
   });
 });
+
+describe('HiveClient.signMessage', () => {
+  const sign = (keychain: any) =>
+    (HiveClient.prototype as any).signMessage.call({ keychain }, 'alice', 'leaf-chat-login:alice:n:1');
+
+  it('returns the Keychain signature for the posting key', async () => {
+    const signBuffer = jest.fn().mockResolvedValue({ success: true, result: 'abc123' });
+    await expect(sign({ signBuffer })).resolves.toBe('abc123');
+    expect(signBuffer).toHaveBeenCalledWith(expect.objectContaining({
+      username: 'alice',
+      message: 'leaf-chat-login:alice:n:1',
+      method: 'Posting'
+    }));
+  });
+
+  it('returns null when the user cancels', async () => {
+    await expect(sign({ signBuffer: jest.fn().mockRejectedValue(new Error('User cancelled')) })).resolves.toBeNull();
+    await expect(sign({ signBuffer: jest.fn().mockResolvedValue({ success: false, message: 'cancel' }) })).resolves.toBeNull();
+  });
+
+  it('returns null when Keychain cannot sign messages', async () => {
+    await expect(sign({ broadcast: jest.fn() })).resolves.toBeNull();
+    await expect(sign(undefined)).resolves.toBeNull();
+  });
+});
