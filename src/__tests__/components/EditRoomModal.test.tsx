@@ -170,11 +170,12 @@ describe('EditRoomModal', () => {
     it('saves exit messages in the post metadata, dropping empty ones', async () => {
       render(<EditRoomModal {...defaultProps} currentRoom={roomWithExits} />);
       fireEvent.change(screen.getByLabelText('Message after arriving through down'), { target: { value: '  %n lands softly.  ' } });
+      fireEvent.change(screen.getByLabelText('What others here see when someone leaves down'), { target: { value: '%n drops through the hatch.' } });
       fireEvent.change(screen.getByLabelText('Message when leaving north'), { target: { value: '' } });
       fireEvent.click(screen.getByRole('button', { name: /update room/i }));
       await waitFor(() => expect(mockUpdatePost).toHaveBeenCalled());
       const metadata = mockUpdatePost.mock.calls[0][4];
-      expect(metadata.exitMessages).toEqual({ down: { arrive: '%n lands softly.' } });
+      expect(metadata.exitMessages).toEqual({ down: { arrive: '%n lands softly.', othersLeave: '%n drops through the hatch.' } });
       expect(metadata).not.toHaveProperty('connection');
       expect(metadata).not.toHaveProperty('timeEvent');
     });

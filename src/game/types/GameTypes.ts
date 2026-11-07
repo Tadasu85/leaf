@@ -31,8 +31,14 @@ export interface GameOutputMessage {
 
 /** Optional lines shown when a player uses an exit (see game/rooms/exitMessages). */
 export interface ExitMessage {
+  /** Shown to the player leaving through the exit */
   leave?: string;
+  /** Shown to the player after the next room appears */
   arrive?: string;
+  /** Shown to others in the room being left */
+  othersLeave?: string;
+  /** Shown to others in the room being entered */
+  othersArrive?: string;
 }
 
 export interface RoomData {

@@ -200,7 +200,7 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                 <fieldset className="modal__form-group">
                   <legend className="modal__form-label">Exit messages (optional)</legend>
                   <p style={{ marginTop: 0 }}>
-                    Lines shown to a player using an exit. <code>%n</code> becomes their name.
+                    Lines shown when someone uses an exit: to them, and to the other players in each room. <code>%n</code> becomes their name.
                     For example: "You climb the narrow ladder."
                   </p>
                   {currentRoom!.exits!.map(direction => (
@@ -224,6 +224,26 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                         value={exitMessages[direction]?.arrive ?? ''}
                         maxLength={MAX_EXIT_MESSAGE_LENGTH}
                         onChange={e => handleExitMessageChange(direction, 'arrive', e.target.value)}
+                        disabled={isSubmitting}
+                      />
+                      <input
+                        className="modal__form-input"
+                        type="text"
+                        aria-label={`What others here see when someone leaves ${direction}`}
+                        placeholder={`Others here see, e.g. %n climbs the ladder.`}
+                        value={exitMessages[direction]?.othersLeave ?? ''}
+                        maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                        onChange={e => handleExitMessageChange(direction, 'othersLeave', e.target.value)}
+                        disabled={isSubmitting}
+                      />
+                      <input
+                        className="modal__form-input"
+                        type="text"
+                        aria-label={`What others in the next room see when someone arrives through ${direction}`}
+                        placeholder={`Others in the next room see, e.g. %n climbs up from below.`}
+                        value={exitMessages[direction]?.othersArrive ?? ''}
+                        maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                        onChange={e => handleExitMessageChange(direction, 'othersArrive', e.target.value)}
                         disabled={isSubmitting}
                       />
                     </div>

@@ -5,7 +5,10 @@
  *   exitMessages: { north: { leave: "You climb the ladder.", arrive: "..." } }
  *
  * `leave` is shown to the player as they go through the exit, `arrive` after
- * the next room appears. `%n` is replaced with the player's name.
+ * the next room appears. `othersLeave` is shown to the others in the room
+ * being left and `othersArrive` to those in the room being entered (the
+ * chat server only says which exit was used; each client looks the line up
+ * here, so players can't inject their own text). `%n` is the player's name.
  */
 
 import { ExitMessage } from '../types/GameTypes';
@@ -19,12 +22,16 @@ const clean = (value: unknown): string | undefined => {
   return text || undefined;
 };
 
+const FIELDS: (keyof ExitMessage)[] = ['leave', 'arrive', 'othersLeave', 'othersArrive'];
+
 const pick = (value: unknown): ExitMessage | undefined => {
   if (!value || typeof value !== 'object') return undefined;
-  const leave = clean((value as ExitMessage).leave);
-  const arrive = clean((value as ExitMessage).arrive);
-  if (!leave && !arrive) return undefined;
-  return { ...(leave ? { leave } : {}), ...(arrive ? { arrive } : {}) };
+  const result: ExitMessage = {};
+  for (const field of FIELDS) {
+    const text = clean((value as ExitMessage)[field]);
+    if (text) result[field] = text;
+  }
+  return Object.keys(result).length ? result : undefined;
 };
 
 /** Read exitMessages from a post's json_metadata, dropping anything malformed. */

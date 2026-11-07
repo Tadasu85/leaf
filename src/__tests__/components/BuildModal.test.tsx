@@ -94,10 +94,11 @@ describe('BuildModal', () => {
       fill();
       fireEvent.change(screen.getByLabelText('Message when leaving the new room through that exit'), { target: { value: ' You climb down the ladder. ' } });
       fireEvent.change(screen.getByLabelText('Message after arriving through that exit'), { target: { value: '%n drops into the room.' } });
+      fireEvent.change(screen.getByLabelText('What others in your current room see when someone comes back through that exit'), { target: { value: '%n climbs back down.' } });
       fireEvent.click(screen.getByRole('button', { name: /create room/i }));
       await waitFor(() => expect(mockPost).toHaveBeenCalled());
       const meta = JSON.parse(mockPost.mock.calls[0][0].json_metadata);
-      expect(meta.exitMessages).toEqual({ down: { leave: 'You climb down the ladder.', arrive: '%n drops into the room.' } });
+      expect(meta.exitMessages).toEqual({ down: { leave: 'You climb down the ladder.', arrive: '%n drops into the room.', othersArrive: '%n climbs back down.' } });
       expect(meta.connection.exitFromNewRoom).toBe('down');
     });
 

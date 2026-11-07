@@ -36,6 +36,11 @@ describe('exit message helpers', () => {
     expect(buildExitMessages(['north'], { north: { leave: ' x ', arrive: ' ' }, gone: { leave: 'y' } })).toEqual({ north: { leave: 'x' } });
   });
 
+  it('keeps lines for other players too', () => {
+    expect(parseExitMessages({ exitMessages: { up: { othersLeave: '%n climbs.', othersArrive: '%n appears.' } } }))
+      .toEqual({ up: { othersLeave: '%n climbs.', othersArrive: '%n appears.' } });
+  });
+
   it('fills in the player name', () => {
     expect(renderExitMessage('%n climbs. 100%% sure, %N.', 'alice')).toBe('alice climbs. 100% sure, alice.');
   });
@@ -92,5 +97,80 @@ describe('exit messages on moves', () => {
   it('reloadRoom drops the cached post first', async () => {
     await gameState.reloadRoom({ author: 'ray', permlink: 'glass-room' });
     expect(hiveClient.invalidateRoom).toHaveBeenCalledWith('ray', 'glass-room');
+  });
+});
+
+describe('exit lines other players see', () => {
+  const glass: RoomData = {
+    id: 'ray/glass-room', title: 'Glass Room', description: '', author: 'ray', permlink: 'glass-room',
+    exits: { up: 'loft', south: 'hall' }, players: [], details: {},
+    exitMessages: { up: { othersLeave: '%n climbs the narrow ladder.', othersArrive: '%n pokes their head up through the hatch.' } },
+  };
+  const loft: RoomData = { id: 'ray/loft', title: 'Loft', description: '', author: 'ray', permlink: 'loft', exits: { down: 'glass-room' }, players: [], details: {} };
+  const hall: RoomData = { id: 'ray/hall', title: 'Hall', description: '', author: 'ray', permlink: 'hall', exits: {}, players: [], details: {} };
+  let hiveClient: any;
+  let socketManager: any;
+  let gameState: GameState;
+  const out = () => gameState.getOutputMessages().map(m => m.output);
+  const flush = () => new Promise(r => setTimeout(r, 0));
+
+  beforeEach(async () => {
+    const rooms: Record<string, RoomData> = { 'glass-room': glass, loft, hall };
+    hiveClient = Object.assign(new EventEmitter(), {
+      getRoomData: jest.fn(async (loc: { permlink: string }) => rooms[loc.permlink]),
+      getRoomDetails: jest.fn().mockResolvedValue({}),
+      getTimeEventConfig: jest.fn().mockReturnValue(null),
+      getGameMap: jest.fn().mockReturnValue({ loft: { author: 'ray' }, hall: { author: 'ray' }, 'glass-room': { author: 'ray' } }),
+      moveTo: jest.fn().mockResolvedValue(undefined),
+      registerTimeEventRoom: jest.fn(),
+      unregisterTimeEventRoom: jest.fn(),
+    });
+    socketManager = Object.assign(new EventEmitter(), { announceExit: jest.fn() });
+    gameState = new GameState(hiveClient, null as any);
+    gameState.setSocketManager(socketManager);
+    (gameState as any).isBulkDataLoaded = true;
+  });
+
+  const standIn = async (permlink: string, username = 'bob') => {
+    (gameState as any).player = { username, location: { author: 'ray', permlink }, isAdmin: false, isBuilder: false, characterDescription: '' };
+    await gameState.loadRoom({ author: 'ray', permlink }, true);
+  };
+
+  it('announces the exit when the room has lines for others', async () => {
+    await standIn('glass-room', 'alice');
+    await gameState.move('up');
+    expect(socketManager.announceExit).toHaveBeenCalledWith({ from: 'ray/glass-room', to: 'ray/loft', direction: 'up', othersLeave: true, othersArrive: true });
+  });
+
+  it("doesn't announce exits without lines for others", async () => {
+    await standIn('glass-room', 'alice');
+    await gameState.move('south');
+    expect(socketManager.announceExit).not.toHaveBeenCalled();
+  });
+
+  it("shows the room's leave line instead of the generic one", async () => {
+    await standIn('glass-room');
+    socketManager.emit('playerUsedExit', { username: 'alice', channelId: 'ray/glass-room', direction: 'up' });
+    gameState.notifyPlayerLeft('alice');
+    expect(out()).toContain('alice climbs the narrow ladder.');
+    expect(out()).not.toContain('alice has left the room.');
+  });
+
+  it("shows the source room's arrival line in the room entered", async () => {
+    await standIn('loft');
+    socketManager.emit('playerArrivedVia', { username: 'alice', channelId: 'ray/loft', from: 'ray/glass-room', direction: 'up' });
+    gameState.notifyPlayerJoined('alice');
+    await flush();
+    expect(out()).toContain('alice pokes their head up through the hatch.');
+    expect(out()).not.toContain('alice has entered the room.');
+  });
+
+  it('ignores relays for other rooms and from players muted here', async () => {
+    await standIn('glass-room');
+    socketManager.emit('playerUsedExit', { username: 'alice', channelId: 'ray/elsewhere', direction: 'up' });
+    (gameState as any).mutes = { isMuted: (n: string) => n === 'pest' };
+    socketManager.emit('playerUsedExit', { username: 'pest', channelId: 'ray/glass-room', direction: 'up' });
+    expect(out()).not.toContain('alice climbs the narrow ladder.');
+    expect(out()).not.toContain('pest climbs the narrow ladder.');
   });
 });

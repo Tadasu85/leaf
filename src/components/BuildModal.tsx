@@ -66,7 +66,8 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
   });
   const [phases, setPhases] = useState<PhaseFormData[]>(defaultPhases());
   // Optional exit messages for the new room's exit back (the builder owns the new room)
-  const [backExitMessage, setBackExitMessage] = useState<{ leave: string; arrive: string }>({ leave: '', arrive: '' });
+  const emptyBackExit = { leave: '', arrive: '', othersLeave: '', othersArrive: '' };
+  const [backExitMessage, setBackExitMessage] = useState<{ leave: string; arrive: string; othersLeave: string; othersArrive: string }>(emptyBackExit);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -236,7 +237,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           startPhase: 0
         });
         setPhases(defaultPhases());
-        setBackExitMessage({ leave: '', arrive: '' });
+        setBackExitMessage(emptyBackExit);
         if (onBuildQueued) {
           onBuildQueued();
         }
@@ -356,6 +357,26 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
                 value={backExitMessage.arrive}
                 maxLength={MAX_EXIT_MESSAGE_LENGTH}
                 onChange={e => setBackExitMessage(prev => ({ ...prev, arrive: e.target.value }))}
+                disabled={isSubmitting}
+              />
+              <input
+                className="modal__form-input"
+                type="text"
+                aria-label="What others in the new room see when someone leaves through that exit"
+                placeholder="Others in the new room see, e.g. %n squeezes out through the gap."
+                value={backExitMessage.othersLeave}
+                maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                onChange={e => setBackExitMessage(prev => ({ ...prev, othersLeave: e.target.value }))}
+                disabled={isSubmitting}
+              />
+              <input
+                className="modal__form-input"
+                type="text"
+                aria-label="What others in your current room see when someone comes back through that exit"
+                placeholder="Others back here see, e.g. %n squeezes back in through the gap."
+                value={backExitMessage.othersArrive}
+                maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                onChange={e => setBackExitMessage(prev => ({ ...prev, othersArrive: e.target.value }))}
                 disabled={isSubmitting}
               />
             </div>
