@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { HiveClient } from '../game/blockchain/HiveClient';
 import config from '../config';
 import logger from '../utils/Logger';
+import { ExitMessage } from '../game/types/GameTypes';
+import { buildExitMessages, MAX_EXIT_MESSAGE_LENGTH } from '../game/rooms/exitMessages';
 
 interface EditRoomModalProps {
   isOpen: boolean;
@@ -12,6 +14,9 @@ interface EditRoomModalProps {
     permlink: string;
     title: string;
     description: string;
+    /** Exit directions of the room, for the exit-message fields */
+    exits?: string[];
+    exitMessages?: Record<string, ExitMessage>;
   } | null;
   onRoomUpdated?: () => void;
   onError?: (error: string) => void; // Add error callback prop
@@ -34,6 +39,7 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
     roomName: currentRoom?.title || '',
     description: currentRoom?.description || ''
   });
+  const [exitMessages, setExitMessages] = useState<Record<string, ExitMessage>>(currentRoom?.exitMessages || {});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,8 +52,16 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
         roomName: currentRoom.title,
         description: currentRoom.description
       });
+      setExitMessages(currentRoom.exitMessages || {});
     }
   }, [currentRoom]);
+
+  const handleExitMessageChange = (direction: string, field: keyof ExitMessage, value: string) => {
+    setExitMessages(prev => ({
+      ...prev,
+      [direction]: { ...prev[direction], [field]: value }
+    }));
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -91,7 +105,9 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
         app: config.game.idName,
         type: 'room',
         format: 'markdown',
-        tags: ['ego-death']
+        tags: ['ego-death'],
+        // Sent whole: an emptied field removes that message.
+        exitMessages: buildExitMessages(currentRoom.exits || [], exitMessages)
         // connection and timeEvent are left out on purpose: updatePost merges
         // this over the post's existing metadata, so they are preserved.
       };
@@ -137,7 +153,7 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
         <div className="modal__body">
           <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
             <p><strong>Room Editing:</strong></p>
-            <p>You can edit the title and description of this room. Note that you can only edit rooms that you created.</p>
+            <p>You can edit the title, description and exit messages of this room. Note that you can only edit rooms that you created.</p>
           </div>
           {error && (
             <div className="modal__error-message">
@@ -179,6 +195,41 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                   disabled={isSubmitting}
                 />
               </div>
+
+              {(currentRoom?.exits?.length ?? 0) > 0 && (
+                <fieldset className="modal__form-group">
+                  <legend className="modal__form-label">Exit messages (optional)</legend>
+                  <p style={{ marginTop: 0 }}>
+                    Lines shown to a player using an exit. <code>%n</code> becomes their name.
+                    For example: "You climb the narrow ladder."
+                  </p>
+                  {currentRoom!.exits!.map(direction => (
+                    <div key={direction} style={{ marginBottom: '0.75rem' }}>
+                      <strong>{direction}</strong>
+                      <input
+                        className="modal__form-input"
+                        type="text"
+                        aria-label={`Message when leaving ${direction}`}
+                        placeholder={`When leaving ${direction}`}
+                        value={exitMessages[direction]?.leave ?? ''}
+                        maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                        onChange={e => handleExitMessageChange(direction, 'leave', e.target.value)}
+                        disabled={isSubmitting}
+                      />
+                      <input
+                        className="modal__form-input"
+                        type="text"
+                        aria-label={`Message after arriving through ${direction}`}
+                        placeholder={`After arriving through ${direction}`}
+                        value={exitMessages[direction]?.arrive ?? ''}
+                        maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                        onChange={e => handleExitMessageChange(direction, 'arrive', e.target.value)}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  ))}
+                </fieldset>
+              )}
 
               <div className="modal__form-actions">
                 <button 

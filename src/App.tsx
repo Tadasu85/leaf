@@ -723,13 +723,16 @@ function App() {
              author: currentRoom.author,
              permlink: currentRoom.permlink,
              title: currentRoom.title,
-             description: currentRoom.description
+             description: currentRoom.description,
+             exits: Object.keys(currentRoom.exits || {}),
+             exitMessages: currentRoom.exitMessages || {}
            } : null}
            onRoomUpdated={() => {
              addSuccessMessage('Room updated successfully!');
-             // Refresh the room to show the updated content
+             // Refetch the room once Hive has included the edit (about one block)
              if (gameState && currentRoom) {
-               gameState.loadRoom(currentRoom);
+               const location = { author: currentRoom.author, permlink: currentRoom.permlink };
+               setTimeout(() => { gameState.reloadRoom(location); }, 4000);
              }
            }}
            onError={(error) => {

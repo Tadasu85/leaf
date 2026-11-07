@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { renderExitMessage } from '../rooms/exitMessages';
 import {
   Player,
   GameMap,
@@ -261,6 +262,12 @@ export class GameState extends EventEmitter {
     return true;
   }
 
+  /** Fetch a room's post again, bypassing the cache (e.g. after Edit Room). */
+  async reloadRoom(location: Location): Promise<void> {
+    this.hiveClient.invalidateRoom(location.author, location.permlink);
+    await this.loadRoom(location);
+  }
+
   async loadRoom(location: Location, skipDisplay: boolean = false): Promise<void> {
     try {
       const room = await this.hiveClient.getRoomData(location);
@@ -385,12 +392,22 @@ export class GameState extends EventEmitter {
         permlink: destination
       };
 
+      // Exit messages set by the room's author (LambdaMOO-style leave/arrive lines)
+      const exitMessage = this.currentRoom.exitMessages?.[direction];
+      if (exitMessage?.leave) {
+        this.addOutputMessage(renderExitMessage(exitMessage.leave, this.player.username), false);
+      }
+
       // OPTIMISTIC UPDATE: Update local state immediately for instant feedback
       this.player.location = location;
       this.emit('playerChanged', this.player);
       
       // Load new room optimistically (using cached data)
       await this.loadRoom(location);
+
+      if (exitMessage?.arrive) {
+        this.addOutputMessage(renderExitMessage(exitMessage.arrive, this.player.username), false);
+      }
       
       // Update player location: guests keep it in this browser, everyone else on Hive
       if (this.player.isGuest) {

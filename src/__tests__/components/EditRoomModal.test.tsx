@@ -149,4 +149,34 @@ describe('EditRoomModal', () => {
     fireEvent.change(nameInput, { target: { name: 'roomName', value: 'New Name' } });
     expect((nameInput as HTMLInputElement).value).toBe('New Name');
   });
+  describe('exit messages', () => {
+    const roomWithExits = {
+      ...currentRoom,
+      exits: ['north', 'down'],
+      exitMessages: { north: { leave: 'You climb the ladder.' } },
+    };
+
+    it('shows a leave and arrive field per exit, pre-filled', () => {
+      render(<EditRoomModal {...defaultProps} currentRoom={roomWithExits} />);
+      expect((screen.getByLabelText('Message when leaving north') as HTMLInputElement).value).toBe('You climb the ladder.');
+      expect((screen.getByLabelText('Message after arriving through down') as HTMLInputElement).value).toBe('');
+    });
+
+    it('has no exit section for a room without exits', () => {
+      render(<EditRoomModal {...defaultProps} />);
+      expect(screen.queryByText('Exit messages (optional)')).not.toBeInTheDocument();
+    });
+
+    it('saves exit messages in the post metadata, dropping empty ones', async () => {
+      render(<EditRoomModal {...defaultProps} currentRoom={roomWithExits} />);
+      fireEvent.change(screen.getByLabelText('Message after arriving through down'), { target: { value: '  %n lands softly.  ' } });
+      fireEvent.change(screen.getByLabelText('Message when leaving north'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: /update room/i }));
+      await waitFor(() => expect(mockUpdatePost).toHaveBeenCalled());
+      const metadata = mockUpdatePost.mock.calls[0][4];
+      expect(metadata.exitMessages).toEqual({ down: { arrive: '%n lands softly.' } });
+      expect(metadata).not.toHaveProperty('connection');
+      expect(metadata).not.toHaveProperty('timeEvent');
+    });
+  });
 });

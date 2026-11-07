@@ -29,6 +29,12 @@ export interface GameOutputMessage {
   bold: boolean;
 }
 
+/** Optional lines shown when a player uses an exit (see game/rooms/exitMessages). */
+export interface ExitMessage {
+  leave?: string;
+  arrive?: string;
+}
+
 export interface RoomData {
   id: string;
   title: string;
@@ -40,6 +46,8 @@ export interface RoomData {
   npcs?: string[];
   players?: string[];
   details?: Record<string, string>;
+  /** Keyed by exit direction; set by the room's author in Edit Room */
+  exitMessages?: Record<string, ExitMessage>;
   // New properties for time-based events
   isTimeBased?: boolean;
   timeEventConfig?: TimeEventConfig;
