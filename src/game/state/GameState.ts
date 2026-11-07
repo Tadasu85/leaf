@@ -11,9 +11,9 @@ import {
 import config from '../../config';
 import { guestSession, GuestIdentity } from '../guest/GuestSession';
 import { HiveClient } from '../blockchain/HiveClient';
+import { readHomeFromAccount, loadGuestHome, saveGuestHome } from '../rooms/home';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
-import { readHomeFromAccount, loadGuestHome, saveGuestHome } from '../rooms/home';
 import { conjugateEmoteForSender } from '../../utils/conjugate';
 
 export class GameState extends EventEmitter {
