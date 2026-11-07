@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { KeychainSDK } from 'keychain-sdk';
 import config from '../config';
+import { Client } from '@hiveio/dhive';
+import { getPendingRoomStatus, PendingRoomStatus } from '../game/rooms/pendingRooms';
 
 interface BuildModalProps {
   isOpen: boolean;
@@ -13,7 +15,12 @@ interface BuildModalProps {
   onRoomCreated?: () => void;
   onBuildQueued?: () => void;
   onError?: (error: string) => void; // Add error callback prop
+  /** For tests; defaults to reading the Queue from Hive */
+  loadPendingStatus?: (username: string) => Promise<PendingRoomStatus>;
 }
+
+const defaultLoadPendingStatus = (username: string) =>
+  getPendingRoomStatus(new Client([config.hive.nodes[0]!]), username);
 
 interface RoomFormData {
   roomName: string;
@@ -53,7 +60,7 @@ export const parseExits = (text: string): { exits: Record<string, string>; error
   return { exits };
 };
 
-const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued, onError }) => {
+const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, currentRoom, onRoomCreated, onBuildQueued, onError, loadPendingStatus = defaultLoadPendingStatus }) => {
   const [formData, setFormData] = useState<RoomFormData>({
     roomName: '',
     exitToNewRoom: '',
@@ -66,6 +73,18 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
   const [phases, setPhases] = useState<PhaseFormData[]>(defaultPhases());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Rooms this builder already has waiting in the Queue, and their limit
+  const [pendingStatus, setPendingStatus] = useState<PendingRoomStatus | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !username) return;
+    let cancelled = false;
+    Promise.resolve()
+      .then(() => loadPendingStatus(username))
+      .then(status => { if (!cancelled) setPendingStatus(status ?? null); })
+      .catch(() => { if (!cancelled) setPendingStatus(null); }); // can't check: don't block building
+    return () => { cancelled = true; };
+  }, [isOpen, username, loadPendingStatus]);
 
   const keychain = new KeychainSDK(window, { rpc: config.hive.nodes[0] });
 
@@ -153,6 +172,13 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
         if (exitError) return fail(`Phase ${i + 1}: ${exitError}`);
         builtPhases.push({ phase: i, name: p.name.trim(), description: p.description.trim(), exits });
       }
+    }
+
+    if (pendingStatus?.atLimit) {
+      const msg = `You have ${pendingStatus.pending} rooms waiting for approval, which is your limit of ${pendingStatus.limit}. You can build again once one is approved or rejected.`;
+      setError(msg);
+      if (onError) onError(msg);
+      return;
     }
 
     setIsSubmitting(true);
@@ -275,6 +301,13 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           <div style={{ marginBottom: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '4px' }}>
             <p><strong>Room Connection:</strong></p>
             <p>Specify how this new room connects to your current location. The exits will be configured automatically when the room is approved.</p>
+            {pendingStatus && (
+              <p data-testid="pending-room-status">
+                {pendingStatus.atLimit
+                  ? `You have ${pendingStatus.pending} of ${pendingStatus.limit} rooms waiting for approval. You can build again once one is approved or rejected.`
+                  : `Rooms waiting for approval: ${pendingStatus.pending} of ${pendingStatus.limit}.`}
+              </p>
+            )}
           </div>
           {error && (
                     <div className="modal__error-message">
@@ -491,7 +524,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
               <button 
                 type="submit" 
                 className="modal__submit-button"
-                disabled={isSubmitting}
+                disabled={isSubmitting || Boolean(pendingStatus?.atLimit)}
               >
                 {isSubmitting ? 'Creating Room...' : 'Create Room'}
               </button>
