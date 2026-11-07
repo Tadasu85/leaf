@@ -91,6 +91,7 @@ export type CommandType =
   | 'move'
   | 'say'
   | 'emote'
+  | 'eject'
   | 'look'
   | 'lookAt'
   | 'help'

@@ -46,6 +46,12 @@ export class CommandParser {
       case 'say':
         return this.parseSayCommand(args);
 
+      case 'eject': {
+        const target = args.join(' ').trim().replace(/^@/, '');
+        if (!/^[A-Za-z0-9.-]{3,16}$/.test(target)) return null;
+        return { type: 'eject', args: [target], timestamp: Date.now() };
+      }
+
       case 'emote':
         return this.parseEmoteCommand(args);
 
