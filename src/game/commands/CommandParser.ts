@@ -40,6 +40,12 @@ export class CommandParser {
     }
 
     switch (command) {
+      case 'typo':
+      case 'bug':
+      case 'idea':
+        // args[0] is the kind; the rest is the note (may be empty: GameState explains usage)
+        return { type: 'feedback', args: [command, args.join(' ').trim()], timestamp: Date.now() };
+
       case 'login':
         return this.parseLoginCommand(args);
 
@@ -64,12 +70,6 @@ export class CommandParser {
 
       case '@describeshort':
         return this.parseDescribeShortCommand(args);
-
-      case 'typo':
-      case 'bug':
-      case 'idea':
-        // args[0] is the kind; the rest is the note (may be empty: GameState explains usage)
-        return { type: 'feedback', args: [command, args.join(' ').trim()], timestamp: Date.now() };
 
       default:
         // Check if it's a valid directional command for the current room

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { FeedbackKind } from '../rooms/roomFeedback';
 import {
   Player,
   GameMap,
@@ -10,7 +11,6 @@ import {
 } from '../types/GameTypes';
 import config from '../../config';
 import { guestSession, GuestIdentity } from '../guest/GuestSession';
-import { FeedbackKind } from '../rooms/roomFeedback';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
@@ -28,8 +28,6 @@ export class GameState extends EventEmitter {
   private lastRoomDisplayTimestamp: number = 0;
   private isLoggingIn: boolean = false;
   private hasNotifiedChatOffline: boolean = false;
-  private lastFeedbackAt: number = 0;
-  private static readonly FEEDBACK_COOLDOWN_MS = 20 * 1000;
   private isProcessingMovement: boolean = false;
   private isBulkDataLoaded: boolean = false;
   private lastOptimisticRoomKey: string | null = null;
@@ -715,11 +713,14 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('look - Look around the current room', false);
     this.addOutputMessage('look self - View your character description', false);
     this.addOutputMessage('look <player> - View another player\'s description', false);
+    this.addOutputMessage('typo <note>, bug <note>, idea <note> - Send feedback to the author of this room', false);
     this.addOutputMessage('@describe <description> - Set your character description', false);
     this.addOutputMessage('@describeshort <short description> - Set your character short description', false);
-    this.addOutputMessage('typo <note>, bug <note>, idea <note> - Send feedback to the author of this room', false);
     this.addOutputMessage('help - Show this help message', false);
   }
+
+  private lastFeedbackAt: number = 0;
+  private static readonly FEEDBACK_COOLDOWN_MS = 20 * 1000;
 
   /**
    * typo / bug / idea: send a note to the author of the current room as a
