@@ -144,4 +144,24 @@ describe('SocketManager chat login', () => {
     await flush();
     expect(io).not.toHaveBeenCalled();
   });
+  it('tells a guest that chat is unavailable instead of asking for Keychain', async () => {
+    chatAuth.prepare.mockResolvedValue({ kind: 'auth', payload: { username: 'Guest-000001', sessionToken: 'old' } });
+    manager.connect('Guest-000001', location);
+    await flush();
+    sockets[0].fire('connect_error', new Error('auth_failed: guest session expired'));
+    await flush();
+    expect(chatAuth.prepare).toHaveBeenCalledTimes(1);
+    expect(statuses[statuses.length - 1]).toEqual({
+      status: 'failed',
+      error: 'Chat is not available for this guest right now. You can still look around.'
+    });
+  });
+
+  it('does not store a guest token as a Hive chat session', async () => {
+    chatAuth.prepare.mockResolvedValue({ kind: 'auth', payload: { username: 'Guest-000001', sessionToken: 'g' } });
+    manager.connect('Guest-000001', location);
+    await flush();
+    sockets[0].fire('authenticated', { username: 'Guest-000001', sessionToken: 'g' });
+    expect(chatAuth.storeToken).not.toHaveBeenCalled();
+  });
 });
