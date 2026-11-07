@@ -88,6 +88,7 @@ export type BlockchainEvent = MoveEvent | BlockchainTimeEvent;
 
 export type CommandType = 
   | 'login'
+  | 'feedback'
   | 'move'
   | 'say'
   | 'emote'
@@ -95,8 +96,7 @@ export type CommandType =
   | 'lookAt'
   | 'help'
   | 'describe'
-  | 'describeshort'
-  | 'feedback';
+  | 'describeshort';
 
 export interface Command {
   type: CommandType;
