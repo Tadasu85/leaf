@@ -732,7 +732,7 @@ export class GameState extends EventEmitter {
       return;
     }
     if (this.player.isGuest) {
-      this.addOutputMessage('Feedback goes to the room's author as a Hive comment, so it needs a Hive account. Type 'signup' to find out how to get one.', true);
+      this.addOutputMessage("Feedback goes to the room's author as a Hive comment, so it needs a Hive account. Type 'signup' to find out how to get one.", true);
       return;
     }
     const room = this.currentRoom;

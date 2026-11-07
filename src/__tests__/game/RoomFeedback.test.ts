@@ -105,7 +105,7 @@ describe('GameState.sendRoomFeedback', () => {
     (gameState as any).player.isGuest = true;
     await gameState.sendRoomFeedback('idea', 'more ferns');
     expect(hiveClient.postRoomFeedback).not.toHaveBeenCalled();
-    expect(messages()).toContain('Feedback goes to the room's author as a Hive comment, so it needs a Hive account. Type 'signup' to find out how to get one.');
+    expect(messages()).toContain("Feedback goes to the room's author as a Hive comment, so it needs a Hive account. Type 'signup' to find out how to get one.");
   });
 
   it('limits how often feedback can be sent', async () => {
