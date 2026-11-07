@@ -94,6 +94,7 @@ export type CommandType =
   | 'look'
   | 'lookAt'
   | 'help'
+  | 'signup'
   | 'describe'
   | 'describeshort';
 

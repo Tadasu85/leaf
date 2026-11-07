@@ -52,6 +52,9 @@ export class CommandParser {
       case 'look':
         return this.parseLookCommand(args);
 
+      case 'signup':
+        return { type: 'signup', args: [], timestamp: Date.now() };
+
       case 'help':
         return {
           type: 'help',

@@ -14,6 +14,7 @@ import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
 import { conjugateEmoteForSender } from '../../utils/conjugate';
+import { signupLines } from '../guest/signup';
 
 export class GameState extends EventEmitter {
   private player: Player | null = null;
@@ -158,9 +159,11 @@ export class GameState extends EventEmitter {
       // Create player with last known location or default starting room
       // Admin users should not have a location
       const isAdmin = username === config.game.account;
+      // A new Hive player who played as a guest in this browser starts where the guest left off
+      const fromGuest = !isAdmin && !lastLocation ? this.guestStartFor() : null;
       this.player = {
         username,
-        location: isAdmin ? null : (lastLocation || config.game.startRoom),
+        location: isAdmin ? null : (lastLocation || fromGuest || config.game.startRoom),
         isAdmin,
         isBuilder: false,
         characterDescription: ''
@@ -176,7 +179,7 @@ export class GameState extends EventEmitter {
         // If the last known location is no longer in the game map (e.g. move_to op fell
         // outside account history window, or room was deregistered), fall back to the
         // starting room. This is in-memory only — no blockchain write occurs.
-        if (!this.currentRoom && lastLocation) {
+        if (!this.currentRoom && (lastLocation || fromGuest)) {
           this.player.location = config.game.startRoom;
           await this.loadRoom(this.player.location, true);
         }
@@ -192,6 +195,9 @@ export class GameState extends EventEmitter {
       // in displayRoom() doesn't suppress it while waiting for a socket event.
       // updateRoomPlayers() will still refresh the display if other players are present.
       if (this.player?.location && this.currentRoom) {
+        if (fromGuest && this.player.location.permlink === fromGuest.permlink) {
+          this.addOutputMessage('Welcome to Hive! You start where your guest left off.', false);
+        }
         this.hasReceivedInitialPlayerList = true;
         this.displayRoom();
       }
@@ -596,6 +602,18 @@ export class GameState extends EventEmitter {
     this.player.location = location;
   }
 
+  /** Where a guest in this browser last was, if that room is still on the map. */
+  private guestStartFor(): Location | null {
+    const saved = guestSession.load()?.location;
+    if (!saved) return null;
+    return this.hiveClient.getGameMap()[saved.permlink]?.author === saved.author ? saved : null;
+  }
+
+  /** signup: how to go from guest to Hive player. */
+  public showSignup(): void {
+    for (const line of signupLines()) this.addOutputMessage(line, false);
+  }
+
   // Getters
   public getPlayer(): Player | null {
     return this.player;
@@ -713,6 +731,7 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('look self - View your character description', false);
     this.addOutputMessage('look <player> - View another player\'s description', false);
     this.addOutputMessage('@describe <description> - Set your character description', false);
+    this.addOutputMessage('signup - How to get a Hive account (for guests)', false);
     this.addOutputMessage('@describeshort <short description> - Set your character short description', false);
     this.addOutputMessage('help - Show this help message', false);
   }
