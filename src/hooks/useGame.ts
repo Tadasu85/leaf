@@ -237,6 +237,15 @@ export function useGame(client: Client, keychain: any) {
         logger.debug('Processing describeshort command');
         await gameState.setShortDescription(command.args[0]);
         break;
+      case 'mute':
+        await gameState.mute(command.args[0]);
+        break;
+      case 'unmute':
+        await gameState.unmute(command.args[0]);
+        break;
+      case 'muted':
+        await gameState.listMuted();
+        break;
       case 'lookAt':
         logger.debug('Processing lookAt command');
         const target = command.args[0];

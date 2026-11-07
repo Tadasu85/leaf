@@ -89,3 +89,34 @@ describe('HiveClient.signMessage', () => {
     await expect(sign(undefined)).resolves.toBeNull();
   });
 });
+
+describe('HiveClient Hive mutes', () => {
+  it('broadcasts a follow ignore op to mute, and an empty one to unmute', async () => {
+    const broadcast = jest.fn().mockResolvedValue({ success: true });
+    const ctx = { keychain: { broadcast } };
+    await (HiveClient.prototype as any).setHiveMute.call(ctx, 'alice', 'pest', true);
+    await (HiveClient.prototype as any).setHiveMute.call(ctx, 'alice', 'pest', false);
+    const [muteOp] = broadcast.mock.calls[0][0].operations;
+    const [unmuteOp] = broadcast.mock.calls[1][0].operations;
+    expect(muteOp[0]).toBe('custom_json');
+    expect(muteOp[1].id).toBe('follow');
+    expect(muteOp[1].required_posting_auths).toEqual(['alice']);
+    expect(JSON.parse(muteOp[1].json)).toEqual(['follow', { follower: 'alice', following: 'pest', what: ['ignore'] }]);
+    expect(JSON.parse(unmuteOp[1].json)).toEqual(['follow', { follower: 'alice', following: 'pest', what: [] }]);
+  });
+
+  it('throws when Keychain reports failure without throwing', async () => {
+    const ctx = { keychain: { broadcast: jest.fn().mockResolvedValue({ success: false, message: 'nope' }) } };
+    await expect((HiveClient.prototype as any).setHiveMute.call(ctx, 'alice', 'pest', true)).rejects.toThrow('nope');
+  });
+
+  it('pages through the Hive mute list', async () => {
+    const first = Array.from({ length: 1000 }, (_, i) => ({ following: `user${String(i).padStart(4, '0')}` }));
+    const call = jest.fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce([{ following: 'user0999' }, { following: 'zed' }]);
+    const muted = await (HiveClient.prototype as any).getHiveMutes.call({ database: { call } }, 'alice');
+    expect(muted).toHaveLength(1001);
+    expect(call).toHaveBeenNthCalledWith(2, 'get_following', ['alice', 'user0999', 'ignore', 1000]);
+  });
+});

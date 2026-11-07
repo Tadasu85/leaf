@@ -269,6 +269,47 @@ export class HiveClient extends EventEmitter {
     await this.keychain.broadcast(broadcastData);
   }
 
+  /**
+   * Add or remove `target` on `username`'s Hive mute list (follow "ignore").
+   * This is the same list every Hive front end uses, so it applies outside
+   * Leaf too. Throws if Keychain refuses or the broadcast fails.
+   */
+  public async setHiveMute(username: string, target: string, muted: boolean): Promise<void> {
+    const operation: Operation = [
+      'custom_json',
+      {
+        required_auths: [],
+        required_posting_auths: [username],
+        id: 'follow',
+        json: JSON.stringify(['follow', { follower: username, following: target, what: muted ? ['ignore'] : [] }])
+      }
+    ];
+    const result = await this.keychain.broadcast({
+      username,
+      operations: [operation],
+      method: KeychainKeyTypes.posting
+    } as unknown as Broadcast) as { success?: boolean; message?: string } | undefined;
+    if (result && result.success === false) {
+      throw new Error(result.message || 'Keychain did not broadcast the mute');
+    }
+  }
+
+  /** Accounts on `username`'s Hive mute list. */
+  public async getHiveMutes(username: string): Promise<string[]> {
+    const muted: string[] = [];
+    let start = '';
+    for (let page = 0; page < 10; page++) {
+      const batch = await this.database.call('get_following', [username, start, 'ignore', 1000]) as Array<{ following: string }>;
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      for (const item of batch) {
+        if (item.following !== start) muted.push(item.following);
+      }
+      if (batch.length < 1000) break;
+      start = batch[batch.length - 1]!.following;
+    }
+    return [...new Set(muted)];
+  }
+
   public async setDescription(username: string, description: string): Promise<void> {
     // Get current account metadata first
     const accounts = await this.database.call('get_accounts', [[username]]);

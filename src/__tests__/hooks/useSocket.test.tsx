@@ -30,6 +30,7 @@ describe('useSocket Hook', () => {
       getPlayer: jest.fn(),
       updateRoomPlayers: jest.fn(),
       notifyPlayerJoined: jest.fn(),
+      isMuted: jest.fn(() => false),
       notifyPlayerLeft: jest.fn(),
       addOutputMessage: jest.fn(),
       getIsProcessingMovement: jest.fn(),
@@ -213,6 +214,28 @@ describe('useSocket Hook', () => {
         false
       );
     }
+  });
+
+  it('hides chat, emotes and arrivals from muted players', () => {
+    mockGameState.getPlayer.mockReturnValue({ username: 'currentplayer' });
+    mockGameState.isMuted.mockImplementation((name: string) => name === 'pest');
+    mockGameState.getCurrentRoom.mockReturnValue({ author: 'testauthor', permlink: 'testroom' });
+
+    renderHook(() => useSocket(mockGameState));
+    const handler = (event: string) => mockSocketManager.on.mock.calls.find((call: any) => call[0] === event)?.[1];
+
+    act(() => {
+      handler('chatMessage')({ username: 'pest', message: 'spam', channelId: 'testauthor/testroom' });
+      handler('emote')({ username: 'pest', emote: 'waves', channelId: 'testauthor/testroom' });
+      handler('playerJoined')({ username: 'pest', channelId: 'testauthor/testroom', players: ['pest'] });
+    });
+    expect(mockGameState.addOutputMessage).not.toHaveBeenCalled();
+    expect(mockGameState.notifyPlayerJoined).not.toHaveBeenCalled();
+
+    act(() => {
+      handler('chatMessage')({ username: 'friend', message: 'hi', channelId: 'testauthor/testroom' });
+    });
+    expect(mockGameState.addOutputMessage).toHaveBeenCalledWith('friend says: "hi"', false);
   });
 
   it('does not display chat messages from current player', () => {

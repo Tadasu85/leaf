@@ -93,7 +93,9 @@ export function useSocket(gameState: GameState | null) {
           gameStateRef.current?.updateRoomPlayers(data.players);
           
           // Display join notification
-          gameStateRef.current?.notifyPlayerJoined(data.username);
+          if (!gameStateRef.current?.isMuted(data.username)) {
+            gameStateRef.current?.notifyPlayerJoined(data.username);
+          }
           
           // DO NOT display room - this should only come from blockchain movement
           // The signaling server is only for chat and player presence
@@ -111,7 +113,9 @@ export function useSocket(gameState: GameState | null) {
           gameStateRef.current?.updateRoomPlayers(data.players);
           
           // Display leave notification
-          gameStateRef.current?.notifyPlayerLeft(data.username);
+          if (!gameStateRef.current?.isMuted(data.username)) {
+            gameStateRef.current?.notifyPlayerLeft(data.username);
+          }
           
           // DO NOT display room - this should only come from blockchain movement
           // The signaling server is only for chat and player presence
@@ -122,7 +126,7 @@ export function useSocket(gameState: GameState | null) {
     const handleChat = (data: { username: string; message: string; channelId: string }) => {
       logger.debug('[useSocket Debug] handleChat called with:', data);
       const currentUser = gameStateRef.current?.getPlayer()?.username;
-      if (gameStateRef.current && data.username !== currentUser) {
+      if (gameStateRef.current && data.username !== currentUser && !gameStateRef.current.isMuted(data.username)) {
         gameStateRef.current.addOutputMessage(`${data.username} says: "${data.message}"`, false);
       }
     };
@@ -130,14 +134,14 @@ export function useSocket(gameState: GameState | null) {
     const handleChatMessage = (data: { username: string; message: string; channelId: string }) => {
       // Handle new chat message format
       const currentUser = gameStateRef.current?.getPlayer()?.username;
-      if (gameStateRef.current && data.username !== currentUser) {
+      if (gameStateRef.current && data.username !== currentUser && !gameStateRef.current.isMuted(data.username)) {
         gameStateRef.current.addOutputMessage(`${data.username} says: "${data.message}"`, false);
       }
     };
 
     const handleEmote = (data: { username: string; emote: string; channelId: string }) => {
       const currentUser = gameStateRef.current?.getPlayer()?.username;
-      if (gameStateRef.current && data.username !== currentUser) {
+      if (gameStateRef.current && data.username !== currentUser && !gameStateRef.current.isMuted(data.username)) {
         gameStateRef.current.addOutputMessage(`${data.username} ${conjugateEmoteForOthers(data.emote)}`, false);
       }
     };
