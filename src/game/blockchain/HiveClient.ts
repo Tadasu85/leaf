@@ -386,6 +386,33 @@ export class HiveClient extends EventEmitter {
     }
   }
 
+  /**
+   * Ask Keychain to sign a message with the account's posting key (used for
+   * the chat login). Returns the hex signature, or null if the user cancels
+   * or the Keychain in use can't sign messages.
+   */
+  public async signMessage(username: string, message: string): Promise<string | null> {
+    if (!this.keychain || typeof this.keychain.signBuffer !== 'function') {
+      logger.warn('[HiveClient] Keychain cannot sign messages here; chat login unavailable');
+      return null;
+    }
+    try {
+      const result = await this.keychain.signBuffer({
+        username,
+        message,
+        method: KeychainKeyTypes.posting
+      }) as { success?: boolean; result?: unknown; message?: string } | undefined;
+      if (!result || result.success === false || typeof result.result !== 'string') {
+        logger.warn('[HiveClient] Keychain did not sign the chat login:', result?.message);
+        return null;
+      }
+      return result.result;
+    } catch (error) {
+      logger.warn('[HiveClient] Keychain signing failed or was cancelled:', error);
+      return null;
+    }
+  }
+
   public async startBlockStream(startFromBlock?: number): Promise<void> {
     if (this.isListening) {
       this.stopMoveListener();
