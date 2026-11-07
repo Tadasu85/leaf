@@ -22,6 +22,7 @@ import { ServerStatusNotifier } from './components/ServerStatusNotifier';
 import GameErrorBoundary from './components/GameErrorBoundary';
 import ErrorBoundary from './components/ErrorBoundary';
 import logger from './utils/Logger';
+import { guestSession } from './game/guest/GuestSession';
 
 // Add process polyfill for browser environment
 declare global {
@@ -58,6 +59,7 @@ function App() {
     player,
     currentRoom,
     login,
+    loginAsGuest,
     isLoginComplete,
     isLoadedGame,
     userProfileJSON,
@@ -184,7 +186,8 @@ function App() {
     const baseGreeting = [
       "If you've arrived here by accident and do not have a Hive account. ",
       `Please make your way to [ecency.com/signup](https://ecency.com/signup/free?referral=${config.game.account}) or [hivedapps.com](https://hivedapps.com/) to create an account.`,
-      "Otherwise you may proceed by typing 'login <username>', 'connect <username>', or just '<username>'"
+      "Otherwise you may proceed by typing 'login <username>', 'connect <username>', or just '<username>'",
+      "No account yet? Type 'guest' to look around and chat as a guest."
     ];
     
     if (isMobileDevice) {
@@ -315,6 +318,27 @@ function App() {
   }, [gameState]);
 
   const handleTextEnteredWrapper = useCallback(async (text: string) => {
+    if (!isSignedIn && /^guest$/i.test(text.trim())) {
+      addInfoMessage('Starting a guest session...');
+      try {
+        const identity = await guestSession.start();
+        setUsername(identity.username);
+        setIsSignedIn(true);
+        await loginAsGuest(identity);
+        addInfoMessage(
+          `You are ${identity.username}, a guest. You can explore and chat; your place is saved in this browser. ` +
+          'Building, descriptions and curation need a Hive account.'
+        );
+        if (!identity.sessionToken) {
+          addInfoMessage('Chat is not available right now, but you can still look around.');
+        }
+      } catch (error) {
+        handleGlobalError(error instanceof Error ? error : String(error), 'Guest login failed');
+        setIsSignedIn(false);
+        setUsername(null);
+      }
+      return;
+    }
     const keyword = !isSignedIn && text.match(/^(login|connect)(\s+\S+)?$/i);
     if (keyword && !keyword[2]) {
       addErrorMessage(`Please provide a username: ${keyword[1].toLowerCase()} <username>`);
@@ -452,7 +476,7 @@ function App() {
         handleGlobalError(error instanceof Error ? error : new Error(String(error)), 'Command failed');
       }
     }
-  }, [keychain, updateUserProfile, login, gameState, isBuilder, isSignedIn, addErrorMessage, addInfoMessage, handleCommand, handleGlobalError]);
+  }, [keychain, updateUserProfile, login, loginAsGuest, gameState, isBuilder, isSignedIn, addErrorMessage, addInfoMessage, handleCommand, handleGlobalError]);
 
   const handleSignOut = useCallback(() => {
     setUsername(null);

@@ -9,6 +9,7 @@ import {
   BlockchainTimeEvent
 } from '../types/GameTypes';
 import config from '../../config';
+import { guestSession, GuestIdentity } from '../guest/GuestSession';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
@@ -210,6 +211,56 @@ export class GameState extends EventEmitter {
 
 
 
+  /**
+   * Play as a guest (no Hive account). Nothing is read from or written to the
+   * player's Hive account; position comes from this browser.
+   */
+  async loginAsGuest(identity: GuestIdentity): Promise<void> {
+    this.isLoggingIn = true;
+    try {
+      if (!this.isBulkDataLoaded) {
+        await this.initialize();
+      }
+
+      const saved = identity.location;
+      const savedInMap = saved && this.hiveClient.getGameMap()[saved.permlink]?.author === saved.author;
+      this.player = {
+        username: identity.username,
+        location: savedInMap ? saved! : config.game.startRoom,
+        isAdmin: false,
+        isBuilder: false,
+        characterDescription: '',
+        isGuest: true
+      };
+
+      await this.loadRoom(this.player.location!, true);
+      if (!this.currentRoom && savedInMap) {
+        this.player.location = config.game.startRoom;
+        await this.loadRoom(this.player.location, true);
+      }
+
+      this.emit('playerChanged', this.player);
+      this.isLoggingIn = false;
+
+      if (this.player.location && this.currentRoom) {
+        this.hasReceivedInitialPlayerList = true;
+        this.displayRoom();
+      }
+
+      this.hiveClient.startBlockStream();
+    } catch (error) {
+      this.isLoggingIn = false;
+      logger.error('[GameState] Guest login failed:', error);
+      throw error;
+    }
+  }
+
+  private guestOnly(action: string): boolean {
+    if (!this.player?.isGuest) return false;
+    this.addOutputMessage(`Guests can't ${action}. Log in with a Hive account to do that.`, true);
+    return true;
+  }
+
   async loadRoom(location: Location, skipDisplay: boolean = false): Promise<void> {
     try {
       const room = await this.hiveClient.getRoomData(location);
@@ -341,8 +392,12 @@ export class GameState extends EventEmitter {
       // Load new room optimistically (using cached data)
       await this.loadRoom(location);
       
-      // Update player location on blockchain
-      await this.hiveClient.moveTo(this.player.username, location);
+      // Update player location: guests keep it in this browser, everyone else on Hive
+      if (this.player.isGuest) {
+        guestSession.saveLocation(location);
+      } else {
+        await this.hiveClient.moveTo(this.player.username, location);
+      }
       
     } catch (error) {
       logger.error('Error moving:', error);
@@ -440,6 +495,12 @@ export class GameState extends EventEmitter {
       return;
     }
 
+    const guestName = roomPlayers.find(player => player.toLowerCase() === targetUsername.toLowerCase());
+    if (guestName && /^Guest-\d{6}$/.test(guestName)) {
+      this.addOutputMessage(`${guestName} is a guest, looking around without a Hive account.`, false);
+      return;
+    }
+
     try {
       // Load the target player's description from blockchain
       const accounts = await this.hiveClient.database.call('get_accounts', [[targetUsername]]);
@@ -465,6 +526,7 @@ export class GameState extends EventEmitter {
       this.addOutputMessage('You must be logged in to set your description.', true);
       return;
     }
+    if (this.guestOnly('set a description')) return;
 
     if (!description.trim()) {
       this.addOutputMessage('Please provide a description.', true);
@@ -485,6 +547,7 @@ export class GameState extends EventEmitter {
       this.addOutputMessage('You must be logged in to set your short description.', true);
       return;
     }
+    if (this.guestOnly('set a description')) return;
 
     if (!shortDescription.trim()) {
       this.addOutputMessage('Please provide a short description.', true);
@@ -522,8 +585,12 @@ export class GameState extends EventEmitter {
       throw new Error('Player not logged in');
     }
 
-    // Update player location on blockchain
-    await this.hiveClient.moveTo(this.player.username, location);
+    // Update player location: guests keep it in this browser, everyone else on Hive
+    if (this.player.isGuest) {
+      guestSession.saveLocation(location);
+    } else {
+      await this.hiveClient.moveTo(this.player.username, location);
+    }
     
     // Update local state
     this.player.location = location;

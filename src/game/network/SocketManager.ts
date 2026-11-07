@@ -4,6 +4,7 @@ import config from '../../config';
 import { GameState } from '../state/GameState';
 import logger from '../../utils/Logger';
 import { ChatAuth, ChatAuthPayload, isAuthError } from './ChatAuth';
+import { isGuestName } from '../guest/GuestSession';
 
 export class SocketManager extends EventEmitter {
   private socket: Socket | null = null;
@@ -234,7 +235,7 @@ export class SocketManager extends EventEmitter {
       authenticated: (data: { username: string; sessionToken?: string }) => {
         logger.debug('[SocketManager] Chat login accepted for', data.username);
         this.retriedWithSignature = false;
-        if (data.sessionToken && data.username === this.username) {
+        if (data.sessionToken && data.username === this.username && !isGuestName(data.username)) {
           this.chatAuth.storeToken(data.username, data.sessionToken);
         }
       },
@@ -413,7 +414,7 @@ export class SocketManager extends EventEmitter {
     if (username) this.chatAuth.clearToken(username);
     this.cleanupSocket();
 
-    if (this.lastAuthUsedToken && !this.retriedWithSignature && username && location) {
+    if (this.lastAuthUsedToken && !this.retriedWithSignature && username && location && !isGuestName(username)) {
       logger.info('[SocketManager] Chat session expired; asking Keychain to sign in again');
       this.retriedWithSignature = true;
       this.connect(username, location, true);
@@ -423,7 +424,9 @@ export class SocketManager extends EventEmitter {
     logger.warn('[SocketManager] Chat login rejected:', message);
     this.connectionStatus = 'failed';
     const reason = message.replace(/^auth_failed:\s*/, '');
-    const friendly = reason === 'missing credentials'
+    const friendly = username && isGuestName(username)
+      ? 'Chat is not available for this guest right now. You can still look around.'
+      : reason === 'missing credentials'
       ? 'Chat needs you to sign in with Keychain. Reload the page to try again.'
       : `Chat login failed (${reason}). Reload the page to try again.`;
     this.emit('connectionStatusChanged', { status: 'failed', error: friendly });
