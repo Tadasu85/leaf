@@ -55,6 +55,7 @@ export const HELP_TOPICS: Record<string, HelpTopic> = {
       'New rooms wait in the admin Queue until approved; you can have 3 waiting at once.',
       'Edit Room lets you change your rooms: title, description, and lines shown when people use each exit (%n is their name).',
       'Comments you write on your room post in the form "key: text" become things people can look at.',
+      'Edit Room also lists things people can do, one per line, e.g. "ring bell: You ring the bell. | %n rings the bell." Players type ring bell.',
       "typo, bug and idea <note> send feedback to a room's author as a Hive comment."
     ]
   },
@@ -73,7 +74,7 @@ const ALIASES: Record<string, string> = {
   talk: 'talking', chat: 'talking', say: 'talking', emote: 'talking', page: 'talking', whisper: 'talking', who: 'talking',
   look: 'looking', describe: 'looking', '@describe': 'looking', details: 'looking',
   mute: 'people', unmute: 'people', muted: 'people', eject: 'people', moderation: 'people',
-  build: 'building', builder: 'building', builders: 'building', rooms: 'building', edit: 'building', feedback: 'building', typo: 'building', bug: 'building', idea: 'building',
+  build: 'building', builder: 'building', builders: 'building', rooms: 'building', edit: 'building', feedback: 'building', objects: 'building', things: 'building', typo: 'building', bug: 'building', idea: 'building',
   guest: 'guests', signup: 'guests', account: 'guests'
 };
 
