@@ -59,6 +59,13 @@ export class CommandParser {
           timestamp: Date.now()
         };
 
+      case 'home':
+        return { type: 'home', args: [], timestamp: Date.now() };
+
+      case 'sethome':
+      case '@sethome':
+        return { type: 'sethome', args: [], timestamp: Date.now() };
+
       case '@describe':
         return this.parseDescribeCommand(args);
 

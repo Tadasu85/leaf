@@ -95,6 +95,8 @@ export type CommandType =
   | 'lookAt'
   | 'help'
   | 'describe'
+  | 'home'
+  | 'sethome'
   | 'describeshort';
 
 export interface Command {
