@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { renderExitMessage } from '../rooms/exitMessages';
 import {
   Player,
   GameMap,
@@ -14,6 +13,7 @@ import { guestSession, GuestIdentity } from '../guest/GuestSession';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
+import { renderExitMessage } from '../rooms/exitMessages';
 import { conjugateEmoteForSender } from '../../utils/conjugate';
 
 export class GameState extends EventEmitter {

@@ -1,8 +1,8 @@
 import { Client } from '@hiveio/dhive';
+import { parseExitMessages } from '../rooms/exitMessages';
 import { GameMap, RoomData, Location, TimeEventConfig } from '../types/GameTypes';
 import config from '../../config';
 import logger from '../../utils/Logger';
-import { parseExitMessages } from '../rooms/exitMessages';
 
 interface CachedRoomData {
   data: RoomData;
