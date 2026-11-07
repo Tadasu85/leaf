@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { HiveClient } from '../game/blockchain/HiveClient';
+import { parseRoomObjects, objectsToText, textToObjects } from '../game/rooms/roomObjects';
 import config from '../config';
 import logger from '../utils/Logger';
-import { parseRoomObjects, objectsToText, textToObjects } from '../game/rooms/roomObjects';
 
 interface EditRoomModalProps {
   isOpen: boolean;
