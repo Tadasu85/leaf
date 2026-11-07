@@ -24,9 +24,10 @@ const room = (permlink: string, title: string): RoomData => ({
 
 describe('eject command', () => {
   it('parses eject <player>', () => {
-    const parser = new CommandParser();
-    expect(parser.parse('eject pest')).toMatchObject({ type: 'eject', args: ['pest'] });
-    expect(parser.parse('eject')).toBeNull();
+    // A fresh parser per check: one instance rate-limits commands 100 ms apart
+    expect(new CommandParser().parse('eject pest')).toMatchObject({ type: 'eject', args: ['pest'] });
+    expect(new CommandParser().parse('eject')).toBeNull();
+    expect(new CommandParser().parse('eject two words')).toBeNull();
   });
 });
 
