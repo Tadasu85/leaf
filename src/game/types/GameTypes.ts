@@ -38,6 +38,8 @@ export interface RoomData {
   exits: Record<string, string>;
   items?: string[];
   npcs?: string[];
+  /** Things the room's author made usable, e.g. "ring bell" (see game/rooms/roomObjects) */
+  objects?: import('../rooms/roomObjects').RoomObjects;
   players?: string[];
   details?: Record<string, string>;
   // New properties for time-based events

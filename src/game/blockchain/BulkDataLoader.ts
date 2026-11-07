@@ -1,6 +1,7 @@
 import { Client } from '@hiveio/dhive';
 import { GameMap, RoomData, Location, TimeEventConfig } from '../types/GameTypes';
 import config from '../../config';
+import { parseRoomObjects } from '../rooms/roomObjects';
 import logger from '../../utils/Logger';
 
 interface CachedRoomData {
@@ -180,6 +181,10 @@ export class BulkDataLoader {
         } catch (error) {
         }
       }
+
+      // Things the room's author made usable (ring bell, ...)
+      const objects = parseRoomObjects(content.json_metadata);
+      if (objects) roomData.objects = objects;
 
       // Compress data if enabled
       const processedData = this.enableCompression ? this.compressRoomData(roomData) : roomData;

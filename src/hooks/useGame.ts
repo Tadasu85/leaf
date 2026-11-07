@@ -203,6 +203,8 @@ export function useGame(client: Client, keychain: any) {
     
     const command = commandParser.parse(text, currentRoomExits);
     if (!command) {
+      // Not a built-in command: maybe something the room's author made usable ("ring bell")
+      if (gameState.tryRoomObject(text)) return;
       gameState.addOutputMessage('Invalid command. Type "help" for a list of commands.', true);
       return;
     }

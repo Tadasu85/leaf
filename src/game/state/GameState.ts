@@ -15,6 +15,8 @@ import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
 import { conjugateEmoteForSender } from '../../utils/conjugate';
 
+import { matchObjectAction, renderObjectLine } from '../rooms/roomObjects';
+
 export class GameState extends EventEmitter {
   private player: Player | null = null;
   private currentRoom: RoomData | null = null;
@@ -788,7 +790,35 @@ export class GameState extends EventEmitter {
           }, 5000);
         }
       });
+
+      socketManager.on('playerUsedObject', (data: { username: string; channelId: string; object: string; verb: string }) => {
+        const room = this.currentRoom;
+        if (!room || `${room.author}/${room.permlink}` !== data.channelId || data.username === this.player?.username) return;
+        const mutes = (this as unknown as { mutes?: { isMuted(n: string): boolean } }).mutes; // from the mute feature, if present
+        if (mutes?.isMuted(data.username)) return;
+        const line = room.objects?.[data.object]?.[data.verb]?.others;
+        if (line) this.addOutputMessage(renderObjectLine(line, data.username), false);
+      });
     }
+  }
+
+  /**
+   * "ring bell": run one of the current room's author-written object actions.
+   * Returns false if the input isn't one, so the caller can say "Invalid command".
+   */
+  public tryRoomObject(input: string): boolean {
+    if (!this.player || !this.currentRoom) return false;
+    const match = matchObjectAction(this.currentRoom.objects, input);
+    if (!match) return false;
+    this.addOutputMessage(renderObjectLine(match.action.self, this.player.username), false);
+    if (match.action.others && typeof this.socketManager?.announceObjectUse === 'function') {
+      this.socketManager.announceObjectUse({
+        channelId: `${this.currentRoom.author}/${this.currentRoom.permlink}`,
+        object: match.object,
+        verb: match.verb
+      });
+    }
+    return true;
   }
 
   // Method to reset room display tracking (called when changing rooms)

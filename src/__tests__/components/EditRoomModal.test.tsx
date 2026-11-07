@@ -149,4 +149,40 @@ describe('EditRoomModal', () => {
     fireEvent.change(nameInput, { target: { name: 'roomName', value: 'New Name' } });
     expect((nameInput as HTMLInputElement).value).toBe('New Name');
   });
+  describe('things people can do here', () => {
+    const withPost = (json_metadata: string | Promise<never>) => {
+      const call = typeof json_metadata === 'string' ? jest.fn().mockResolvedValue({ json_metadata }) : jest.fn().mockReturnValue(json_metadata);
+      MockHiveClient.mockImplementation(() => ({ updatePost: mockUpdatePost, database: { call } }));
+    };
+
+    it("loads the room's objects into the field and saves edits", async () => {
+      withPost(JSON.stringify({ objects: { bell: { ring: { self: 'You ring it.' } } } }));
+      render(<EditRoomModal {...defaultProps} />);
+      const field = await screen.findByDisplayValue('ring bell: You ring it.');
+      fireEvent.change(field, { target: { value: 'ring bell: You ring it. | %n rings it.' } });
+      fireEvent.click(screen.getByRole('button', { name: /update room/i }));
+      await waitFor(() => expect(mockUpdatePost).toHaveBeenCalled());
+      expect(mockUpdatePost.mock.calls[0][4].objects).toEqual({ bell: { ring: { self: 'You ring it.', others: '%n rings it.' } } });
+    });
+
+    it('refuses a badly written line', async () => {
+      withPost('{}');
+      render(<EditRoomModal {...defaultProps} />);
+      const field = screen.getByLabelText(/things people can do here/i);
+      await waitFor(() => expect(field).not.toBeDisabled());
+      fireEvent.change(field, { target: { value: 'ring the bell' } });
+      fireEvent.click(screen.getByRole('button', { name: /update room/i }));
+      expect(await screen.findByText(/Line 1: write it like/)).toBeInTheDocument();
+      expect(mockUpdatePost).not.toHaveBeenCalled();
+    });
+
+    it("doesn't touch objects if they couldn't be loaded", async () => {
+      withPost(Promise.reject(new Error('offline')) as Promise<never>);
+      render(<EditRoomModal {...defaultProps} />);
+      expect(screen.getByLabelText(/things people can do here/i)).toBeDisabled();
+      fireEvent.click(screen.getByRole('button', { name: /update room/i }));
+      await waitFor(() => expect(mockUpdatePost).toHaveBeenCalled());
+      expect(mockUpdatePost.mock.calls[0][4]).not.toHaveProperty('objects');
+    });
+  });
 });

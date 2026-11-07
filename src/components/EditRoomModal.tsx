@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HiveClient } from '../game/blockchain/HiveClient';
 import config from '../config';
 import logger from '../utils/Logger';
+import { parseRoomObjects, objectsToText, textToObjects } from '../game/rooms/roomObjects';
 
 interface EditRoomModalProps {
   isOpen: boolean;
@@ -38,6 +39,26 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const hiveClient = new HiveClient();
+
+  // Things people can do here ("ring bell: ..."), read from the room post when the form opens.
+  // Only saved if they loaded, so a failed read never wipes them.
+  const [objectsText, setObjectsText] = useState('');
+  const [objectsLoaded, setObjectsLoaded] = useState(false);
+  useEffect(() => {
+    if (!isOpen || !currentRoom) return;
+    let cancelled = false;
+    setObjectsLoaded(false);
+    Promise.resolve()
+      .then(() => hiveClient.database?.call('get_content', [currentRoom.author, currentRoom.permlink]))
+      .then((content: any) => {
+        if (cancelled || !content) return;
+        setObjectsText(objectsToText(parseRoomObjects(content.json_metadata)));
+        setObjectsLoaded(true);
+      })
+      .catch(() => { /* leave the field read-only below */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, currentRoom?.author, currentRoom?.permlink]);
 
   // Update form data when currentRoom changes
   useEffect(() => {
@@ -82,6 +103,13 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
       return;
     }
 
+    const parsedObjects = objectsLoaded ? textToObjects(objectsText) : null;
+    if (parsedObjects?.error) {
+      setError(parsedObjects.error);
+      if (onError) onError(parsedObjects.error);
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -102,7 +130,7 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
         currentRoom.permlink,
         formData.roomName.trim(),
         formData.description.trim(),
-        jsonMetadata
+        parsedObjects ? { ...jsonMetadata, objects: parsedObjects.objects } : jsonMetadata
       );
       
       // If we get here, the update was successful
@@ -162,6 +190,19 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                   required
                   placeholder="Enter room name"
                   disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="modal__form-group">
+                <label className="modal__form-label" htmlFor="roomObjects">Things people can do here (optional):</label>
+                <textarea
+                  className="modal__form-textarea"
+                  id="roomObjects"
+                  value={objectsText}
+                  onChange={e => setObjectsText(e.target.value)}
+                  placeholder={'One per line, e.g.\nring bell: You ring the bell. | %n rings the bell.'}
+                  rows={3}
+                  disabled={isSubmitting || !objectsLoaded}
                 />
               </div>
 
