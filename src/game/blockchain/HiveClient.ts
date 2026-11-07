@@ -5,6 +5,7 @@ import config from '../../config';
 import { EventEmitter } from 'events';
 import { BulkDataLoader } from './BulkDataLoader';
 import logger from '../../utils/Logger';
+import { parseRoomDetails, FeedbackKind, feedbackPermlink, feedbackBody } from '../rooms/roomFeedback';
 
 export class HiveClient extends EventEmitter {
   private client: Client;
@@ -204,17 +205,7 @@ export class HiveClient extends EventEmitter {
   public async getRoomDetails(author: string, permlink: string): Promise<{ [key: string]: string }> {
     try {
       const comments = await this.database.call('get_content_replies', [author, permlink]);
-      const authorComments = comments?.filter((comment: any) => comment.author === author) || [];
-      
-      const details: { [key: string]: string } = {};
-      authorComments.forEach((comment: any) => {
-        const colonIndex = comment.body.indexOf(':');
-        const key = colonIndex > 0 ? comment.body.substring(0, colonIndex).trim() : comment.permlink;
-        const body = colonIndex > 0 ? comment.body.substring(colonIndex + 1).trim() : comment.body;
-        details[key] = body;
-      });
-      
-      return details;
+      return parseRoomDetails(author, comments);
     } catch (error) {
       logger.error('Error loading room details:', error);
       return {};
@@ -384,6 +375,45 @@ export class HiveClient extends EventEmitter {
     if (result && result.success === false) {
       throw new Error(result.message || 'Failed to update the room');
     }
+  }
+
+  /**
+   * Send typo/bug/idea feedback to a room's author as a Hive comment on the
+   * room's post, so Hive notifies them. Tagged so it is never read as a
+   * room detail.
+   */
+  public async postRoomFeedback(
+    username: string,
+    room: { author: string; permlink: string; title: string },
+    kind: FeedbackKind,
+    text: string
+  ): Promise<string> {
+    const permlink = feedbackPermlink(kind);
+    const operation: Operation = [
+      'comment',
+      {
+        parent_author: room.author,
+        parent_permlink: room.permlink,
+        author: username,
+        permlink,
+        title: '',
+        body: feedbackBody(kind, username, room.title, text),
+        json_metadata: JSON.stringify({
+          app: 'leaf',
+          tags: ['leaf-feedback'],
+          leaf_feedback: { kind, room: { author: room.author, permlink: room.permlink } }
+        })
+      }
+    ];
+    const result = await this.keychain.broadcast({
+      username,
+      operations: [operation],
+      method: KeychainKeyTypes.posting
+    } as unknown as Broadcast) as { success?: boolean; message?: string } | undefined;
+    if (result && result.success === false) {
+      throw new Error(result.message || 'Keychain did not post the comment');
+    }
+    return permlink;
   }
 
   /**

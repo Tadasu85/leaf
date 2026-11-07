@@ -10,6 +10,7 @@ import {
 } from '../types/GameTypes';
 import config from '../../config';
 import { guestSession, GuestIdentity } from '../guest/GuestSession';
+import { FeedbackKind } from '../rooms/roomFeedback';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
@@ -27,6 +28,8 @@ export class GameState extends EventEmitter {
   private lastRoomDisplayTimestamp: number = 0;
   private isLoggingIn: boolean = false;
   private hasNotifiedChatOffline: boolean = false;
+  private lastFeedbackAt: number = 0;
+  private static readonly FEEDBACK_COOLDOWN_MS = 20 * 1000;
   private isProcessingMovement: boolean = false;
   private isBulkDataLoaded: boolean = false;
   private lastOptimisticRoomKey: string | null = null;
@@ -714,7 +717,46 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('look <player> - View another player\'s description', false);
     this.addOutputMessage('@describe <description> - Set your character description', false);
     this.addOutputMessage('@describeshort <short description> - Set your character short description', false);
+    this.addOutputMessage('typo <note>, bug <note>, idea <note> - Send feedback to the author of this room', false);
     this.addOutputMessage('help - Show this help message', false);
+  }
+
+  /**
+   * typo / bug / idea: send a note to the author of the current room as a
+   * Hive comment on the room's post.
+   */
+  public async sendRoomFeedback(kind: FeedbackKind, text: string): Promise<void> {
+    if (!this.player) {
+      this.addOutputMessage('You must be logged in to send feedback.', true);
+      return;
+    }
+    if (this.player.isGuest) {
+      this.addOutputMessage('Sending feedback needs a Hive account for now, because it is posted as a Hive comment.', true);
+      return;
+    }
+    const room = this.currentRoom;
+    if (!room) {
+      this.addOutputMessage("You're not in a room.", true);
+      return;
+    }
+    if (!text) {
+      this.addOutputMessage(`Usage: ${kind} <note>. For example: ${kind} ${kind === 'typo' ? '"anicent" should be "ancient"' : kind === 'bug' ? 'the north exit goes nowhere' : 'a bench by the window would be nice'}`, true);
+      return;
+    }
+    const now = Date.now();
+    if (now - this.lastFeedbackAt < GameState.FEEDBACK_COOLDOWN_MS) {
+      this.addOutputMessage('Please wait a few seconds before sending more feedback.', true);
+      return;
+    }
+    try {
+      await this.hiveClient.postRoomFeedback(this.player.username, { author: room.author, permlink: room.permlink, title: room.title }, kind, text);
+      this.lastFeedbackAt = now;
+      const what = kind === 'idea' ? 'idea' : `${kind} report`;
+      this.addOutputMessage(`Sent your ${what} to ${room.author} as a comment on "${room.title}". Hive will notify them.`, false);
+    } catch (error) {
+      logger.warn('[GameState] Feedback failed:', error);
+      this.addOutputMessage(`Couldn't send your feedback: ${error instanceof Error ? error.message : String(error)}`, true);
+    }
   }
 
   private async checkBuilderEligibility(username: string): Promise<void> {

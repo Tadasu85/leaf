@@ -15,6 +15,7 @@ import { useRoomState } from './useRoomState';
 import { useGameData } from './useGameData';
 import logger from '../utils/Logger';
 import { GuestIdentity } from '../game/guest/GuestSession';
+import { FeedbackKind } from '../game/rooms/roomFeedback';
 
 export function useGame(client: Client, keychain: any) {
   // Game State
@@ -236,6 +237,9 @@ export function useGame(client: Client, keychain: any) {
       case 'describeshort':
         logger.debug('Processing describeshort command');
         await gameState.setShortDescription(command.args[0]);
+        break;
+      case 'feedback':
+        await gameState.sendRoomFeedback(command.args[0] as FeedbackKind, command.args[1] ?? '');
         break;
       case 'lookAt':
         logger.debug('Processing lookAt command');
