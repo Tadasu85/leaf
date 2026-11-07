@@ -82,6 +82,34 @@ describe('BuildModal', () => {
     expect(screen.getByLabelText(/start phase/i)).toBeInTheDocument();
   });
 
+  describe('exit messages for the way back', () => {
+    const fill = () => {
+      fireEvent.change(screen.getByLabelText(/room name/i), { target: { name: 'roomName', value: 'Bell Loft' } });
+      fireEvent.change(screen.getByLabelText(/exit from new room/i), { target: { name: 'exitFromNewRoom', value: 'down' } });
+      fireEvent.change(screen.getByLabelText(/room description/i), { target: { name: 'description', value: 'Dusty.' } });
+    };
+
+    it('saves them on the new room post, keyed by the exit back', async () => {
+      render(<BuildModal {...defaultProps} />);
+      fill();
+      fireEvent.change(screen.getByLabelText('Message when leaving the new room through that exit'), { target: { value: ' You climb down the ladder. ' } });
+      fireEvent.change(screen.getByLabelText('Message after arriving through that exit'), { target: { value: '%n drops into the room.' } });
+      fireEvent.click(screen.getByRole('button', { name: /create room/i }));
+      await waitFor(() => expect(mockPost).toHaveBeenCalled());
+      const meta = JSON.parse(mockPost.mock.calls[0][0].json_metadata);
+      expect(meta.exitMessages).toEqual({ down: { leave: 'You climb down the ladder.', arrive: '%n drops into the room.' } });
+      expect(meta.connection.exitFromNewRoom).toBe('down');
+    });
+
+    it('leaves them out when empty', async () => {
+      render(<BuildModal {...defaultProps} />);
+      fill();
+      fireEvent.click(screen.getByRole('button', { name: /create room/i }));
+      await waitFor(() => expect(mockPost).toHaveBeenCalled());
+      expect(JSON.parse(mockPost.mock.calls[0][0].json_metadata)).not.toHaveProperty('exitMessages');
+    });
+  });
+
   it('calls onBuildQueued and onClose after successful submit', async () => {
     render(<BuildModal {...defaultProps} />);
     fireEvent.change(screen.getByLabelText(/room name/i), { target: { name: 'roomName', value: 'Dark Forest' } });
@@ -186,32 +214,5 @@ describe('BuildModal', () => {
   it('parseExits handles blank lines and bad lines', () => {
     expect(parseExits('north: a\n\n south :b ')).toEqual({ exits: { north: 'a', south: 'b' } });
     expect(parseExits('north:').error).toMatch(/north:/);
-  });
-  describe('exit messages for the way back', () => {
-    const fill = () => {
-      fireEvent.change(screen.getByLabelText(/room name/i), { target: { name: 'roomName', value: 'Bell Loft' } });
-      fireEvent.change(screen.getByLabelText(/exit from new room/i), { target: { name: 'exitFromNewRoom', value: 'down' } });
-      fireEvent.change(screen.getByLabelText(/room description/i), { target: { name: 'description', value: 'Dusty.' } });
-    };
-
-    it('saves them on the new room post, keyed by the exit back', async () => {
-      render(<BuildModal {...defaultProps} />);
-      fill();
-      fireEvent.change(screen.getByLabelText('Message when leaving the new room through that exit'), { target: { value: ' You climb down the ladder. ' } });
-      fireEvent.change(screen.getByLabelText('Message after arriving through that exit'), { target: { value: '%n drops into the room.' } });
-      fireEvent.click(screen.getByRole('button', { name: /create room/i }));
-      await waitFor(() => expect(mockPost).toHaveBeenCalled());
-      const meta = JSON.parse(mockPost.mock.calls[0][0].json_metadata);
-      expect(meta.exitMessages).toEqual({ down: { leave: 'You climb down the ladder.', arrive: '%n drops into the room.' } });
-      expect(meta.connection.exitFromNewRoom).toBe('down');
-    });
-
-    it('leaves them out when empty', async () => {
-      render(<BuildModal {...defaultProps} />);
-      fill();
-      fireEvent.click(screen.getByRole('button', { name: /create room/i }));
-      await waitFor(() => expect(mockPost).toHaveBeenCalled());
-      expect(JSON.parse(mockPost.mock.calls[0][0].json_metadata)).not.toHaveProperty('exitMessages');
-    });
   });
 });

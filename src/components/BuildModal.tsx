@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { buildExitMessages, MAX_EXIT_MESSAGE_LENGTH } from '../game/rooms/exitMessages';
 import { KeychainSDK } from 'keychain-sdk';
 import config from '../config';
-import { buildExitMessages, MAX_EXIT_MESSAGE_LENGTH } from '../game/rooms/exitMessages';
 
 interface BuildModalProps {
   isOpen: boolean;
