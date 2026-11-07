@@ -93,6 +93,9 @@ export type CommandType =
   | 'emote'
   | 'look'
   | 'lookAt'
+  | 'page'
+  | 'whisper'
+  | 'who'
   | 'help'
   | 'describe'
   | 'describeshort';

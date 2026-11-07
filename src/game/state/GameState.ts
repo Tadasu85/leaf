@@ -663,6 +663,32 @@ export class GameState extends EventEmitter {
   }
 
   // Chat and emote
+  /**
+   * Players hidden by this browser's mute list (the mute feature adds
+   * `this.mutes`). Hive mutes are already applied by the server.
+   */
+  private isPrivateSenderHidden(name: string): boolean {
+    const mutes = (this as unknown as { mutes?: { isMuted(n: string): boolean } }).mutes;
+    return Boolean(mutes && mutes.isMuted(name));
+  }
+
+  /** page / whisper: private messages through the chat server, never written to Hive. */
+  public sendPrivate(kind: 'page' | 'whisper', target: string, message: string): void {
+    if (!this.player) {
+      this.addOutputMessage('You must be logged in to do that.', true);
+      return;
+    }
+    if (!this.socketManager || typeof this.socketManager.sendPrivate !== 'function' || !this.socketManager.sendPrivate(kind, target, message)) {
+      this.addOutputMessage("Chat isn't connected right now.", true);
+    }
+  }
+
+  public requestWho(): void {
+    if (!this.socketManager || typeof this.socketManager.requestWho !== 'function' || !this.socketManager.requestWho()) {
+      this.addOutputMessage("Chat isn't connected right now.", true);
+    }
+  }
+
   public say(message: string): void {
     if (!this.player) {
       this.addOutputMessage('You must be logged in to speak.', true);
@@ -708,6 +734,9 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('\nAvailable commands:', true);
     this.addOutputMessage('Movement: Use directional commands like north, south, east, west, up, down, etc.', false);
     this.addOutputMessage('say <message> - Say something in the current room', false);
+    this.addOutputMessage('page <player> <message> - Send a private message to someone online, anywhere', false);
+    this.addOutputMessage('whisper <player> <message> - Say something privately to someone in this room', false);
+    this.addOutputMessage('who - List who is online', false);
     this.addOutputMessage('emote <action> - Perform an action in the current room', false);
     this.addOutputMessage('look - Look around the current room', false);
     this.addOutputMessage('look self - View your character description', false);
@@ -757,6 +786,27 @@ export class GameState extends EventEmitter {
           this.emit('playerChanged', this.player);
           this.addOutputMessage('*Something shifts in the fabric of this world. You sense it now — the power to shape it is yours. You are a Builder.*', false);
         }
+      });
+
+      socketManager.on('privateMessage', (data: { kind: 'page' | 'whisper'; from: string; message: string }) => {
+        if (this.isPrivateSenderHidden(data.from)) return;
+        const verb = data.kind === 'page' ? 'pages you from afar' : 'whispers to you';
+        this.addOutputMessage(`${data.from} ${verb}: "${data.message}"`, false);
+      });
+
+      socketManager.on('privateResult', (data: { ok: boolean; kind: 'page' | 'whisper'; target: string; message: string }) => {
+        if (data.ok) {
+          this.addOutputMessage(`You ${data.kind} ${data.target}: "${data.message}"`, false);
+        } else {
+          this.addOutputMessage(data.message, true);
+        }
+      });
+
+      socketManager.on('whoList', (data: { players: string[] }) => {
+        const players = (data.players || []).filter(p => !this.isPrivateSenderHidden(p));
+        this.addOutputMessage(players.length
+          ? `Online now (${players.length}): ${players.join(', ')}`
+          : 'Nobody else is online right now.', false);
       });
 
       socketManager.on('connectionStatusChanged', (data: { status: string; error?: string }) => {

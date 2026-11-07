@@ -221,6 +221,13 @@ export function useGame(client: Client, keychain: any) {
         logger.debug('Processing emote command');
         gameState.emote(command.args[0]);
         break;
+      case 'page':
+      case 'whisper':
+        gameState.sendPrivate(command.type, command.args[0], command.args[1]);
+        break;
+      case 'who':
+        gameState.requestWho();
+        break;
       case 'look':
         logger.debug('Processing look command');
         await gameState.look();
