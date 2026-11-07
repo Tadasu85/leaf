@@ -12,6 +12,7 @@ import config from '../../config';
 import { guestSession, GuestIdentity } from '../guest/GuestSession';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
+import { findHelpTopic, helpIndexLine } from '../help/topics';
 import logger from '../../utils/Logger';
 import { conjugateEmoteForSender } from '../../utils/conjugate';
 
@@ -599,6 +600,22 @@ export class GameState extends EventEmitter {
   // Getters
   public getPlayer(): Player | null {
     return this.player;
+  }
+
+  /** help <topic> */
+  public helpTopic(name: string): void {
+    const topic = findHelpTopic(name);
+    if (!topic) {
+      this.addOutputMessage(`There's no help on "${name}". ${helpIndexLine()}`, true);
+      return;
+    }
+    this.addOutputMessage(`\n${topic.title}`, true);
+    for (const line of topic.lines) this.addOutputMessage(line, false);
+  }
+
+  /** The line after plain `help` pointing at the topics. */
+  public helpIndex(): void {
+    this.addOutputMessage(helpIndexLine(), false);
   }
 
   public getCurrentRoom(): RoomData | null {

@@ -227,7 +227,7 @@ export function useGame(client: Client, keychain: any) {
         break;
       case 'help':
         logger.debug('Processing help command');
-        gameState.help();
+        if (command.args[0]) { gameState.helpTopic(command.args[0]); } else { gameState.help(); gameState.helpIndex(); }
         break;
       case 'describe':
         logger.debug('Processing describe command');

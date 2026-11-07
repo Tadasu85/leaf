@@ -55,7 +55,7 @@ export class CommandParser {
       case 'help':
         return {
           type: 'help',
-          args: [],
+          args: args.length ? [args.join(' ').trim().toLowerCase()] : [],
           timestamp: Date.now()
         };
 
