@@ -14,6 +14,7 @@ import { useUserProfile } from './useUserProfile';
 import { useRoomState } from './useRoomState';
 import { useGameData } from './useGameData';
 import logger from '../utils/Logger';
+import { GuestIdentity } from '../game/guest/GuestSession';
 
 export function useGame(client: Client, keychain: any) {
   // Game State
@@ -154,6 +155,19 @@ export function useGame(client: Client, keychain: any) {
     }
   }, [gameState]);
 
+  // Guest login (no Hive account)
+  const loginAsGuest = useCallback(async (identity: GuestIdentity) => {
+    if (!gameState) return;
+    try {
+      setIsLoginComplete(false);
+      await gameState.loginAsGuest(identity);
+      setIsLoginComplete(true);
+    } catch (error) {
+      setIsLoginComplete(false);
+      throw error;
+    }
+  }, [gameState]);
+
   // Update room data - now handled by useRoomState hook
   const updateRoomData = useCallback((data: LegacyRoomData | ((prev: LegacyRoomData) => LegacyRoomData)) => {
     roomStateRef.current.updateRoomData(data);
@@ -277,6 +291,7 @@ export function useGame(client: Client, keychain: any) {
     player,
     currentRoom,
     login,
+    loginAsGuest,
     isLoginComplete,
     
     // Room State - from useRoomState hook

@@ -124,4 +124,15 @@ describe('ChatAuth', () => {
     expect(isAuthError('xhr poll error')).toBe(false);
     expect(isAuthError(undefined)).toBe(false);
   });
+  it('logs guests in with their guest token and never asks Keychain', async () => {
+    const signer = jest.fn();
+    const fetchFn = jest.fn();
+    const auth = new ChatAuth({ serverUrl: 'https://srv', signer, fetchFn: fetchFn as any, storage: memoryStorage(),
+      guestTokens: { getToken: (u) => (u === 'Guest-000001' ? 'gtok' : null) } });
+    await expect(auth.prepare('Guest-000001')).resolves.toEqual({ kind: 'auth', payload: { username: 'Guest-000001', sessionToken: 'gtok' } });
+    await expect(auth.prepare('Guest-000001', true)).resolves.toMatchObject({ kind: 'auth' });
+    await expect(auth.prepare('Guest-000002')).resolves.toEqual({ kind: 'cancelled' });
+    expect(signer).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
 });

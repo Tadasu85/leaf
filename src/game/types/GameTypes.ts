@@ -9,6 +9,8 @@ export interface Player {
   isAdmin: boolean;
   isBuilder: boolean;
   characterDescription: string;
+  /** Guest without a Hive account: position is kept in this browser, nothing is written to Hive. */
+  isGuest?: boolean;
 }
 
 export interface GameMap {

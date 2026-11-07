@@ -10,6 +10,7 @@ import {
 import { useClients } from '../hooks/useClients';
 import { useGame } from '../hooks/useGame';
 import { useBuildApprovalQueue } from '../hooks/useBuildApprovalQueue';
+import { GuestIdentity } from '../game/guest/GuestSession';
 
 // Game state types
 interface GameContextState {
@@ -46,6 +47,7 @@ interface GameContextType extends GameContextState {
   // Core actions
   initializeGame: () => Promise<void>;
   login: (username: string) => Promise<void>;
+  loginAsGuest: (identity: GuestIdentity) => Promise<void>;
   logout: () => void;
   
   // Room actions
@@ -105,6 +107,7 @@ export function GameProvider({ children }: GameProviderProps) {
     // Core actions
     initializeGame: async () => {},
     login: game.login,
+    loginAsGuest: game.loginAsGuest,
     logout: () => {},
     
     // Room actions

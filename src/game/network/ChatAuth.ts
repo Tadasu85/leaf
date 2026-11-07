@@ -1,4 +1,5 @@
 import logger from '../../utils/Logger';
+import { guestSession, isGuestName } from '../guest/GuestSession';
 
 /**
  * Chat login: proves to the chat server that this player owns their Hive
@@ -23,6 +24,7 @@ export interface ChatAuthDeps {
   signer: ChatSigner;
   fetchFn?: typeof fetch;
   storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
+  guestTokens?: { getToken(username: string): string | null };
 }
 
 export type ChatAuthOutcome =
@@ -83,6 +85,11 @@ export class ChatAuth {
    * rejected the token).
    */
   async prepare(username: string, forceSignature = false): Promise<ChatAuthOutcome> {
+    // Guests can't sign; they log in with the token the server gave them.
+    if (isGuestName(username)) {
+      const token = (this.deps.guestTokens ?? guestSession).getToken(username);
+      return token ? { kind: 'auth', payload: { username, sessionToken: token } } : { kind: 'cancelled' };
+    }
     if (!forceSignature) {
       const token = this.getStoredToken(username);
       if (token) return { kind: 'auth', payload: { username, sessionToken: token } };
