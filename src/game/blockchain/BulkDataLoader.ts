@@ -1,5 +1,6 @@
 import { Client } from '@hiveio/dhive';
 import { GameMap, RoomData, Location, TimeEventConfig } from '../types/GameTypes';
+import { findRoom, listRooms, resolveExit } from '../rooms/mapKeys';
 import config from '../../config';
 import logger from '../../utils/Logger';
 
@@ -81,19 +82,18 @@ export class BulkDataLoader {
    * Load starting room and its immediate exits in parallel
    */
   private async loadEssentialRooms(): Promise<void> {
-    const startPermlink = config.game.startRoom.permlink;
-    const startRoomInfo = this.gameMap[startPermlink];
-    if (!startRoomInfo) return;
+    const start = findRoom(this.gameMap, config.game.startRoom.author, config.game.startRoom.permlink);
+    if (!start) return;
 
     const toLoad: Array<[string, string, any]> = [
-      [startRoomInfo.author, startPermlink, startRoomInfo]
+      [start.author, start.permlink, start.entry]
     ];
 
     // Add actual exit destinations, not arbitrary slice
-    for (const exitPermlink of Object.values(startRoomInfo.exits)) {
-      const roomInfo = this.gameMap[exitPermlink];
-      if (roomInfo) {
-        toLoad.push([roomInfo.author, exitPermlink, roomInfo]);
+    for (const target of Object.values(start.entry.exits || {})) {
+      const room = resolveExit(this.gameMap, target);
+      if (room) {
+        toLoad.push([room.author, room.permlink, room.entry]);
       }
     }
 
@@ -106,7 +106,7 @@ export class BulkDataLoader {
    * Load all rooms with memory management (kept for backward compatibility)
    */
   private async loadAllRooms(): Promise<void> {
-    const roomEntries = Object.entries(this.gameMap);
+    const roomEntries = listRooms(this.gameMap);
     const batchSize = 10; // Process in batches to avoid overwhelming the API
     
     for (let i = 0; i < roomEntries.length; i += batchSize) {
@@ -118,8 +118,8 @@ export class BulkDataLoader {
       }
 
       // Load batch in parallel
-      const promises = batch.map(([permlink, roomInfo]) => 
-        this.loadRoomData(roomInfo.author, permlink, roomInfo)
+      const promises = batch.map((room) =>
+        this.loadRoomData(room.author, room.permlink, room.entry)
       );
 
       await Promise.allSettled(promises);
@@ -207,8 +207,9 @@ export class BulkDataLoader {
     }
 
     // If not in cache, load it (this shouldn't happen if bulk load was successful)
-    if (this.gameMap[location.permlink]) {
-      await this.loadRoomData(location.author, location.permlink, this.gameMap[location.permlink]);
+    const mapRoom = findRoom(this.gameMap, location.author, location.permlink);
+    if (mapRoom) {
+      await this.loadRoomData(location.author, location.permlink, mapRoom.entry);
       const cached = this.roomCache.get(cacheKey);
       if (!cached) {
         logger.error(`[BulkDataLoader] Failed to load ${cacheKey} from blockchain`);
@@ -338,10 +339,10 @@ export class BulkDataLoader {
    * Preload specific rooms for better performance
    */
   async preloadRooms(permlinks: string[]): Promise<void> {
-    const promises = permlinks.map(permlink => {
-      const roomInfo = this.gameMap[permlink];
-      if (roomInfo) {
-        return this.loadRoomData(roomInfo.author, permlink, roomInfo);
+    const promises = permlinks.map(target => {
+      const room = resolveExit(this.gameMap, target);
+      if (room) {
+        return this.loadRoomData(room.author, room.permlink, room.entry);
       }
       return Promise.resolve();
     });
