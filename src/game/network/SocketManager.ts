@@ -202,6 +202,11 @@ export class SocketManager extends EventEmitter {
       },
 
       // Chat events
+      // Room objects: someone used something in this room (see GameState.tryRoomObject)
+      playerUsedObject: (data: { username: string; channelId: string; object: string; verb: string }) => {
+        this.emit('playerUsedObject', data);
+      },
+
       chatChannelState: (data: any) => {
         this.emit('chatChannelState', data);
       },
@@ -394,6 +399,11 @@ export class SocketManager extends EventEmitter {
 
   getConnectionStatus(): 'disconnected' | 'connecting' | 'connected' | 'failed' | 'error' {
     return this.connectionStatus;
+  }
+
+  /** Tell the room that this player used one of its objects. */
+  announceObjectUse(data: { channelId: string; object: string; verb: string }): void {
+    if (this.socket?.connected) this.socket.emit('usedObject', data);
   }
 
   isConnected(): boolean {
