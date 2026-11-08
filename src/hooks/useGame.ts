@@ -227,6 +227,9 @@ export function useGame(client: Client, keychain: any) {
         logger.debug('Processing look command');
         await gameState.look();
         break;
+      case 'signup':
+        gameState.showSignup();
+        break;
       case 'help':
         logger.debug('Processing help command');
         if (command.args[0]) { gameState.helpTopic(command.args[0]); } else { gameState.help(); gameState.helpIndex(); }

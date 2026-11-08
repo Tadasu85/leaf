@@ -23,6 +23,7 @@ import GameErrorBoundary from './components/GameErrorBoundary';
 import ErrorBoundary from './components/ErrorBoundary';
 import logger from './utils/Logger';
 import { guestSession } from './game/guest/GuestSession';
+import { signupLines } from './game/guest/signup';
 
 // Add process polyfill for browser environment
 declare global {
@@ -187,7 +188,7 @@ function App() {
       "If you've arrived here by accident and do not have a Hive account. ",
       `Please make your way to [ecency.com/signup](https://ecency.com/signup/free?referral=${config.game.account}) or [hivedapps.com](https://hivedapps.com/) to create an account.`,
       "Otherwise you may proceed by typing 'login <username>', 'connect <username>', or just '<username>'",
-      "No account yet? Type 'guest' to look around and chat as a guest."
+      "No account yet? Type 'guest' to look around and chat as a guest, or 'signup' to find out how to get one."
     ];
     
     if (isMobileDevice) {
@@ -318,6 +319,10 @@ function App() {
   }, [gameState]);
 
   const handleTextEnteredWrapper = useCallback(async (text: string) => {
+    if (!isSignedIn && /^signup$/i.test(text.trim())) {
+      signupLines().forEach(line => addInfoMessage(line));
+      return;
+    }
     if (!isSignedIn && /^guest$/i.test(text.trim())) {
       addInfoMessage('Starting a guest session...');
       try {
