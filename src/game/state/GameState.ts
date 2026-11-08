@@ -13,8 +13,8 @@ import { guestSession, GuestIdentity } from '../guest/GuestSession';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
-import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import { conjugateEmoteForSender } from '../../utils/conjugate';
+import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 
 export class GameState extends EventEmitter {
   private player: Player | null = null;
