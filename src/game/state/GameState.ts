@@ -611,6 +611,46 @@ export class GameState extends EventEmitter {
     }
   }
 
+  /** eject <player>: the current room's author removes someone (server checks it). */
+  public ejectPlayer(target: string): void {
+    if (!this.player || !this.currentRoom) {
+      this.addOutputMessage('You must be in a room to do that.', true);
+      return;
+    }
+    if (this.currentRoom.author !== this.player.username) {
+      this.addOutputMessage('You can only remove people from rooms you built.', true);
+      return;
+    }
+    if (!this.socketManager || typeof this.socketManager.ejectPlayer !== 'function' || !this.socketManager.ejectPlayer(target)) {
+      this.addOutputMessage("Chat isn't connected, so you can't remove anyone right now.", true);
+      return;
+    }
+  }
+
+  /** The room's author removed this player: send them to the start room. */
+  private async handleEjected(data: { channelId: string; by: string; until: number }): Promise<void> {
+    if (!this.player) return;
+    const here = this.currentRoom ? `${this.currentRoom.author}/${this.currentRoom.permlink}` : null;
+    if (here !== data.channelId) return; // already left that room
+    const roomName = this.currentRoom?.title ?? 'that room';
+    const minutes = Math.max(1, Math.ceil((data.until - Date.now()) / 60000));
+    this.addOutputMessage(`${data.by} has removed you from ${roomName}. You can return in ${minutes} minute${minutes === 1 ? '' : 's'}.`, true);
+    const start = config.game.startRoom;
+    if (data.channelId === `${start.author}/${start.permlink}`) return; // nowhere else to send them
+    this.player.location = { ...start };
+    this.emit('playerChanged', this.player);
+    await this.loadRoom(this.player.location);
+    try {
+      if (this.player.isGuest) {
+        guestSession.saveLocation(this.player.location);
+      } else {
+        await this.hiveClient.moveTo(this.player.username, this.player.location);
+      }
+    } catch (error) {
+      logger.warn('[GameState] Could not save the move to the start room:', error);
+    }
+  }
+
   public async setDescription(description: string): Promise<void> {
     if (!this.player) {
       this.addOutputMessage('You must be logged in to set your description.', true);
@@ -858,6 +898,7 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('emote <action> - Perform an action in the current room', false);
     this.addOutputMessage('sethome - Make this room your home; home - Go back there from anywhere', false);
     this.addOutputMessage('look - Look around the current room', false);
+    this.addOutputMessage('eject <player> - Remove someone from a room you built, for 10 minutes', false);
     this.addOutputMessage('look self - View your character description', false);
     this.addOutputMessage('look <player> - View another player\'s description', false);
     this.addOutputMessage('@describe <description> - Set your character description', false);
@@ -900,6 +941,19 @@ export class GameState extends EventEmitter {
         }
       });
       
+      socketManager.on('ejectResult', (data: { ok: boolean; message: string }) => {
+        this.addOutputMessage(data.message, !data.ok);
+      });
+
+      socketManager.on('playerEjected', (data: { channelId: string; target: string; by: string }) => {
+        if (!this.player || data.target === this.player.username) return;
+        this.addOutputMessage(`${data.target} has been removed from the room by ${data.by}.`, false);
+      });
+
+      socketManager.on('ejected', (data: { channelId: string; by: string; until: number }) => {
+        void this.handleEjected(data);
+      });
+
       socketManager.on('builderGranted', (data: { username: string }) => {
         if (this.player && this.player.username === data.username && !this.player.isBuilder) {
           this.player.isBuilder = true;

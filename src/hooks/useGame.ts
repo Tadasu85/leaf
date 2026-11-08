@@ -219,6 +219,9 @@ export function useGame(client: Client, keychain: any) {
         logger.debug('Processing say command');
         gameState.say(command.args[0]);
         break;
+      case 'eject':
+        gameState.ejectPlayer(command.args[0]);
+        break;
       case 'emote':
         logger.debug('Processing emote command');
         gameState.emote(command.args[0]);

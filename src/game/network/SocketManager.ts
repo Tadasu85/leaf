@@ -236,6 +236,17 @@ export class SocketManager extends EventEmitter {
         this.emit('emote', data);
       },
 
+      // Room owners removing players (see GameState.ejectPlayer)
+      ejected: (data: { channelId: string; by: string; until: number }) => {
+        this.emit('ejected', data);
+      },
+      playerEjected: (data: { channelId: string; target: string; by: string }) => {
+        this.emit('playerEjected', data);
+      },
+      ejectResult: (data: { ok: boolean; message: string }) => {
+        this.emit('ejectResult', data);
+      },
+
       keepalive: () => {
         logger.debug('[SocketManager] Received keepalive from server, responding');
         // Respond to keepalive to prevent being removed from chat room
@@ -433,6 +444,13 @@ export class SocketManager extends EventEmitter {
 
   isConnected(): boolean {
     return this.connectionStatus === 'connected';
+  }
+
+  /** Ask the server to remove a player from the current room (room authors only). */
+  ejectPlayer(target: string): boolean {
+    if (!this.socket?.connected || !this.currentChannelId) return false;
+    this.socket.emit('ejectPlayer', { channelId: this.currentChannelId, target });
+    return true;
   }
 
   claimBuilder(): void {

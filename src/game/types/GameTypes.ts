@@ -95,6 +95,7 @@ export type CommandType =
   | 'sethome'
   | 'say'
   | 'emote'
+  | 'eject'
   | 'look'
   | 'lookAt'
   | 'page'
