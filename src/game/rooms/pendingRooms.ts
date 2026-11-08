@@ -1,6 +1,8 @@
 import { Client } from '@hiveio/dhive';
 import config from '../../config';
 import logger from '../../utils/Logger';
+import { GameMap } from '../types/GameTypes';
+import { findRoom } from './mapKeys';
 
 /**
  * Rooms waiting in the Builder Queue, and the per-builder limit on them
@@ -57,7 +59,8 @@ export async function findPendingRooms(
       continue;
     }
     const isRoom = (metadata?.app === config.game.idName || metadata?.app === 'leaf') && (!metadata.type || metadata.type === 'room');
-    if (!isRoom || existingRooms[content.permlink]) continue;
+    // Another author's room with the same permlink is a different room.
+    if (!isRoom || findRoom(existingRooms as GameMap, builder, content.permlink)) continue;
 
     let isRejected = false;
     try {

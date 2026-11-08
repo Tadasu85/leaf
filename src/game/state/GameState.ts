@@ -527,7 +527,7 @@ export class GameState extends EventEmitter {
   private homeLocation: Location | null = null;
 
   private isOnMap(location: Location | null | undefined): location is Location {
-    return Boolean(location && this.hiveClient.getGameMap()[location.permlink]?.author === location.author);
+    return Boolean(location && findRoom(this.hiveClient.getGameMap(), location.author, location.permlink));
   }
 
   /** sethome: make the current room home. Saved on Hive, or in this browser for guests. */
@@ -782,7 +782,7 @@ export class GameState extends EventEmitter {
   private guestStartFor(): Location | null {
     const saved = guestSession.load()?.location;
     if (!saved) return null;
-    return this.hiveClient.getGameMap()[saved.permlink]?.author === saved.author ? saved : null;
+    return findRoom(this.hiveClient.getGameMap(), saved.author, saved.permlink) ? saved : null;
   }
 
   /** signup: how to go from guest to Hive player. */
