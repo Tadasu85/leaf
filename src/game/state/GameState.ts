@@ -12,6 +12,7 @@ import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import config from '../../config';
 import { guestSession, GuestIdentity } from '../guest/GuestSession';
 import { HiveClient } from '../blockchain/HiveClient';
+import { readHomeFromAccount, loadGuestHome, saveGuestHome } from '../rooms/home';
 import { SocketManager } from '../network/SocketManager';
 import { findHelpTopic, helpIndexLine } from '../help/topics';
 import logger from '../../utils/Logger';
@@ -182,6 +183,7 @@ export class GameState extends EventEmitter {
 
       // Load player descriptions from already-fetched account data
       await this.loadPlayerDescriptions(accounts[0]);
+      this.homeLocation = readHomeFromAccount(accounts[0]);
 
       // Load the player's current room using bulk data (skip display during login)
       // Admin users don't have a location, so skip room loading
@@ -463,6 +465,74 @@ export class GameState extends EventEmitter {
     }
   }
 
+  // ----- Home (LambdaMOO's @sethome / home) -----
+  private homeLocation: Location | null = null;
+
+  private isOnMap(location: Location | null | undefined): location is Location {
+    return Boolean(location && this.hiveClient.getGameMap()[location.permlink]?.author === location.author);
+  }
+
+  /** sethome: make the current room home. Saved on Hive, or in this browser for guests. */
+  public async setHome(): Promise<void> {
+    if (!this.player || !this.currentRoom) {
+      this.addOutputMessage('You must be in a room to make it your home.', true);
+      return;
+    }
+    const here: Location = { author: this.currentRoom.author, permlink: this.currentRoom.permlink };
+    if (!this.isOnMap(here)) {
+      this.addOutputMessage("This room isn't on the map, so it can't be your home.", true);
+      return;
+    }
+    try {
+      if (this.player.isGuest) {
+        saveGuestHome(this.player.username, here);
+      } else {
+        await this.hiveClient.setPlayerHome(this.player.username, here);
+      }
+      this.homeLocation = here;
+      this.addOutputMessage(`${this.currentRoom.title} is now your home. Type 'home' to come back here from anywhere.`, false);
+    } catch (error) {
+      logger.warn('[GameState] Could not save home:', error);
+      this.addOutputMessage(`Couldn't save your home: ${error instanceof Error ? error.message : String(error)}`, true);
+    }
+  }
+
+  /** home: go to your home room (or the start room if you haven't set one). */
+  public async goHome(): Promise<void> {
+    if (!this.player || !this.player.location) {
+      this.addOutputMessage('You must be in the world to go home.', true);
+      return;
+    }
+    const saved = this.player.isGuest ? loadGuestHome(this.player.username) : this.homeLocation;
+    const hasHome = this.isOnMap(saved);
+    const home = hasHome ? saved : config.game.startRoom;
+    if (this.currentRoom && this.currentRoom.author === home.author && this.currentRoom.permlink === home.permlink) {
+      this.addOutputMessage("You're already home.", false);
+      return;
+    }
+    this.addOutputMessage(hasHome
+      ? 'You head home.'
+      : saved
+        ? "Your home isn't on the map any more, so you head back to where you started. Type 'sethome' in a room to make it home."
+        : "You haven't set a home, so you head back to where you started. Type 'sethome' in a room to make it home.", false);
+    const previous = this.player.location;
+    this.player.location = { author: home.author, permlink: home.permlink };
+    this.emit('playerChanged', this.player);
+    await this.loadRoom(this.player.location);
+    try {
+      if (this.player.isGuest) {
+        guestSession.saveLocation(this.player.location);
+      } else {
+        await this.hiveClient.moveTo(this.player.username, this.player.location);
+      }
+    } catch (error) {
+      logger.warn('[GameState] Could not save the move home:', error);
+      this.addOutputMessage('Failed to move.', true);
+      this.player.location = previous;
+      await this.loadRoom(previous);
+    }
+  }
+
   public async lookAtSelf(): Promise<void> {
     if (!this.player) {
       this.addOutputMessage('You are not logged in.', true);
@@ -739,6 +809,7 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('Movement: Use directional commands like north, south, east, west, up, down, etc.', false);
     this.addOutputMessage('say <message> - Say something in the current room', false);
     this.addOutputMessage('emote <action> - Perform an action in the current room', false);
+    this.addOutputMessage('sethome - Make this room your home; home - Go back there from anywhere', false);
     this.addOutputMessage('look - Look around the current room', false);
     this.addOutputMessage('look self - View your character description', false);
     this.addOutputMessage('look <player> - View another player\'s description', false);

@@ -231,6 +231,12 @@ export function useGame(client: Client, keychain: any) {
         logger.debug('Processing help command');
         if (command.args[0]) { gameState.helpTopic(command.args[0]); } else { gameState.help(); gameState.helpIndex(); }
         break;
+      case 'home':
+        await gameState.goHome();
+        break;
+      case 'sethome':
+        await gameState.setHome();
+        break;
       case 'describe':
         logger.debug('Processing describe command');
         await gameState.setDescription(command.args[0]);

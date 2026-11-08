@@ -305,6 +305,41 @@ export class HiveClient extends EventEmitter {
     await this.keychain.broadcast(broadcastData);
   }
 
+  /**
+   * Save the player's home room in their own posting_json_metadata
+   * (egodeathplayer.home), keeping everything else in it.
+   */
+  public async setPlayerHome(username: string, home: { author: string; permlink: string }): Promise<void> {
+    const accounts = await this.database.call('get_accounts', [[username]]);
+    if (!accounts || !accounts[0]) {
+      throw new Error('Failed to fetch account data');
+    }
+    const currentMetadata = JSON.parse(accounts[0].posting_json_metadata || '{}');
+    const updatedMetadata = {
+      ...currentMetadata,
+      egodeathplayer: {
+        ...currentMetadata.egodeathplayer,
+        home: { author: home.author, permlink: home.permlink }
+      }
+    };
+    const operation: Operation = [
+      'account_update2',
+      {
+        account: username,
+        json_metadata: accounts[0].json_metadata || '',
+        posting_json_metadata: JSON.stringify(updatedMetadata)
+      }
+    ];
+    const result = await this.keychain.broadcast({
+      username,
+      operations: [operation],
+      method: KeychainKeyTypes.posting
+    } as unknown as Broadcast) as { success?: boolean; message?: string } | undefined;
+    if (result && result.success === false) {
+      throw new Error(result.message || 'Keychain did not save your home');
+    }
+  }
+
   public async setShortDescription(username: string, shortDescription: string): Promise<void> {
     // Get current account metadata first
     const accounts = await this.database.call('get_accounts', [[username]]);
