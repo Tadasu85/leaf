@@ -6,6 +6,8 @@ import logger from '../../utils/Logger';
 import { ChatAuth, ChatAuthPayload, isAuthError } from './ChatAuth';
 import { isGuestName } from '../guest/GuestSession';
 
+const BANNED_MESSAGE = "Chat is off for you because you've been muted in the game's Hive community. You can still look around and move.";
+
 export class SocketManager extends EventEmitter {
   private socket: Socket | null = null;
   private isConnecting: boolean = false;
@@ -139,6 +141,13 @@ export class SocketManager extends EventEmitter {
         
         // Register the username with the server
         this.socket?.emit('register', { username: this.username });
+      },
+
+      // The server disconnects this socket right after; it won't reconnect.
+      chatBanned: () => {
+        logger.warn('[SocketManager] Banned from chat (muted in the game community)');
+        this.connectionStatus = 'failed';
+        this.emit('connectionStatusChanged', { status: 'failed', error: BANNED_MESSAGE });
       },
 
       registered: (data: { success: boolean; message?: string }) => {
@@ -414,7 +423,8 @@ export class SocketManager extends EventEmitter {
     if (username) this.chatAuth.clearToken(username);
     this.cleanupSocket();
 
-    if (this.lastAuthUsedToken && !this.retriedWithSignature && username && location && !isGuestName(username)) {
+    const banned = /^auth_failed:\s*banned\b/.test(message);
+    if (!banned && this.lastAuthUsedToken && !this.retriedWithSignature && username && location && !isGuestName(username)) {
       logger.info('[SocketManager] Chat session expired; asking Keychain to sign in again');
       this.retriedWithSignature = true;
       this.connect(username, location, true);
@@ -424,7 +434,9 @@ export class SocketManager extends EventEmitter {
     logger.warn('[SocketManager] Chat login rejected:', message);
     this.connectionStatus = 'failed';
     const reason = message.replace(/^auth_failed:\s*/, '');
-    const friendly = username && isGuestName(username)
+    const friendly = banned
+      ? BANNED_MESSAGE
+      : username && isGuestName(username)
       ? 'Chat is not available for this guest right now. You can still look around.'
       : reason === 'missing credentials'
       ? 'Chat needs you to sign in with Keychain. Reload the page to try again.'

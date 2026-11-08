@@ -115,6 +115,25 @@ describe('SocketManager chat login', () => {
     });
   });
 
+  it('does not prompt Keychain again when a banned player\'s token is refused', async () => {
+    chatAuth.prepare.mockResolvedValue({ kind: 'auth', payload: { username: 'alice', sessionToken: 'tok' } });
+    manager.connect('alice', location);
+    await flush();
+    sockets[0].fire('connect_error', new Error('auth_failed: banned'));
+    await flush();
+    expect(chatAuth.prepare).toHaveBeenCalledTimes(1);
+    expect(sockets).toHaveLength(1);
+    expect(statuses[statuses.length - 1].error).toMatch(/muted in the game's Hive community/);
+  });
+
+  it('explains a ban that arrives while connected', async () => {
+    chatAuth.prepare.mockResolvedValue({ kind: 'auth', payload: { username: 'alice', challenge: 'c', signature: 's' } });
+    manager.connect('alice', location);
+    await flush();
+    sockets[0].fire('chatBanned', { reason: 'community' });
+    expect(statuses[statuses.length - 1]).toEqual({ status: 'failed', error: expect.stringMatching(/You can still look around/) });
+  });
+
   it('backs off and retries when the server is unreachable, without opening a socket', async () => {
     jest.useFakeTimers();
     try {
