@@ -88,6 +88,13 @@ describe('first login after playing as a guest', () => {
     expect(gameState.getPlayer()?.location?.permlink).toBe('genesis');
   });
 
+  it("finds a guest's room stored under an author/permlink key", async () => {
+    hiveClient.getGameMap.mockReturnValue({ genesis: { author: 'ray', exits: {} }, cave: { author: 'bob', exits: {} }, 'ray/cave': { author: 'ray', exits: {} } });
+    load.mockReturnValue({ username: 'Guest-000001', location: { author: 'ray', permlink: 'cave' } });
+    await gameState.login('newbie');
+    expect(gameState.getPlayer()?.location).toEqual({ author: 'ray', permlink: 'cave' });
+  });
+
   it('starts at the start room with no guest in this browser', async () => {
     load.mockReturnValue(null);
     await gameState.login('newbie');

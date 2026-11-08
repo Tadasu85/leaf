@@ -125,6 +125,13 @@ describe('GameState home', () => {
     expect(out()).toContain("This room isn't on the map, so it can't be your home.");
   });
 
+  it('accepts a room stored under an author/permlink key', async () => {
+    hiveClient.getGameMap.mockReturnValue({ genesis: { author: 'ray' }, cave: { author: 'bob' }, 'ray/cave': { author: 'ray' } });
+    await standIn('cave');
+    await gameState.setHome();
+    expect(hiveClient.setPlayerHome).toHaveBeenCalled();
+  });
+
   it('reports a failed save', async () => {
     hiveClient.setPlayerHome.mockRejectedValue(new Error('cancelled'));
     await standIn('cave');

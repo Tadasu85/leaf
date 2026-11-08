@@ -22,8 +22,17 @@ describe('pending rooms', () => {
       [post('approved'), post('waiting'), post('rejected'), post('blog-post', { app: 'peakd' })],
       { rejected: [{ author: 'hive-109456', body: 'Rejected: too short' }] }
     );
-    const pending = await findPendingRooms(client, 'alice', { approved: {} });
+    const pending = await findPendingRooms(client, 'alice', { approved: { author: 'alice' } });
     expect(pending.map(p => p.content.permlink)).toEqual(['waiting']);
+  });
+
+  it("still lists a room whose permlink another author's room uses", async () => {
+    const client = makeClient([post('the-dock'), post('pier')]);
+    const pending = await findPendingRooms(client, 'alice', {
+      'the-dock': { author: 'ray' },
+      'alice/pier': { author: 'alice' },
+    });
+    expect(pending.map(p => p.content.permlink)).toEqual(['the-dock']);
   });
 
   it('uses the default limit unless the admin set one', () => {
