@@ -15,7 +15,7 @@ jest.mock('@hiveio/dhive', () => ({
 }));
 
 const MockKeychainSDK = KeychainSDK as jest.Mock;
-const MockDhiveClient = Client as jest.Mock;
+const MockDhiveClient = Client as unknown as jest.Mock;
 
 const GAME_ACCOUNT = process.env.REACT_APP_ACCOUNT_NAME || 'hive-109456';
 
