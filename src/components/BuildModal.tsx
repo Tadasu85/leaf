@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildExitMessages, MAX_EXIT_MESSAGE_LENGTH } from '../game/rooms/exitMessages';
 import { KeychainSDK } from 'keychain-sdk';
 import config from '../config';
 import { Client } from '@hiveio/dhive';
@@ -71,6 +72,9 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
     startPhase: 0
   });
   const [phases, setPhases] = useState<PhaseFormData[]>(defaultPhases());
+  // Optional exit messages for the new room's exit back (the builder owns the new room)
+  const emptyBackExit = { leave: '', arrive: '', othersLeave: '', othersArrive: '' };
+  const [backExitMessage, setBackExitMessage] = useState<{ leave: string; arrive: string; othersLeave: string; othersArrive: string }>(emptyBackExit);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Rooms this builder already has waiting in the Queue, and their limit
@@ -209,6 +213,11 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           type: 'room',
           format: 'markdown',
           tags: ['ego-death'],
+          ...(() => {
+            const direction = formData.exitFromNewRoom.trim();
+            const exitMessages = buildExitMessages([direction], { [direction]: backExitMessage });
+            return Object.keys(exitMessages).length ? { exitMessages } : {};
+          })(),
           connection: {
             fromRoom: currentRoom ? {
               author: currentRoom.author,
@@ -254,6 +263,7 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
           startPhase: 0
         });
         setPhases(defaultPhases());
+        setBackExitMessage(emptyBackExit);
         if (onBuildQueued) {
           onBuildQueued();
         }
@@ -356,6 +366,50 @@ const BuildModal: React.FC<BuildModalProps> = ({ isOpen, onClose, username, curr
                 onChange={handleInputChange}
                 required
                 placeholder="e.g., north, south, east, west"
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="modal__form-group">
+              <span className="modal__form-label">Messages for that exit (optional):</span>
+              <input
+                className="modal__form-input"
+                type="text"
+                aria-label="Message when leaving the new room through that exit"
+                placeholder="When leaving, e.g. You squeeze back through the gap."
+                value={backExitMessage.leave}
+                maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                onChange={e => setBackExitMessage(prev => ({ ...prev, leave: e.target.value }))}
+                disabled={isSubmitting}
+              />
+              <input
+                className="modal__form-input"
+                type="text"
+                aria-label="Message after arriving through that exit"
+                placeholder="After arriving. %n becomes the player's name."
+                value={backExitMessage.arrive}
+                maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                onChange={e => setBackExitMessage(prev => ({ ...prev, arrive: e.target.value }))}
+                disabled={isSubmitting}
+              />
+              <input
+                className="modal__form-input"
+                type="text"
+                aria-label="What others in the new room see when someone leaves through that exit"
+                placeholder="Others in the new room see, e.g. %n squeezes out through the gap."
+                value={backExitMessage.othersLeave}
+                maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                onChange={e => setBackExitMessage(prev => ({ ...prev, othersLeave: e.target.value }))}
+                disabled={isSubmitting}
+              />
+              <input
+                className="modal__form-input"
+                type="text"
+                aria-label="What others in your current room see when someone comes back through that exit"
+                placeholder="Others back here see, e.g. %n squeezes back in through the gap."
+                value={backExitMessage.othersArrive}
+                maxLength={MAX_EXIT_MESSAGE_LENGTH}
+                onChange={e => setBackExitMessage(prev => ({ ...prev, othersArrive: e.target.value }))}
                 disabled={isSubmitting}
               />
             </div>

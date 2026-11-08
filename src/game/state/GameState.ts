@@ -16,6 +16,7 @@ import { readHomeFromAccount, loadGuestHome, saveGuestHome } from '../rooms/home
 import { SocketManager } from '../network/SocketManager';
 import { findHelpTopic, helpIndexLine } from '../help/topics';
 import logger from '../../utils/Logger';
+import { renderExitMessage } from '../rooms/exitMessages';
 import { conjugateEmoteForSender } from '../../utils/conjugate';
 import { signupLines } from '../guest/signup';
 
@@ -283,6 +284,33 @@ export class GameState extends EventEmitter {
     return true;
   }
 
+  // ----- Exit narration (lines other players see) -----
+  private narrated = new Map<string, number>();
+
+  private markNarrated(key: string): void {
+    this.narrated.set(key, Date.now() + 5000);
+  }
+
+  /** True once if a room-authored line replaced the generic "has entered/left" line. */
+  private wasNarrated(key: string): boolean {
+    const until = this.narrated.get(key);
+    if (until === undefined) return false;
+    this.narrated.delete(key);
+    return until > Date.now();
+  }
+
+  /** Players muted in this browser (the mute feature adds `this.mutes`). Hive mutes are applied by the server. */
+  private isNarrationHidden(name: string): boolean {
+    const mutes = (this as unknown as { mutes?: { isMuted(n: string): boolean } }).mutes;
+    return Boolean(mutes && mutes.isMuted(name));
+  }
+
+  /** Fetch a room's post again, bypassing the cache (e.g. after Edit Room). */
+  async reloadRoom(location: Location): Promise<void> {
+    this.hiveClient.invalidateRoom(location.author, location.permlink);
+    await this.loadRoom(location);
+  }
+
   async loadRoom(location: Location, skipDisplay: boolean = false): Promise<void> {
     try {
       const room = await this.hiveClient.getRoomData(location);
@@ -407,12 +435,31 @@ export class GameState extends EventEmitter {
         ? { author: target.author, permlink: target.permlink }
         : splitKey(destination) ?? { author: this.currentRoom.author, permlink: destination };
 
+      // Exit messages set by the room's author (LambdaMOO-style leave/arrive lines)
+      const exitMessage = this.currentRoom.exitMessages?.[direction];
+      if (exitMessage?.leave) {
+        this.addOutputMessage(renderExitMessage(exitMessage.leave, this.player.username), false);
+      }
+      if ((exitMessage?.othersLeave || exitMessage?.othersArrive) && typeof this.socketManager?.announceExit === 'function') {
+        this.socketManager.announceExit({
+          from: `${this.currentRoom.author}/${this.currentRoom.permlink}`,
+          to: `${location.author}/${location.permlink}`,
+          direction,
+          othersLeave: Boolean(exitMessage.othersLeave),
+          othersArrive: Boolean(exitMessage.othersArrive)
+        });
+      }
+
       // OPTIMISTIC UPDATE: Update local state immediately for instant feedback
       this.player.location = location;
       this.emit('playerChanged', this.player);
       
       // Load new room optimistically (using cached data)
       await this.loadRoom(location);
+
+      if (exitMessage?.arrive) {
+        this.addOutputMessage(renderExitMessage(exitMessage.arrive, this.player.username), false);
+      }
       
       // Update player location: guests keep it in this browser, everyone else on Hive
       if (this.player.isGuest) {
@@ -934,6 +981,30 @@ export class GameState extends EventEmitter {
     
     // Set up event listeners for socket manager events
     if (socketManager) {
+      socketManager.on('playerUsedExit', (data: { username: string; channelId: string; direction: string }) => {
+        const room = this.currentRoom;
+        if (!room || `${room.author}/${room.permlink}` !== data.channelId || this.isNarrationHidden(data.username)) return;
+        const line = room.exitMessages?.[data.direction]?.othersLeave;
+        if (!line) return;
+        this.markNarrated(`leave:${data.username}`);
+        this.addOutputMessage(renderExitMessage(line, data.username), false);
+      });
+
+      socketManager.on('playerArrivedVia', (data: { username: string; channelId: string; from: string; direction: string }) => {
+        const room = this.currentRoom;
+        if (!room || `${room.author}/${room.permlink}` !== data.channelId || this.isNarrationHidden(data.username)) return;
+        const slash = data.from.indexOf('/');
+        if (slash < 1) return;
+        this.markNarrated(`join:${data.username}`);
+        void this.hiveClient.getRoomData({ author: data.from.slice(0, slash), permlink: data.from.slice(slash + 1) })
+          .then(source => {
+            const line = source?.exitMessages?.[data.direction]?.othersArrive;
+            if (line) this.addOutputMessage(renderExitMessage(line, data.username), false);
+            else this.addOutputMessage(`${data.username} has entered the room.`, false);
+          })
+          .catch(() => this.addOutputMessage(`${data.username} has entered the room.`, false));
+      });
+
       socketManager.on('chatUnavailable', (data: { message: string }) => {
         if (!this.hasNotifiedChatOffline) {
           this.addOutputMessage(data.message, true);
@@ -1086,6 +1157,7 @@ export class GameState extends EventEmitter {
 
   // Method to notify when a player joins the room
   public notifyPlayerJoined(username: string): void {
+    if (this.wasNarrated(`join:${username}`)) return; // the room's own arrival line was shown
     if (username !== this.player?.username) {
       this.addOutputMessage(`${username} has entered the room.`, false);
     }
@@ -1093,6 +1165,7 @@ export class GameState extends EventEmitter {
 
   // Method to notify when a player leaves the room
   public notifyPlayerLeft(username: string): void {
+    if (this.wasNarrated(`leave:${username}`)) return; // the room's own exit line was shown
     if (username !== this.player?.username) {
       this.addOutputMessage(`${username} has left the room.`, false);
     }

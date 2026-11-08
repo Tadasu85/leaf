@@ -1,4 +1,5 @@
 import { Client } from '@hiveio/dhive';
+import { parseExitMessages } from '../rooms/exitMessages';
 import { GameMap, RoomData, Location, TimeEventConfig } from '../types/GameTypes';
 import { findRoom, listRooms, resolveExit } from '../rooms/mapKeys';
 import config from '../../config';
@@ -154,10 +155,12 @@ export class BulkDataLoader {
         return;
       }
 
+      const exitMessages = parseExitMessages(content.json_metadata);
       const roomData: RoomData = {
         id: cacheKey,
         title: content.title,
         description: content.body,
+        ...(exitMessages ? { exitMessages } : {}),
         author: author,
         permlink: permlink,
         exits: roomInfo.exits || {}
@@ -331,6 +334,11 @@ export class BulkDataLoader {
    */
   clearCache(): void {
     this.roomCache.clear();
+  }
+
+  /** Forget one room so the next load fetches its post again (after an edit). */
+  invalidateRoom(author: string, permlink: string): void {
+    this.roomCache.delete(`${author}/${permlink}`);
   }
 
   /**

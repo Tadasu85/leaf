@@ -268,6 +268,14 @@ export class SocketManager extends EventEmitter {
         this.emit('builderGranted', data);
       },
 
+      // Exit narration (see GameState.move)
+      playerUsedExit: (data: { username: string; channelId: string; direction: string }) => {
+        this.emit('playerUsedExit', data);
+      },
+      playerArrivedVia: (data: { username: string; channelId: string; from: string; direction: string }) => {
+        this.emit('playerArrivedVia', data);
+      },
+
       authenticated: (data: { username: string; sessionToken?: string }) => {
         logger.debug('[SocketManager] Chat login accepted for', data.username);
         this.retriedWithSignature = false;
@@ -431,6 +439,11 @@ export class SocketManager extends EventEmitter {
 
   getCurrentChannelId(): string | null {
     return this.currentChannelId;
+  }
+
+  /** Tell the room left and the room entered which exit this player used. */
+  announceExit(data: { from: string; to: string; direction: string; othersLeave: boolean; othersArrive: boolean }): void {
+    if (this.socket?.connected) this.socket.emit('usedExit', data);
   }
 
   getConnectionStatus(): 'disconnected' | 'connecting' | 'connected' | 'failed' | 'error' {

@@ -29,6 +29,18 @@ export interface GameOutputMessage {
   bold: boolean;
 }
 
+/** Optional lines shown when a player uses an exit (see game/rooms/exitMessages). */
+export interface ExitMessage {
+  /** Shown to the player leaving through the exit */
+  leave?: string;
+  /** Shown to the player after the next room appears */
+  arrive?: string;
+  /** Shown to others in the room being left */
+  othersLeave?: string;
+  /** Shown to others in the room being entered */
+  othersArrive?: string;
+}
+
 export interface RoomData {
   id: string;
   title: string;
@@ -42,6 +54,8 @@ export interface RoomData {
   objects?: import('../rooms/roomObjects').RoomObjects;
   players?: string[];
   details?: Record<string, string>;
+  /** Keyed by exit direction; set by the room's author in Edit Room */
+  exitMessages?: Record<string, ExitMessage>;
   // New properties for time-based events
   isTimeBased?: boolean;
   timeEventConfig?: TimeEventConfig;

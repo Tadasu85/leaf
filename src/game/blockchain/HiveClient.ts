@@ -235,6 +235,11 @@ export class HiveClient extends EventEmitter {
     this.bulkLoader.clearCache();
   }
 
+  /** Forget one room's cached post so the next load fetches it again. */
+  public invalidateRoom(author: string, permlink: string): void {
+    this.bulkLoader.invalidateRoom(author, permlink);
+  }
+
   /**
    * Get the game map from bulk loader
    */
