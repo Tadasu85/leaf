@@ -3,6 +3,7 @@ import { KeychainSDK, KeychainKeyTypes, Broadcast } from 'keychain-sdk';
 import { Client } from '@hiveio/dhive';
 import config from '../config';
 import logger from '../utils/Logger';
+import { applyApproval } from '../game/rooms/approval';
 
 interface QueueManagementModalProps {
   isOpen: boolean;
@@ -108,34 +109,12 @@ const QueueManagementModal: React.FC<QueueManagementModalProps> = ({ isOpen, onC
         logger.warn('[Queue Modal] Could not fetch current block number for startBlock:', error);
       }
 
-      // Build the new room entry — include time-event config if the builder specified one
-      const newRoomEntry: any = {
-        author: request.newRoom.author,
-        exits: request.exits.fromNewRoom
-      };
-
-      if (request.timeEvent) {
-        newRoomEntry.timeEvent = {
-          ...request.timeEvent,
-          startBlock: request.timeEvent.startBlock || approvalBlock
-        };
-      }
-
-      // Create updated rooms object - add the new room with proper exits
-      const updatedRooms = {
-        ...currentRooms,
-        [request.newRoom.permlink]: newRoomEntry,
-        // Update the current room's exits to point to the new room
-        [request.room.permlink]: {
-          // Keep every existing field of the source room (e.g. its timeEvent)
-          ...(currentRooms[request.room.permlink] || {}),
-          author: currentRooms[request.room.permlink]?.author || request.room.author,
-          exits: {
-            ...(currentRooms[request.room.permlink]?.exits || {}),
-            ...request.exits.fromCurrentRoom
-          }
-        }
-      };
+      // Add the new room and connect it to the room it was built from.
+      // A permlink another author already uses gets an author/permlink key,
+      // so approving never replaces someone else's room.
+      const approval = applyApproval(currentRooms, request, approvalBlock);
+      if (!approval.ok) throw new Error(approval.reason);
+      const updatedRooms = approval.rooms;
 
       // Merge into the existing metadata so the account's profile and any
       // other keys survive. Previously this replaced the whole object.

@@ -10,6 +10,7 @@ import {
 } from '../types/GameTypes';
 import config from '../../config';
 import { guestSession, GuestIdentity } from '../guest/GuestSession';
+import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
@@ -44,6 +45,16 @@ export class GameState extends EventEmitter {
   }
 
   /**
+   * A room's key in the game map: `permlink`, or `author/permlink` for a room
+   * whose permlink another author already uses. Time-event rooms are
+   * registered under this key.
+   */
+  private roomKeyOf(location: Location): string {
+    const map = this.hiveClient.getGameMap?.() ?? {};
+    return findRoom(map, location.author, location.permlink)?.key ?? location.permlink;
+  }
+
+  /**
    * Handle time-based events from the blockchain
    */
   private handleTimeEvent(timeEvent: BlockchainTimeEvent): void {
@@ -55,7 +66,7 @@ export class GameState extends EventEmitter {
       const phase = config.phases[timeEvent.phase];
       
       // Update the room data with new exits
-      if (this.currentRoom && this.currentRoom.permlink === timeEvent.roomPermlink) {
+      if (this.currentRoom && this.roomKeyOf(this.currentRoom) === timeEvent.roomPermlink) {
         const updatedRoom: RoomData = {
           ...this.currentRoom,
           exits: phase.exits
@@ -223,7 +234,7 @@ export class GameState extends EventEmitter {
       }
 
       const saved = identity.location;
-      const savedInMap = saved && this.hiveClient.getGameMap()[saved.permlink]?.author === saved.author;
+      const savedInMap = saved && !!findRoom(this.hiveClient.getGameMap(), saved.author, saved.permlink);
       this.player = {
         username: identity.username,
         location: savedInMap ? saved! : config.game.startRoom,
@@ -289,7 +300,7 @@ export class GameState extends EventEmitter {
       }
 
       // Check if this is a time-based room and apply dynamic exits
-      const timeEventConfig = this.hiveClient.getTimeEventConfig(location.permlink);
+      const timeEventConfig = this.hiveClient.getTimeEventConfig(this.roomKeyOf(location));
       if (timeEventConfig && timeEventConfig.phases?.[timeEventConfig.currentPhase]) {
         const currentPhase = timeEventConfig.phases[timeEventConfig.currentPhase];
         roomCopy.exits = currentPhase.exits;
@@ -378,12 +389,12 @@ export class GameState extends EventEmitter {
     }
 
     try {
-      // Look up the destination author from the game map; fall back to current room's author
-      const destAuthor = this.hiveClient.getGameMap()[destination]?.author ?? this.currentRoom.author;
-      const location: Location = {
-        author: destAuthor,
-        permlink: destination
-      };
+      // Exits hold a map key (`permlink` or `author/permlink`); fall back to
+      // the current room's author for a permlink that isn't on the map.
+      const target = resolveExit(this.hiveClient.getGameMap(), destination);
+      const location: Location = target
+        ? { author: target.author, permlink: target.permlink }
+        : splitKey(destination) ?? { author: this.currentRoom.author, permlink: destination };
 
       // OPTIMISTIC UPDATE: Update local state immediately for instant feedback
       this.player.location = location;

@@ -503,6 +503,24 @@ describe('GameState', () => {
       expect(gameState.getPlayer()?.location?.permlink).toBe('forest-room');
     });
 
+    it("follows an author/permlink exit to that author's room", async () => {
+      setReadyState(gameState);
+      setRoom(gameState, { ...mockRoom, exits: { east: 'alice/the-dock' } });
+      hiveClient.getGameMap.mockReturnValue({
+        'the-dock': { author: 'ray', exits: {} },
+        'alice/the-dock': { author: 'alice', exits: {} },
+      });
+      await gameState.move('east');
+      expect(hiveClient.moveTo).toHaveBeenCalledWith('alice', { author: 'alice', permlink: 'the-dock' });
+    });
+
+    it('takes the author from the map for a permlink exit', async () => {
+      setReadyState(gameState);
+      hiveClient.getGameMap.mockReturnValue({ 'forest-room': { author: 'ray', exits: {} } });
+      await gameState.move('north');
+      expect(hiveClient.moveTo).toHaveBeenCalledWith('alice', { author: 'ray', permlink: 'forest-room' });
+    });
+
     it('reverts player location on error and outputs error message', async () => {
       setReadyState(gameState);
       hiveClient.moveTo.mockRejectedValue(new Error('tx failed'));

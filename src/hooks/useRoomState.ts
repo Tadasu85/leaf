@@ -1,5 +1,10 @@
 import { useReducer, useCallback, useRef } from 'react';
 import { LegacyRoomData, GameJSON } from '../game/types/GameTypes';
+import { findRoom } from '../game/rooms/mapKeys';
+
+/** A room's exits from the map, whichever key form it's stored under. */
+const exitsOf = (map: GameJSON, room: { author: string; permlink: string }) =>
+  findRoom(map, room.author, room.permlink)?.entry.exits || {};
 
 // Room state reducer
 type RoomStateAction = 
@@ -36,7 +41,7 @@ function roomStateReducer(state: RoomState, action: RoomStateAction): RoomState 
         ...state,
         roomData: {
           ...action.payload,
-          exits: state.gameJSON[action.payload.permlink]?.exits || {}
+          exits: exitsOf(state.gameJSON, action.payload)
         }
       };
     case 'SET_GAME_JSON':
@@ -45,7 +50,7 @@ function roomStateReducer(state: RoomState, action: RoomStateAction): RoomState 
         gameJSON: action.payload,
         roomData: {
           ...state.roomData,
-          exits: action.payload[state.roomData.permlink]?.exits || {}
+          exits: exitsOf(action.payload, state.roomData)
         }
       };
     case 'SET_LOADED_GAME':
@@ -59,7 +64,7 @@ function roomStateReducer(state: RoomState, action: RoomStateAction): RoomState 
         roomData: {
           ...state.roomData,
           ...action.payload,
-          exits: state.gameJSON[state.roomData.permlink]?.exits || {}
+          exits: exitsOf(state.gameJSON, { ...state.roomData, ...action.payload })
         }
       };
     case 'RESET_ROOM_STATE':
