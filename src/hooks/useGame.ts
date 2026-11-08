@@ -15,6 +15,7 @@ import { useRoomState } from './useRoomState';
 import { useGameData } from './useGameData';
 import logger from '../utils/Logger';
 import { GuestIdentity } from '../game/guest/GuestSession';
+import { FeedbackKind } from '../game/rooms/roomFeedback';
 
 export function useGame(client: Client, keychain: any) {
   // Game State
@@ -212,6 +213,9 @@ export function useGame(client: Client, keychain: any) {
     logger.debug('Parsed command:', command);
     
     switch (command.type) {
+      case 'feedback':
+        await gameState.sendRoomFeedback(command.args[0] as FeedbackKind, command.args[1] ?? '');
+        break;
       case 'move':
         gameState.move(command.args[0]);
         break;

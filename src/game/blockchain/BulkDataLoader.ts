@@ -5,6 +5,7 @@ import { findRoom, listRooms, resolveExit } from '../rooms/mapKeys';
 import config from '../../config';
 import { parseRoomObjects } from '../rooms/roomObjects';
 import logger from '../../utils/Logger';
+import { parseRoomDetails } from '../rooms/roomFeedback';
 
 interface CachedRoomData {
   data: RoomData;
@@ -170,17 +171,7 @@ export class BulkDataLoader {
       if (this.loadRoomDetails) {
         try {
           const comments = await this.client.database.call('get_content_replies', [author, permlink]);
-          const authorComments = comments?.filter((comment: any) => comment.author === author) || [];
-          
-          const details: { [key: string]: string } = {};
-          authorComments.forEach((comment: any) => {
-            const colonIndex = comment.body.indexOf(':');
-            const key = colonIndex > 0 ? comment.body.substring(0, colonIndex).trim() : comment.permlink;
-            const body = colonIndex > 0 ? comment.body.substring(colonIndex + 1).trim() : comment.body;
-            details[key] = body;
-          });
-          
-          roomData.details = details;
+          roomData.details = parseRoomDetails(author, comments);
         } catch (error) {
         }
       }

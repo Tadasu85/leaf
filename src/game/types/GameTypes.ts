@@ -104,6 +104,7 @@ export type BlockchainEvent = MoveEvent | BlockchainTimeEvent;
 
 export type CommandType = 
   | 'login'
+  | 'feedback'
   | 'move'
   | 'home'
   | 'sethome'
