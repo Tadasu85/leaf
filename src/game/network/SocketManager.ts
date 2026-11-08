@@ -361,6 +361,13 @@ export class SocketManager extends EventEmitter {
     }
   }
 
+  /** Ask the chat server to reload this player's Hive mute list. */
+  refreshMutes(): void {
+    if (this.socket?.connected) {
+      this.socket.emit('refreshMutes');
+    }
+  }
+
   joinChatChannel(channelId: string): void {
     if (this.isDestroyed) {
       logger.warn('[SocketManager] Cannot join channel - SocketManager is destroyed');

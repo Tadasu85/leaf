@@ -99,6 +99,16 @@ export class CommandParser {
       case '@describeshort':
         return this.parseDescribeShortCommand(args);
 
+      case 'mute':
+      case 'unmute': {
+        const target = args.join(' ').trim().replace(/^@/, '');
+        if (!/^[A-Za-z0-9.-]{3,16}$/.test(target)) return null;
+        return { type: command, args: [target], timestamp: Date.now() };
+      }
+
+      case 'muted':
+        return { type: 'muted', args: [], timestamp: Date.now() };
+
       default:
         // Check if it's a valid directional command for the current room
         if (currentRoomExits && command in currentRoomExits) {

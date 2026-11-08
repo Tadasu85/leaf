@@ -11,7 +11,8 @@ import {
 } from '../types/GameTypes';
 import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import config from '../../config';
-import { guestSession, GuestIdentity } from '../guest/GuestSession';
+import { guestSession, GuestIdentity, isGuestName } from '../guest/GuestSession';
+import { MuteList } from '../social/MuteList';
 import { HiveClient } from '../blockchain/HiveClient';
 import { readHomeFromAccount, loadGuestHome, saveGuestHome } from '../rooms/home';
 import { SocketManager } from '../network/SocketManager';
@@ -31,6 +32,7 @@ export class GameState extends EventEmitter {
   private currentRoomIdentifier: string | null = null;
   private hiveClient: HiveClient;
   private socketManager: SocketManager | null;
+  private mutes: MuteList = new MuteList();
   private lastDisplayedRoom: string | null = null;
   private lastRoomDisplayTimestamp: number = 0;
   private isLoggingIn: boolean = false;
@@ -185,6 +187,7 @@ export class GameState extends EventEmitter {
         isBuilder: false,
         characterDescription: ''
       };
+      this.mutes.setViewer(username);
 
       // Load player descriptions from already-fetched account data
       await this.loadPlayerDescriptions(accounts[0]);
@@ -256,6 +259,7 @@ export class GameState extends EventEmitter {
         characterDescription: '',
         isGuest: true
       };
+      this.mutes.setViewer(identity.username);
 
       await this.loadRoom(this.player.location!, true);
       if (!this.currentRoom && savedInMap) {
@@ -953,6 +957,9 @@ export class GameState extends EventEmitter {
     this.addOutputMessage('@describe <description> - Set your character description', false);
     this.addOutputMessage('signup - How to get a Hive account (for guests)', false);
     this.addOutputMessage('@describeshort <short description> - Set your character short description', false);
+    this.addOutputMessage('mute <player> - Stop seeing a player\'s chat, emotes and comings and goings', false);
+    this.addOutputMessage('unmute <player> - See them again', false);
+    this.addOutputMessage('muted - List the players you have muted', false);
     this.addOutputMessage('help - Show this help message', false);
   }
 
@@ -1174,7 +1181,110 @@ export class GameState extends EventEmitter {
   }
 
   // Method to update room players (called by socket events)
-  public updateRoomPlayers(players: string[]): void {
+  // ----- Mutes -----
+
+  public isMuted(username: string | undefined | null): boolean {
+    return this.mutes.isMuted(username);
+  }
+
+  private hideFromRoom(target: string): void {
+    if (this.currentRoom?.players) {
+      this.currentRoom.players = this.currentRoom.players.filter(p => p.toLowerCase() !== target.toLowerCase());
+      this.emit('roomPlayersUpdated', { players: this.currentRoom.players });
+    }
+  }
+
+  public async mute(target: string): Promise<void> {
+    if (!this.player) {
+      this.addOutputMessage('You must be logged in to mute someone.', true);
+      return;
+    }
+    if (target.toLowerCase() === this.player.username.toLowerCase()) {
+      this.addOutputMessage("You can't mute yourself.", true);
+      return;
+    }
+
+    // Guests can't write to Hive, and guests have no Hive account to mute.
+    if (this.player.isGuest || isGuestName(String(target))) {
+      this.mutes.addLocal(target);
+      this.hideFromRoom(target);
+      this.addOutputMessage(`You muted ${target}. This is saved in this browser.`, false);
+      return;
+    }
+
+    const name = target.toLowerCase();
+    try {
+      await this.hiveClient.setHiveMute(this.player.username, name, true);
+    } catch (error) {
+      logger.warn('[GameState] Hive mute failed:', error);
+      this.addOutputMessage(`Couldn't mute ${name} on Hive: ${error instanceof Error ? error.message : String(error)}`, true);
+      return;
+    }
+    this.mutes.addSessionHive(name);
+    this.hideFromRoom(name);
+    this.socketManager?.refreshMutes();
+    this.addOutputMessage(`You muted ${name}. It's saved to your Hive mute list, so it applies across Hive too.`, false);
+  }
+
+  public async unmute(target: string): Promise<void> {
+    if (!this.player) {
+      this.addOutputMessage('You must be logged in to unmute someone.', true);
+      return;
+    }
+    if (this.player.isGuest || isGuestName(String(target))) {
+      if (this.mutes.removeLocal(target)) {
+        this.addOutputMessage(`You unmuted ${target}.`, false);
+      } else {
+        this.addOutputMessage(`${target} isn't muted.`, true);
+      }
+      return;
+    }
+
+    const name = target.toLowerCase();
+    // A Hive name could also have been muted locally by an older client; clear both.
+    const hadLocal = this.mutes.removeLocal(name);
+    try {
+      await this.hiveClient.setHiveMute(this.player.username, name, false);
+    } catch (error) {
+      logger.warn('[GameState] Hive unmute failed:', error);
+      this.addOutputMessage(`Couldn't unmute ${name} on Hive: ${error instanceof Error ? error.message : String(error)}`, true);
+      if (!hadLocal) return;
+    }
+    this.mutes.removeSessionHive(name);
+    this.socketManager?.refreshMutes();
+    this.addOutputMessage(`You unmuted ${name}. It can take a minute for their messages to reach you again.`, false);
+  }
+
+  public async listMuted(): Promise<void> {
+    if (!this.player) {
+      this.addOutputMessage('You must be logged in to see your mutes.', true);
+      return;
+    }
+    const local = this.mutes.localNames();
+    let hive: string[] = [];
+    if (!this.player.isGuest) {
+      try {
+        hive = await this.hiveClient.getHiveMutes(this.player.username);
+      } catch (error) {
+        logger.warn('[GameState] Could not load Hive mutes:', error);
+        this.addOutputMessage("Couldn't load your Hive mute list right now.", true);
+      }
+    }
+    if (local.length === 0 && hive.length === 0) {
+      this.addOutputMessage("You haven't muted anyone.", false);
+      return;
+    }
+    if (hive.length > 0) {
+      this.addOutputMessage(`Muted on Hive (${hive.length}): ${hive.sort().join(', ')}`, false);
+    }
+    if (local.length > 0) {
+      this.addOutputMessage(`Muted in this browser (${local.length}): ${local.join(', ')}`, false);
+    }
+  }
+
+  public updateRoomPlayers(incoming: string[]): void {
+    // Players muted in this browser aren't shown (Hive mutes are filtered by the server).
+    const players = incoming.filter(p => !this.mutes.isMuted(p));
     if (this.currentRoom) {
       const oldPlayers = this.currentRoom.players || [];
       logger.debug('[GameState] updateRoomPlayers called:', { oldPlayers, newPlayers: players });
@@ -1250,6 +1360,7 @@ export class GameState extends EventEmitter {
     this.gameMap = {};
     this.currentRoom = null;
     this.player = null;
+    this.mutes.setViewer(null);
     
     // Reset flags
     this.isLoggingIn = false;

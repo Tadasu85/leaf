@@ -119,7 +119,10 @@ export type CommandType =
   | 'help'
   | 'signup'
   | 'describe'
-  | 'describeshort';
+  | 'describeshort'
+  | 'mute'
+  | 'unmute'
+  | 'muted';
 
 export interface Command {
   type: CommandType;
