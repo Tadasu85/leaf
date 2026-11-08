@@ -17,6 +17,8 @@ const defaultProps = {
   onRoomCreated: jest.fn(),
   onBuildQueued: jest.fn(),
   onError: jest.fn(),
+  // No Hive calls in tests: nothing waiting by default
+  loadPendingStatus: jest.fn().mockResolvedValue({ pending: 0, limit: 3, atLimit: false }),
 };
 
 describe('BuildModal', () => {
@@ -26,6 +28,7 @@ describe('BuildModal', () => {
     jest.clearAllMocks();
     mockPost = jest.fn().mockResolvedValue({ success: true });
     MockKeychainSDK.mockImplementation(() => ({ post: mockPost }));
+    defaultProps.loadPendingStatus.mockResolvedValue({ pending: 0, limit: 3, atLimit: false });
   });
 
   it('renders nothing when closed', () => {
@@ -186,5 +189,33 @@ describe('BuildModal', () => {
   it('parseExits handles blank lines and bad lines', () => {
     expect(parseExits('north: a\n\n south :b ')).toEqual({ exits: { north: 'a', south: 'b' } });
     expect(parseExits('north:').error).toMatch(/north:/);
+  });
+  describe('build limit', () => {
+    const fillAndSubmit = () => {
+      fireEvent.change(screen.getByLabelText(/room name/i), { target: { name: 'roomName', value: 'Bell Loft' } });
+      fireEvent.change(screen.getByLabelText(/description/i), { target: { name: 'description', value: 'Dusty.' } });
+      fireEvent.click(screen.getByRole('button', { name: /create room/i }));
+    };
+
+    it('shows how many rooms are waiting', async () => {
+      render(<BuildModal {...defaultProps} loadPendingStatus={jest.fn().mockResolvedValue({ pending: 1, limit: 3, atLimit: false })} />);
+      expect(await screen.findByTestId('pending-room-status')).toHaveTextContent('Rooms waiting for approval: 1 of 3.');
+    });
+
+    it('blocks building at the limit', async () => {
+      render(<BuildModal {...defaultProps} loadPendingStatus={jest.fn().mockResolvedValue({ pending: 3, limit: 3, atLimit: true })} />);
+      expect(await screen.findByTestId('pending-room-status')).toHaveTextContent('You have 3 of 3 rooms waiting for approval.');
+      expect(screen.getByRole('button', { name: /create room/i })).toBeDisabled();
+      fillAndSubmit();
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+
+    it("still lets you build if the Queue can't be checked", async () => {
+      const load = jest.fn().mockRejectedValue(new Error('offline'));
+      render(<BuildModal {...defaultProps} loadPendingStatus={load} />);
+      await waitFor(() => expect(load).toHaveBeenCalledWith('alice'));
+      expect(screen.queryByTestId('pending-room-status')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /create room/i })).not.toBeDisabled();
+    });
   });
 });
