@@ -224,13 +224,6 @@ export class SocketManager extends EventEmitter {
         this.emit('emote', data);
       },
 
-      // The server disconnects this socket right after; it won't reconnect.
-      chatBanned: () => {
-        logger.warn('[SocketManager] Banned from chat (muted in the game community)');
-        this.connectionStatus = 'failed';
-        this.emit('connectionStatusChanged', { status: 'failed', error: BANNED_MESSAGE });
-      },
-
       keepalive: () => {
         logger.debug('[SocketManager] Received keepalive from server, responding');
         // Respond to keepalive to prevent being removed from chat room
@@ -239,6 +232,13 @@ export class SocketManager extends EventEmitter {
 
       builderGranted: (data: { username: string }) => {
         this.emit('builderGranted', data);
+      },
+
+      // The server disconnects this socket right after; it won't reconnect.
+      chatBanned: () => {
+        logger.warn('[SocketManager] Banned from chat (muted in the game community)');
+        this.connectionStatus = 'failed';
+        this.emit('connectionStatusChanged', { status: 'failed', error: BANNED_MESSAGE });
       },
 
       authenticated: (data: { username: string; sessionToken?: string }) => {
