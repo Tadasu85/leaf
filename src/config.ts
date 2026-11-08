@@ -37,6 +37,17 @@ export interface Config {
   admins: string[];
   /** Array of builder usernames with room creation permissions */
   builders: string[];
+  /**
+   * Leaf verbs contract on VSC (Magi). Off until a contract is deployed and
+   * REACT_APP_VSC_CONTRACT is set; see contracts/leaf-verbs.
+   */
+  vsc: {
+    contractId: string;
+    netId: string;
+    /** GraphQL endpoints of VSC nodes, tried in order */
+    graphqlUrls: string[];
+    rcLimit: number;
+  };
 }
 
 /**
@@ -66,6 +77,13 @@ const config: Config = {
       : 'http://localhost:4001'),
   admins: ['hive-109456'],
   builders: ['raymonjohnstone'],
+  vsc: {
+    contractId: process.env.REACT_APP_VSC_CONTRACT || '',
+    netId: process.env.REACT_APP_VSC_NET_ID || 'vsc-mainnet',
+    graphqlUrls: (process.env.REACT_APP_VSC_GRAPHQL || 'https://vsc.techcoderx.com/api/v1/graphql')
+      .split(',').map(u => u.trim()).filter(Boolean),
+    rcLimit: Number(process.env.REACT_APP_VSC_RC_LIMIT) || 1000,
+  },
 };
 
 export default config; 

@@ -10,6 +10,8 @@ import {
   BlockchainTimeEvent
 } from '../types/GameTypes';
 import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
+import { VscVerbRuntime } from '../verbs/VscVerbRuntime';
+import { applyVerbEffects, effectsFromFlags, VerbEffect } from '../verbs/verbEffects';
 import config from '../../config';
 import { guestSession, GuestIdentity, isGuestName } from '../guest/GuestSession';
 import { MuteList } from '../social/MuteList';
@@ -47,6 +49,9 @@ export class GameState extends EventEmitter {
   constructor(hiveClient: HiveClient, socketManager?: SocketManager) {
     super();
     this.hiveClient = hiveClient;
+    if (config.vsc?.contractId) {
+      this.verbs = new VscVerbRuntime(config.vsc, (user, op) => this.hiveClient.broadcastCustomJson(user, op));
+    }
     this.socketManager = socketManager || new SocketManager(this);
     
     // Listen for time events from the blockchain
@@ -354,7 +359,9 @@ export class GameState extends EventEmitter {
         logger.debug(`Applied time-based exits for room ${location.permlink}:`, currentPhase.exits);
       }
       
+      this.contractExits = new Set();
       this.setCurrentRoom(roomCopy);
+      void this.refreshVerbState();
 
       // Only display room if not skipped
       if (!skipDisplay) {
@@ -1149,11 +1156,62 @@ export class GameState extends EventEmitter {
    * "ring bell": run one of the current room's author-written object actions.
    * Returns false if the input isn't one, so the caller can say "Invalid command".
    */
+  // ----- VSC verbs (stateful room objects; see src/game/verbs) -----
+  private verbs: VscVerbRuntime | null = null;
+  /** Exits on the current room that the contract opened (and may close). */
+  private contractExits: Set<string> = new Set();
+  /** Wait about two Hive blocks before reading a room's flags again. */
+  public verbRefreshDelayMs = 6000;
+
+  private roomHasVsc(room: RoomData | null): boolean {
+    return Boolean(room?.objects && Object.values(room.objects).some(verbs => Object.values(verbs).some(a => a.vsc)));
+  }
+
+  /** Read the room's flags from VSC and show the exits they open. */
+  public async refreshVerbState(): Promise<void> {
+    const room = this.currentRoom;
+    if (!this.verbs?.isReady() || !room || !this.roomHasVsc(room)) return;
+    const roomId = `${room.author}/${room.permlink}`;
+    const flags = await this.verbs.readFlags(roomId);
+    if (!flags || this.currentRoom !== room) return; // unreadable, or the player moved on
+    const open = effectsFromFlags(flags);
+    const openDirs = new Set(open.map(e => e.direction));
+    const closed: VerbEffect[] = [...this.contractExits]
+      .filter(d => !openDirs.has(d))
+      .map(direction => ({ type: 'ClearExit', direction }));
+    const next = applyVerbEffects(room, [...closed, ...open], this.contractExits);
+    this.contractExits = next.contractExits;
+    room.exits = next.room.exits;
+    this.emit('roomStateChanged', room);
+  }
+
+  private useVscVerb(object: string, verb: string): void {
+    const room = this.currentRoom;
+    const player = this.player;
+    if (!room || !player || !this.verbs?.isReady()) return;
+    const roomId = `${room.author}/${room.permlink}`;
+    this.verbs.use(player.username, roomId, object, verb)
+      .then(() => {
+        setTimeout(() => {
+          if (this.currentRoom === room) void this.refreshVerbState();
+        }, this.verbRefreshDelayMs);
+      })
+      .catch(error => {
+        logger.error('[GameState] VSC verb failed', error);
+        this.addOutputMessage("That didn't go through. Nothing changed.", true);
+      });
+  }
+
   public tryRoomObject(input: string): boolean {
     if (!this.player || !this.currentRoom) return false;
     const match = matchObjectAction(this.currentRoom.objects, input);
     if (!match) return false;
+    if (match.action.vsc && this.player.isGuest) {
+      this.addOutputMessage('Only Hive players can do that here. Type signup to see how to get an account.', true);
+      return true;
+    }
     this.addOutputMessage(renderObjectLine(match.action.self, this.player.username), false);
+    if (match.action.vsc) this.useVscVerb(match.object, match.verb);
     if (match.action.others && typeof this.socketManager?.announceObjectUse === 'function') {
       this.socketManager.announceObjectUse({
         channelId: `${this.currentRoom.author}/${this.currentRoom.permlink}`,

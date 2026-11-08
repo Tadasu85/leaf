@@ -290,6 +290,25 @@ export class HiveClient extends EventEmitter {
     }
   }
 
+  /**
+   * Broadcast one custom_json signed by `username` (posting key unless the op
+   * lists required_auths). Used for VSC contract calls. Throws if Keychain
+   * refuses or the broadcast fails.
+   */
+  public async broadcastCustomJson(
+    username: string,
+    op: { required_auths: string[]; required_posting_auths: string[]; id: string; json: string }
+  ): Promise<void> {
+    const result = await this.keychain.broadcast({
+      username,
+      operations: [['custom_json', op] as Operation],
+      method: op.required_auths.length ? KeychainKeyTypes.active : KeychainKeyTypes.posting
+    } as unknown as Broadcast) as { success?: boolean; message?: string } | undefined;
+    if (result && result.success === false) {
+      throw new Error(result.message || 'Keychain did not broadcast the call');
+    }
+  }
+
   /** Accounts on `username`'s Hive mute list. */
   public async getHiveMutes(username: string): Promise<string[]> {
     const muted: string[] = [];

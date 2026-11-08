@@ -11,11 +11,19 @@
  *
  * In Edit Room the author writes one per line:
  *   ring bell: You ring the bell. | %n rings the bell.
+ *
+ * A line starting with `*` marks an action that runs on the Leaf verbs
+ * contract on VSC (`vsc: true`): the line shown is what the player sees
+ * while the chain works it out, and the contract's own text and room flags
+ * (an exit opening, say) follow. See src/game/verbs.
+ *   *pull lever: You reach for the lever.
  */
 
 export interface ObjectAction {
   self: string;
   others?: string;
+  /** Runs on the VSC verbs contract; `self` is the line shown meanwhile. */
+  vsc?: true;
 }
 
 /** object name -> verb -> action */
@@ -57,7 +65,8 @@ export const parseRoomObjects = (jsonMetadata: unknown): RoomObjects | undefined
       const self = clean((action as ObjectAction).self);
       if (!self) continue;
       const others = clean((action as ObjectAction).others);
-      result[name] = { ...result[name], [verb]: { self, ...(others ? { others } : {}) } };
+      const vsc = (action as ObjectAction).vsc === true;
+      result[name] = { ...result[name], [verb]: { self, ...(others ? { others } : {}), ...(vsc ? { vsc: true as const } : {}) } };
       count++;
     }
   }
@@ -83,7 +92,7 @@ export const objectsToText = (objects: RoomObjects | undefined): string => {
   const lines: string[] = [];
   for (const [name, verbs] of Object.entries(objects ?? {})) {
     for (const [verb, action] of Object.entries(verbs)) {
-      lines.push(`${verb} ${name}: ${action.self}${action.others ? ` | ${action.others}` : ''}`);
+      lines.push(`${action.vsc ? '*' : ''}${verb} ${name}: ${action.self}${action.others ? ` | ${action.others}` : ''}`);
     }
   }
   return lines.join('\n');
@@ -94,7 +103,9 @@ export const textToObjects = (text: string): { objects: RoomObjects; error?: str
   const objects: RoomObjects = {};
   let count = 0;
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  for (const [index, line] of lines.entries()) {
+  for (const [index, rawLine] of lines.entries()) {
+    const vsc = rawLine.startsWith('*');
+    const line = vsc ? rawLine.slice(1).trim() : rawLine;
     const colon = line.indexOf(':');
     const head = colon > 0 ? line.slice(0, colon).trim().toLowerCase().split(/\s+/) : [];
     const verb = head.shift() ?? '';
@@ -105,7 +116,7 @@ export const textToObjects = (text: string): { objects: RoomObjects; error?: str
     if (!VERB_RE.test(verb) || !NAME_RE.test(name) || !self) return { objects, error: problem };
     if (++count > MAX_OBJECT_ACTIONS) return { objects, error: `At most ${MAX_OBJECT_ACTIONS} actions per room.` };
     const others = clean(othersPart);
-    objects[name] = { ...objects[name], [verb]: { self, ...(others ? { others } : {}) } };
+    objects[name] = { ...objects[name], [verb]: { self, ...(others ? { others } : {}), ...(vsc ? { vsc: true as const } : {}) } };
   }
   return { objects };
 };
