@@ -10,10 +10,10 @@ import {
 } from '../types/GameTypes';
 import config from '../../config';
 import { guestSession, GuestIdentity } from '../guest/GuestSession';
-import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import { HiveClient } from '../blockchain/HiveClient';
 import { SocketManager } from '../network/SocketManager';
 import logger from '../../utils/Logger';
+import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import { conjugateEmoteForSender } from '../../utils/conjugate';
 
 export class GameState extends EventEmitter {

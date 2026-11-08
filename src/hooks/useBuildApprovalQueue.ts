@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { Client } from '@hiveio/dhive';
 import config from '../config';
 import logger from '../utils/Logger';
-import { findRoom } from '../game/rooms/mapKeys';
 
 const POSTS_PER_BUILDER = 50;
 
@@ -74,8 +73,7 @@ export function useBuildApprovalQueue(client: Client) {
                   if (
                     (metadata.app === config.game.idName || metadata.app === 'leaf') &&
                     (!metadata.type || metadata.type === 'room') &&
-                    // Same permlink by another author is a different room
-                    !findRoom(existingRooms, builder, content.permlink)
+                    !existingRooms[content.permlink]
                   ) {
                     let isRejected = false;
 
