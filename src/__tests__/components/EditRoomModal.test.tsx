@@ -7,7 +7,7 @@ jest.mock('../../game/blockchain/HiveClient', () => ({
   HiveClient: jest.fn(),
 }));
 
-const MockHiveClient = HiveClient as jest.Mock;
+const MockHiveClient = HiveClient as unknown as jest.Mock;
 
 const currentRoom = {
   author: 'alice',

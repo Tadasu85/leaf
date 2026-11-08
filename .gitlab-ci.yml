@@ -1,49 +1,73 @@
-# This file is a template, and might need editing before it works on your project.
-# This is a sample GitLab CI/CD configuration file that should run without any modifications.
-# It demonstrates a basic 3 stage CI/CD pipeline. Instead of real tests or scripts,
-# it uses echo commands to simulate the pipeline execution.
-#
-# A pipeline is composed of independent jobs that run scripts, grouped into stages.
-# Stages run in sequential order, but jobs within stages run in parallel.
-#
-# For more information, see: https://docs.gitlab.com/ee/ci/yaml/#stages
-#
-# You can copy and paste this template into a new `.gitlab-ci.yml` file.
-# You should not add this template to an existing `.gitlab-ci.yml` file by using the `include:` keyword.
-#
-# To contribute improvements to CI/CD templates, please follow the Development guide at:
-# https://docs.gitlab.com/development/cicd/templates/
-# This specific template is located at:
-# https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Getting-Started.gitlab-ci.yml
+# GitLab CI for the Leaf client (React, Create React App via react-app-rewired).
+# GitHub mirrors every merge to main here; Render deploys from this repo.
 
-stages:          # List of stages for jobs, and their order of execution
+stages:
+  - check
   - build
-  - test
-  - deploy
 
-build-job:       # This job runs in the build stage, which runs first.
+# Cache npm's download cache; npm ci rebuilds node_modules each time anyway.
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - .npm/
+
+variables:
+  NODE_VERSION: "22"
+  NPM_CONFIG_CACHE: "$CI_PROJECT_DIR/.npm"
+
+.node:
+  image: node:${NODE_VERSION}-alpine
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+typecheck:
+  extends: .node
+  stage: check
+  script:
+    - npx tsc --noEmit -p .
+
+test:
+  extends: .node
+  stage: check
+  variables:
+    CI: "true"  # one run, no watch mode
+  script:
+    - npx react-app-rewired test --watchAll=false --coverage
+  coverage: '/All files\s+\|\s+(\d+\.?\d*)/'
+  artifacts:
+    when: always
+    reports:
+      junit: coverage/junit.xml
+    paths:
+      - coverage/
+    expire_in: 1 week
+
+# Builds the same way Render does. CI=false so lint warnings stay warnings,
+# as they are on Render; with CI=true Create React App fails the build on them.
+build:
+  extends: .node
   stage: build
+  variables:
+    CI: "false"
   script:
-    - echo "Compiling the code..."
-    - echo "Compile complete."
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+    expire_in: 1 week
 
-unit-test-job:   # This job runs in the test stage.
-  stage: test    # It only starts when the job in the build stage completes successfully.
+# Report only. react-scripts is a runtime dependency in package.json, so even
+# --omit=dev includes Create React App's build tooling, which has high findings
+# with no non-breaking fix. Nothing here blocks a deploy.
+security-audit:
+  extends: .node
+  stage: check
   script:
-    - echo "Running unit tests... This will take about 60 seconds."
-    - sleep 60
-    - echo "Code coverage is 90%"
-
-lint-test-job:   # This job also runs in the test stage.
-  stage: test    # It can run at the same time as unit-test-job (in parallel).
-  script:
-    - echo "Linting code... This will take about 10 seconds."
-    - sleep 10
-    - echo "No lint issues found."
-
-deploy-job:      # This job runs in the deploy stage.
-  stage: deploy  # It only runs when *both* jobs in the test stage complete successfully.
-  environment: production
-  script:
-    - echo "Deploying application..."
-    - echo "Application successfully deployed."
+    - npm audit --omit=dev || echo "Findings above are report only"
+  allow_failure: true
