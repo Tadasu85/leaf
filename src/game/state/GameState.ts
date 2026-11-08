@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import {
   Player,
   GameMap,
@@ -9,6 +8,7 @@ import {
   TimeEventConfig,
   BlockchainTimeEvent
 } from '../types/GameTypes';
+import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import config from '../../config';
 import { guestSession, GuestIdentity } from '../guest/GuestSession';
 import { HiveClient } from '../blockchain/HiveClient';
