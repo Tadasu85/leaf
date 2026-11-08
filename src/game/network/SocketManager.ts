@@ -242,6 +242,17 @@ export class SocketManager extends EventEmitter {
         this.socket?.emit('keepalive');
       },
 
+      // page / whisper / who (see GameState.sendPrivate)
+      privateMessage: (data: { kind: 'page' | 'whisper'; from: string; message: string }) => {
+        this.emit('privateMessage', data);
+      },
+      privateResult: (data: { ok: boolean; kind: 'page' | 'whisper'; target: string; message: string }) => {
+        this.emit('privateResult', data);
+      },
+      whoList: (data: { players: string[] }) => {
+        this.emit('whoList', data);
+      },
+
       builderGranted: (data: { username: string }) => {
         this.emit('builderGranted', data);
       },
@@ -391,6 +402,20 @@ export class SocketManager extends EventEmitter {
       // Emit an event to notify the game state that emotes are not available
       this.emit('chatUnavailable', { message: 'Emotes are not available. You can still navigate and play the game.' });
     }
+  }
+
+  /** page or whisper someone; false if chat isn't connected. */
+  sendPrivate(kind: 'page' | 'whisper', target: string, message: string): boolean {
+    if (!this.socket?.connected) return false;
+    this.socket.emit(kind, { target, message });
+    return true;
+  }
+
+  /** Ask who is online; the answer arrives as 'whoList'. */
+  requestWho(): boolean {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('who');
+    return true;
   }
 
   getCurrentChannelId(): string | null {

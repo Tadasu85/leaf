@@ -49,6 +49,18 @@ export class CommandParser {
       case 'emote':
         return this.parseEmoteCommand(args);
 
+      case 'page':
+      case 'whisper': {
+        // page <player> <message> / whisper <player> <message>
+        const [target, ...words] = args;
+        const message = words.join(' ').trim();
+        if (!target || !message || !/^@?[A-Za-z0-9.-]{3,16}$/.test(target)) return null;
+        return { type: command, args: [target.replace(/^@/, ''), message], timestamp: Date.now() };
+      }
+
+      case 'who':
+        return { type: 'who', args: [], timestamp: Date.now() };
+
       case 'look':
         return this.parseLookCommand(args);
 
