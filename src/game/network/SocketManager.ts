@@ -143,6 +143,13 @@ export class SocketManager extends EventEmitter {
         this.socket?.emit('register', { username: this.username });
       },
 
+      // The server disconnects this socket right after; it won't reconnect.
+      chatBanned: () => {
+        logger.warn('[SocketManager] Banned from chat (muted in the game community)');
+        this.connectionStatus = 'failed';
+        this.emit('connectionStatusChanged', { status: 'failed', error: BANNED_MESSAGE });
+      },
+
       registered: (data: { success: boolean; message?: string }) => {
         if (!data.success) {
           logger.error('[SocketManager] Registration failed:', data.message);
@@ -232,13 +239,6 @@ export class SocketManager extends EventEmitter {
 
       builderGranted: (data: { username: string }) => {
         this.emit('builderGranted', data);
-      },
-
-      // The server disconnects this socket right after; it won't reconnect.
-      chatBanned: () => {
-        logger.warn('[SocketManager] Banned from chat (muted in the game community)');
-        this.connectionStatus = 'failed';
-        this.emit('connectionStatusChanged', { status: 'failed', error: BANNED_MESSAGE });
       },
 
       authenticated: (data: { username: string; sessionToken?: string }) => {
