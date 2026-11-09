@@ -73,6 +73,13 @@ export class CommandParser {
       case 'who':
         return { type: 'who', args: [], timestamp: Date.now() };
 
+      case 'where': {
+        // where (show the setting) / where on / where off
+        const choice = (args[0] || '').toLowerCase();
+        if (args.length > 1 || (choice && choice !== 'on' && choice !== 'off')) return null;
+        return { type: 'where', args: choice ? [choice] : [], timestamp: Date.now() };
+      }
+
       case 'look':
         return this.parseLookCommand(args);
 

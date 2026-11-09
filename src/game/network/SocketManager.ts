@@ -5,6 +5,7 @@ import { GameState } from '../state/GameState';
 import logger from '../../utils/Logger';
 import { ChatAuth, ChatAuthPayload, isAuthError } from './ChatAuth';
 import { isGuestName } from '../guest/GuestSession';
+import { loadWhereVisible } from '../social/whereVisible';
 
 const BANNED_MESSAGE = "Chat is off for you because you've been muted in the game's Hive community. You can still look around and move.";
 
@@ -141,6 +142,8 @@ export class SocketManager extends EventEmitter {
         
         // Register the username with the server
         this.socket?.emit('register', { username: this.username });
+        // The server forgets `where on` at disconnect; tell it again.
+        if (loadWhereVisible(this.username)) this.socket?.emit('setWhereVisible', { visible: true });
       },
 
       // The server disconnects this socket right after; it won't reconnect.
@@ -434,6 +437,13 @@ export class SocketManager extends EventEmitter {
   sendPrivate(kind: 'page' | 'whisper', target: string, message: string): boolean {
     if (!this.socket?.connected) return false;
     this.socket.emit(kind, { target, message });
+    return true;
+  }
+
+  /** Show or hide this player's room in `who`. */
+  setWhereVisible(visible: boolean): boolean {
+    if (!this.socket?.connected) return false;
+    this.socket.emit('setWhereVisible', { visible });
     return true;
   }
 

@@ -9,6 +9,7 @@ import {
   TimeEventConfig,
   BlockchainTimeEvent
 } from '../types/GameTypes';
+import { describeLocation, loadWhereVisible, saveWhereVisible } from '../social/whereVisible';
 import { findRoom, resolveExit, splitKey } from '../rooms/mapKeys';
 import config from '../../config';
 import { guestSession, GuestIdentity, isGuestName } from '../guest/GuestSession';
@@ -893,6 +894,26 @@ export class GameState extends EventEmitter {
     }
   }
 
+  /** where on / where off, or with no argument say which it is. */
+  public setWhereVisible(visible?: boolean): void {
+    if (!this.player) {
+      this.addOutputMessage('You must be logged in to do that.', true);
+      return;
+    }
+    const name = this.player.username;
+    if (visible === undefined) {
+      this.addOutputMessage(loadWhereVisible(name)
+        ? 'who shows which room you are in. Type where off to hide it.'
+        : 'who shows that you are online, but not where. Type where on to show your room.', false);
+      return;
+    }
+    saveWhereVisible(name, visible);
+    if (typeof this.socketManager?.setWhereVisible === 'function') this.socketManager.setWhereVisible(visible);
+    this.addOutputMessage(visible
+      ? 'who now shows which room you are in.'
+      : 'who no longer shows which room you are in.', false);
+  }
+
   public requestWho(): void {
     if (!this.socketManager || typeof this.socketManager.requestWho !== 'function' || !this.socketManager.requestWho()) {
       this.addOutputMessage("Chat isn't connected right now.", true);
@@ -1097,10 +1118,16 @@ export class GameState extends EventEmitter {
         }
       });
 
-      socketManager.on('whoList', (data: { players: string[] }) => {
+      socketManager.on('whoList', (data: { players: string[]; locations?: Record<string, string> }) => {
         const players = (data.players || []).filter(p => !this.isPrivateSenderHidden(p));
+        const titleOf = (author: string, permlink: string) =>
+          this.hiveClient.getCachedRoomTitle?.({ author, permlink });
+        const named = players.map(p => {
+          const where = data.locations?.[p];
+          return typeof where === 'string' ? `${p} (${describeLocation(where, titleOf)})` : p;
+        });
         this.addOutputMessage(players.length
-          ? `Online now (${players.length}): ${players.join(', ')}`
+          ? `Online now (${players.length}): ${named.join(', ')}`
           : 'Nobody else is online right now.', false);
       });
 

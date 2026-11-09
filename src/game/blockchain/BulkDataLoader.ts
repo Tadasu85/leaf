@@ -194,6 +194,14 @@ export class BulkDataLoader {
   /**
    * Get room data from cache or load if not cached
    */
+  /** Title of a cached room, without loading anything. */
+  getCachedTitle(author: string, permlink: string): string | undefined {
+    const cached = this.roomCache.get(`${author}/${permlink}`);
+    if (!cached) return undefined;
+    const data = this.enableCompression ? this.decompressRoomData(cached.data) : cached.data;
+    return data?.title || undefined;
+  }
+
   async getRoomData(location: Location): Promise<RoomData | null> {
     const cacheKey = `${location.author}/${location.permlink}`;
     
