@@ -107,11 +107,11 @@ describe('VscVerbRuntime', () => {
   it('reads flags with getStateByKeys, trying the next node on failure', async () => {
     const fetcher = jest.fn()
       .mockRejectedValueOnce(new Error('down'))
-      .mockResolvedValueOnce({ json: async () => ({ data: { getStateByKeys: { 'f/ray/vault': '{"lever":"down","exit:north":"ray/treasury"}' } } }) });
+      .mockResolvedValueOnce({ json: async () => ({ data: { getStateByKeys: { 'f|ray:vault': '{"lever":"down","exit:north":"ray/treasury"}' } } }) });
     const flags = await new VscVerbRuntime(cfg, jest.fn(), fetcher as any).readFlags('ray/vault');
     expect(flags).toEqual({ lever: 'down', 'exit:north': 'ray/treasury' });
     expect(fetcher.mock.calls[1][0]).toBe('https://b/gql');
-    expect(JSON.parse(fetcher.mock.calls[1][1].body).variables).toEqual({ contractId: 'vsc1LeafVerbs', keys: ['f/ray/vault'] });
+    expect(JSON.parse(fetcher.mock.calls[1][1].body).variables).toEqual({ contractId: 'vsc1LeafVerbs', keys: ['f|ray:vault'] });
   });
 
   it('returns null when no node answers', async () => {

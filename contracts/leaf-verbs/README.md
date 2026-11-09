@@ -15,6 +15,7 @@ Design and plan: the "VSC verbs for Leaf" doc in the Leaf project.
 | `kernel/` | All game logic, plain Go, tested with `go test` |
 | `contract/main.go` | WASM exports (`define`, `remove`, `reset`, `use`) adapting the kernel to the SDK |
 | `sdk/`, `runtime/` | Copied unchanged from [vsc-eco/go-contract-template](https://github.com/vsc-eco/go-contract-template) @ `c1811bb` (only the module path in imports changed). Don't edit; re-copy to update |
+| `harness/` | Runs the built WASM in VSC's own test harness (go-vsc-node `test_utils`): real runtime, state store and signer handling. Its own Go module |
 | `artifacts/` | Build output (`main.wasm`, not committed) |
 
 ## Actions
@@ -37,8 +38,12 @@ texts 200 characters, flag values 80, one `use` per player per room per Hive
 block. Names follow Leaf's room objects (object `^[a-z][a-z0-9 -]{0,29}$`,
 verb `^[a-z]{2,15}$`).
 
-State keys: `v/<room>/<object>/<verb>` (verb JSON), `i/<room>` (index),
-`f/<room>` (flags JSON, what clients read), `u/<room>/<caller>` (last block used).
+State keys use `|` and never `/`: a VSC node's state store treats `/` as a
+directory path and crashes reading a key under a directory that doesn't
+exist yet (found with the harness). A room `author/permlink` is written
+`author:permlink`. Keys: `v|<room>|<object>|<verb>` (verb JSON), `i|<room>`
+(index), `f|<room>` (flags JSON, what clients read), `u|<room>|<caller>`
+(last block used).
 
 ## Build and test
 
@@ -48,10 +53,26 @@ go test ./kernel/
 tinygo build -gc=custom -scheduler=none -panic=trap -no-debug -target=wasm-unknown -o artifacts/main.wasm ./contract
 ```
 
-TinyGo 0.39 (as the template uses). The build imports only the SDK's host
+TinyGo 0.39 (as the template uses). No package-level allocations (such as
+`regexp.MustCompile`) in any package that sorts before `leaf-verbs/runtime`:
+they run before the allocator is set up and corrupt memory. The build imports only the SDK's host
 functions (`sdk.db.*`, `sdk.system.get_env_key`, `sdk.console.log`, `env.abort`).
 
-Not done yet: running it in VSC's own test harness (`go-vsc-node`'s
-`test_utils`, see the template's `test/contract_test.go`), and deploying to
-testnet. Deploying is a `custom_json` from the deploying account; follow the
-template's `deploy.sh` and record the contract id in `REACT_APP_VSC_CONTRACT`.
+In VSC's harness (after building `artifacts/main.wasm`):
+
+```sh
+cd harness
+# WasmEdge 0.13.4, the version go-vsc-node pins:
+export CGO_CFLAGS=-I$HOME/.wasmedge/include CGO_LDFLAGS=-L$HOME/.wasmedge/lib LD_LIBRARY_PATH=$HOME/.wasmedge/lib
+go test ./...
+```
+
+It checks the lever end to end, that only the room's author can define
+verbs, that posting-key and active-key signers both arrive as
+`msg.caller`, and the one-use-per-block limit. Note: the harness passes the
+payload through as given, while a node unescapes a JSON-string payload
+first (as Leaf sends it), so the harness sends the JSON text itself.
+
+Not done yet: deploying to testnet. Deploying is a `custom_json` from the
+deploying account; follow the template's `deploy.sh` and record the
+contract id in `REACT_APP_VSC_CONTRACT`.

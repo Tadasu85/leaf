@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -185,5 +186,53 @@ func TestUseNeedsAHiveCaller(t *testing.T) {
 	setupLever(t, s)
 	if _, err := Use(s, Ctx{Caller: "contract:vsc1abc", Block: 5}, UseArgs{Room: room, Object: "lever", Verb: "pull"}); err == nil {
 		t.Fatal("a contract used a verb")
+	}
+}
+
+// The hand-written validators must accept exactly what these patterns do.
+func TestValidatorsMatchTheirPatterns(t *testing.T) {
+	cases := []struct {
+		name    string
+		check   func(string) bool
+		pattern string
+	}{
+		{"hive name", isHiveName, `^[a-z][a-z0-9.-]{2,15}$`},
+		{"permlink", isPermlink, `^[a-z0-9-]{1,255}$`},
+		{"object", isObject, `^[a-z][a-z0-9 -]{0,29}$`},
+		{"verb", isVerb, `^[a-z]{2,15}$`},
+		{"flag", isFlag, `^[a-z][a-z0-9_-]{0,23}$`},
+		{"exit flag", isExitFlag, `^exit:[a-z]{1,12}$`},
+		{"target", isTarget, `^([a-z][a-z0-9.-]{2,15}/)?[a-z0-9-]{1,255}$`},
+	}
+	inputs := []string{"", "a", "ab", "abc", "ray", "Ray", "1ray", "ray.x-y", "a b", "lever", "old mill", "the-vault",
+		"exit:", "exit:north", "exit:North", "exit:abcdefghijklm", "ray/vault", "ray/", "/vault", "ab/vault", "x_y", "_x",
+		strings.Repeat("a", 16), strings.Repeat("a", 17), strings.Repeat("a", 24), strings.Repeat("a", 25), strings.Repeat("a", 30),
+		strings.Repeat("a", 31), strings.Repeat("a", 255), strings.Repeat("a", 256), "ray/" + strings.Repeat("a", 255)}
+	for _, c := range cases {
+		re := regexp.MustCompile(c.pattern)
+		for _, in := range inputs {
+			if got, want := c.check(in), re.MatchString(in); got != want {
+				t.Errorf("%s(%q) = %v, pattern says %v", c.name, in, got, want)
+			}
+		}
+	}
+}
+
+// A VSC node treats "/" in a state key as a directory and crashes reading a
+// key under a directory that doesn't exist, so no key may contain "/".
+func TestStateKeysHaveNoSlash(t *testing.T) {
+	s := memStore{}
+	setupLever(t, s)
+	use(t, s, alice, "lever", "pull")
+	if len(s) == 0 {
+		t.Fatal("nothing written")
+	}
+	for k := range s {
+		if strings.Contains(k, "/") {
+			t.Errorf("state key %q contains /", k)
+		}
+	}
+	if FlagsKey("ray/the-vault") != "f|ray:the-vault" {
+		t.Errorf("FlagsKey = %q", FlagsKey("ray/the-vault"))
 	}
 }

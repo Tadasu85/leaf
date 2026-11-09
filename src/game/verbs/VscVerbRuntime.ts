@@ -20,8 +20,12 @@ export interface VscRuntimeConfig extends VscCallConfig {
 export type Broadcast = (username: string, op: CustomJsonOp) => Promise<void>;
 type Fetch = typeof fetch;
 
-/** State key the contract keeps a room's flags under (kernel.FlagsKey). */
-export const flagsKey = (roomId: string) => `f/${roomId}`;
+/**
+ * State key the contract keeps a room's flags under (kernel.FlagsKey):
+ * "f|author:permlink". Keys never contain "/" because a VSC node's state
+ * store treats it as a directory path.
+ */
+export const flagsKey = (roomId: string) => `f|${roomId.replace('/', ':')}`;
 
 // Unverified against a live node: VSC's GraphQL exposes getStateByKeys, used
 // by its own token SDK, but check the argument names in the node's GraphiQL

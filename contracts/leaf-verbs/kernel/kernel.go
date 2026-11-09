@@ -10,7 +10,6 @@ package kernel
 
 import (
 	"encoding/json"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -39,15 +38,62 @@ const (
 	MaxValueLen     = 80
 )
 
-var (
-	hiveName = regexp.MustCompile(`^[a-z][a-z0-9.-]{2,15}$`)
-	permlink = regexp.MustCompile(`^[a-z0-9-]{1,255}$`)
-	objectRe = regexp.MustCompile(`^[a-z][a-z0-9 -]{0,29}$`)
-	verbRe   = regexp.MustCompile(`^[a-z]{2,15}$`)
-	flagRe   = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,23}$`)
-	exitRe   = regexp.MustCompile(`^exit:[a-z]{1,12}$`)
-	targetRe = regexp.MustCompile(`^([a-z][a-z0-9.-]{2,15}/)?[a-z0-9-]{1,255}$`)
-)
+// Validators are written by hand, not with regexp: package-level regexps
+// allocate during init, before the contract's allocator is set up, which
+// corrupts memory in the VSC runtime. They also keep the WASM small.
+
+func isLower(c byte) bool { return c >= 'a' && c <= 'z' }
+func isDigit(c byte) bool { return c >= '0' && c <= '9' }
+
+// all reports whether every byte of s satisfies ok.
+func all(s string, ok func(byte) bool) bool {
+	for i := 0; i < len(s); i++ {
+		if !ok(s[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// ^[a-z][a-z0-9.-]{2,15}$
+func isHiveName(s string) bool {
+	return len(s) >= 3 && len(s) <= 16 && isLower(s[0]) &&
+		all(s, func(c byte) bool { return isLower(c) || isDigit(c) || c == '.' || c == '-' })
+}
+
+// ^[a-z0-9-]{1,255}$
+func isPermlink(s string) bool {
+	return len(s) >= 1 && len(s) <= 255 && all(s, func(c byte) bool { return isLower(c) || isDigit(c) || c == '-' })
+}
+
+// ^[a-z][a-z0-9 -]{0,29}$
+func isObject(s string) bool {
+	return len(s) >= 1 && len(s) <= 30 && isLower(s[0]) &&
+		all(s, func(c byte) bool { return isLower(c) || isDigit(c) || c == ' ' || c == '-' })
+}
+
+// ^[a-z]{2,15}$
+func isVerb(s string) bool { return len(s) >= 2 && len(s) <= 15 && all(s, isLower) }
+
+// ^[a-z][a-z0-9_-]{0,23}$
+func isFlag(s string) bool {
+	return len(s) >= 1 && len(s) <= 24 && isLower(s[0]) &&
+		all(s, func(c byte) bool { return isLower(c) || isDigit(c) || c == '_' || c == '-' })
+}
+
+// ^exit:[a-z]{1,12}$
+func isExitFlag(s string) bool {
+	d := strings.TrimPrefix(s, "exit:")
+	return len(d) < len(s) && len(d) >= 1 && len(d) <= 12 && all(d, isLower)
+}
+
+// ^([a-z][a-z0-9.-]{2,15}/)?[a-z0-9-]{1,255}$
+func isTarget(s string) bool {
+	if slash := strings.IndexByte(s, '/'); slash >= 0 {
+		return isHiveName(s[:slash]) && isPermlink(s[slash+1:])
+	}
+	return isPermlink(s)
+}
 
 // Verb is one thing a player can do to an object, defined by the room's author.
 type Verb struct {
@@ -88,10 +134,20 @@ func fail(msg string) *Error { return &Error{msg} }
 
 // --- keys -------------------------------------------------------------------
 
-func verbKey(room, object, verb string) string { return "v/" + room + "/" + object + "/" + verb }
-func indexKey(room string) string              { return "i/" + room }
-func flagsKey(room string) string              { return "f/" + room }
-func lastUseKey(room, caller string) string    { return "u/" + room + "/" + caller }
+// State keys use "|" as the separator and never contain "/": a VSC node's
+// state store treats "/" in a key as a directory path, and reading a key
+// under a directory that doesn't exist yet crashes the node's data layer.
+// A room "author/permlink" becomes "author:permlink" (neither part can hold
+// ":" or "|").
+
+func roomPart(room string) string { return strings.Replace(room, "/", ":", 1) }
+
+func verbKey(room, object, verb string) string {
+	return "v|" + roomPart(room) + "|" + object + "|" + verb
+}
+func indexKey(room string) string           { return "i|" + roomPart(room) }
+func flagsKey(room string) string           { return "f|" + roomPart(room) }
+func lastUseKey(room, caller string) string { return "u|" + roomPart(room) + "|" + caller }
 
 // FlagsKey is the state key clients read to show a room's current flags.
 func FlagsKey(room string) string { return flagsKey(room) }
@@ -101,7 +157,7 @@ func FlagsKey(room string) string { return flagsKey(room) }
 // RoomAuthor returns the author of a room id "author/permlink".
 func RoomAuthor(room string) (string, *Error) {
 	slash := strings.IndexByte(room, '/')
-	if slash <= 0 || !hiveName.MatchString(room[:slash]) || !permlink.MatchString(room[slash+1:]) {
+	if slash <= 0 || !isHiveName(room[:slash]) || !isPermlink(room[slash+1:]) {
 		return "", fail("room must be author/permlink")
 	}
 	return room[:slash], nil
@@ -119,21 +175,21 @@ func checkOwner(ctx Ctx, room string) *Error {
 }
 
 func checkNames(object, verb string) *Error {
-	if !objectRe.MatchString(object) {
+	if !isObject(object) {
 		return fail("object: lowercase letters, numbers, spaces and hyphens, up to 30")
 	}
-	if !verbRe.MatchString(verb) {
+	if !isVerb(verb) {
 		return fail("verb: 2 to 15 lowercase letters")
 	}
 	return nil
 }
 
 func checkFlag(name, value string) *Error {
-	if exitRe.MatchString(name) {
-		if value != "" && !targetRe.MatchString(value) {
+	if isExitFlag(name) {
+		if value != "" && !isTarget(value) {
 			return fail("exit " + name + " must lead to a permlink or author/permlink")
 		}
-	} else if !flagRe.MatchString(name) {
+	} else if !isFlag(name) {
 		return fail("flag " + name + ": lowercase letters, numbers, _ and -, up to 24")
 	}
 	if len(value) > MaxValueLen {
@@ -347,7 +403,7 @@ func Use(s Store, ctx Ctx, a UseArgs) (*Result, *Error) {
 			}
 			flags[k] = val
 		}
-		if exitRe.MatchString(k) {
+		if isExitFlag(k) {
 			dir := strings.TrimPrefix(k, "exit:")
 			if val == "" {
 				effects = append(effects, Effect{Type: "ClearExit", Direction: dir})
