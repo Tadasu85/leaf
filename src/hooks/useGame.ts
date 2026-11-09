@@ -237,6 +237,9 @@ export function useGame(client: Client, keychain: any) {
       case 'who':
         gameState.requestWho();
         break;
+      case 'where':
+        gameState.setWhereVisible(command.args[0] === undefined ? undefined : command.args[0] === 'on');
+        break;
       case 'look':
         logger.debug('Processing look command');
         await gameState.look();

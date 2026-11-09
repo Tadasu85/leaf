@@ -143,6 +143,11 @@ export class HiveClient extends EventEmitter {
   /**
    * Get room data efficiently from bulk loader cache
    */
+  /** A room's title if it's already loaded; never fetches. */
+  public getCachedRoomTitle(location: Location): string | undefined {
+    return this.bulkLoader.getCachedTitle(location.author, location.permlink);
+  }
+
   public async getRoomData(location: Location): Promise<RoomData | null> {
     if (!this.isBulkDataLoaded) {
       logger.warn('Bulk data not loaded, falling back to individual room load');

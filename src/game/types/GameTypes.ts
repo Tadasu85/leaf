@@ -116,6 +116,7 @@ export type CommandType =
   | 'page'
   | 'whisper'
   | 'who'
+  | 'where'
   | 'help'
   | 'signup'
   | 'describe'

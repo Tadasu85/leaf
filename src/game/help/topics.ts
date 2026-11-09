@@ -28,6 +28,7 @@ export const HELP_TOPICS: Record<string, HelpTopic> = {
       'whisper <player> <message> - only that player hears it; they must be in the room.',
       'page <player> <message> - reach someone online anywhere in the world.',
       'who - see who is online.',
+      'where on / where off - let who show which room you are in (off unless you turn it on).',
       'Pages and whispers go through the chat server and are never written to Hive.'
     ]
   },
