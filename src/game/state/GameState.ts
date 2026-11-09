@@ -304,10 +304,9 @@ export class GameState extends EventEmitter {
     return until > Date.now();
   }
 
-  /** Players muted in this browser (the mute feature adds `this.mutes`). Hive mutes are applied by the server. */
+  /** Players muted in this browser. Hive mutes are applied by the server. */
   private isNarrationHidden(name: string): boolean {
-    const mutes = (this as unknown as { mutes?: { isMuted(n: string): boolean } }).mutes;
-    return Boolean(mutes && mutes.isMuted(name));
+    return this.mutes.isMuted(name);
   }
 
   /** Fetch a room's post again, bypassing the cache (e.g. after Edit Room). */
@@ -873,13 +872,9 @@ export class GameState extends EventEmitter {
   }
 
   // Chat and emote
-  /**
-   * Players hidden by this browser's mute list (the mute feature adds
-   * `this.mutes`). Hive mutes are already applied by the server.
-   */
+  /** Players hidden by this browser's mute list. Hive mutes are already applied by the server. */
   private isPrivateSenderHidden(name: string): boolean {
-    const mutes = (this as unknown as { mutes?: { isMuted(n: string): boolean } }).mutes;
-    return Boolean(mutes && mutes.isMuted(name));
+    return this.mutes.isMuted(name);
   }
 
   /** page / whisper: private messages through the chat server, never written to Hive. */
@@ -1137,8 +1132,7 @@ export class GameState extends EventEmitter {
       socketManager.on('playerUsedObject', (data: { username: string; channelId: string; object: string; verb: string }) => {
         const room = this.currentRoom;
         if (!room || `${room.author}/${room.permlink}` !== data.channelId || data.username === this.player?.username) return;
-        const mutes = (this as unknown as { mutes?: { isMuted(n: string): boolean } }).mutes; // from the mute feature, if present
-        if (mutes?.isMuted(data.username)) return;
+        if (this.mutes.isMuted(data.username)) return;
         const line = room.objects?.[data.object]?.[data.verb]?.others;
         if (line) this.addOutputMessage(renderObjectLine(line, data.username), false);
       });
